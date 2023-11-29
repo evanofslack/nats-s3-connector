@@ -1,81 +1,13 @@
 use anyhow::{Context, Error, Result};
-use async_nats::jetstream::{self, consumer::pull::Stream, consumer::PullConsumer};
-use bincode;
+use async_nats::jetstream;
 use futures::StreamExt;
-use s3::{creds::Credentials, serde_types::Object, Bucket, BucketConfiguration, Region};
-use sha2::{Digest, Sha256};
-use std::str::from_utf8;
-use std::time::SystemTime;
+use std::{str::from_utf8, time::SystemTime};
 
-use bytes::Bytes;
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
-const MAGIC_NUMBER: &'static str = "S3NATSCONNECT";
-const VERSION: &'static str = "1";
-const BUFFER_MAX: usize = 1000;
-const BLOCK_MAX: usize = 10000000;
-
-// Our repr of a NATS message.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Message {
-    /// Subject to which message is published to.
-    pub subject: String,
-    /// Payload of the message. Can be any arbitrary data format.
-    pub payload: Bytes,
-    /// Optional headers.
-    pub headers: Option<HashMap<String, String>>,
-    pub length: usize,
-}
-
-impl From<jetstream::Message> for Message {
-    fn from(source: jetstream::Message) -> Message {
-        Message {
-            subject: source.subject.clone(),
-            payload: source.payload.clone(),
-            headers: None,
-            length: source.length,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct MessageBlock {
-    messages: Vec<Message>,
-}
-
-impl From<Vec<jetstream::Message>> for MessageBlock {
-    fn from(js_messages: Vec<jetstream::Message>) -> MessageBlock {
-        let mut messages = Vec::new();
-        for m in js_messages {
-            messages.push(Message::from(m))
-        }
-        MessageBlock { messages }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct Chunk {
-    magic_number: String,
-    version: String,
-    block: MessageBlock,
-    hash: Vec<u8>,
-}
-
-impl Chunk {
-    fn from_block(block: MessageBlock) -> Self {
-        let payload: Vec<u8> = bincode::serialize(&block).unwrap();
-        let _hash = Sha256::digest(&payload);
-
-        Chunk {
-            magic_number: MAGIC_NUMBER.to_string(),
-            version: VERSION.to_string(),
-            block,
-            hash: _hash.to_vec(),
-        }
-    }
-}
+mod encoding;
+mod nats;
+mod s3;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -212,8 +144,8 @@ async fn store(
     access_key: String,
     secret_key: String,
 ) -> Result<(), Error> {
-    let s3_client = S3Client::new(&region, &endpoint, &access_key, &secret_key);
-    let nats_client = NatsClient::new(nats_url)
+    let s3_client = s3::Client::new(&region, &endpoint, &access_key, &secret_key);
+    let nats_client = nats::Client::new(nats_url)
         .await
         .context("failed to connect to nats server")?;
 
@@ -232,9 +164,9 @@ async fn store(
         buffer.push(message);
 
         // Upload to S3 if threshold's reached
-        if buffer.len() > BUFFER_MAX || block_size > BLOCK_MAX {
-            let block = MessageBlock::from(buffer.clone());
-            let chunk = Chunk::from_block(block);
+        if buffer.len() > encoding::BUFFER_MAX || block_size > encoding::BLOCK_MAX {
+            let block = encoding::MessageBlock::from(buffer.clone());
+            let chunk = encoding::Chunk::from_block(block);
             let path = format!("{}/{}", subject, time());
             s3_client.upload_chunk(chunk, &bucket, &path).await?;
             println!("wrote chunk to s3 at path {}", path);
@@ -263,10 +195,10 @@ async fn load(
     access_key: String,
     secret_key: String,
 ) -> Result<(), Error> {
-    let nats_client = NatsClient::new(nats_url)
+    let nats_client = nats::Client::new(nats_url)
         .await
         .context("failed to connect to nats server")?;
-    let s3_client = S3Client::new(&region, &endpoint, &access_key, &secret_key);
+    let s3_client = s3::Client::new(&region, &endpoint, &access_key, &secret_key);
     let paths = s3_client.list_paths(&bucket, &read_subject).await?;
 
     for path in paths {
@@ -288,129 +220,6 @@ async fn load(
         }
     }
     Ok(())
-}
-
-struct NatsClient {
-    client: async_nats::Client,
-}
-
-impl NatsClient {
-    async fn new(url: String) -> Result<Self, Error> {
-        let client = async_nats::connect(url.clone())
-            .await
-            .context("failed to connect to nats server")?;
-        let client = NatsClient { client };
-        return Ok(client);
-    }
-
-    async fn consume(&self, stream_name: String, subject: String) -> Result<Stream, Error> {
-        let jetstream = jetstream::new(self.client.clone());
-
-        let stream = jetstream.get_stream(stream_name.clone()).await?;
-        // let consumer: PullConsumer = stream.get_consumer(&consumer_name).await?;
-
-        let consumer: PullConsumer = stream
-            .create_consumer(jetstream::consumer::pull::Config {
-                durable_name: Some(subject.into()),
-                ..Default::default()
-            })
-            .await?;
-        let messages = consumer.messages().await?;
-        return Ok(messages);
-    }
-
-    async fn publish(&self, subject: String, payload: Bytes) -> Result<(), Error> {
-        let jetstream = jetstream::new(self.client.clone());
-        jetstream.publish(subject, payload).await?;
-        return Ok(());
-    }
-}
-
-struct S3Client<'a> {
-    region: &'a str,
-    endpoint: &'a str,
-    access_key: &'a str,
-    secret_key: &'a str,
-}
-
-impl<'a> S3Client<'a> {
-    fn new(region: &'a str, endpoint: &'a str, access_key: &'a str, secret_key: &'a str) -> Self {
-        return S3Client {
-            region,
-            endpoint,
-            access_key,
-            secret_key,
-        };
-    }
-
-    async fn upload_chunk(&self, chunk: Chunk, bucket_name: &str, path: &str) -> Result<(), Error> {
-        let bucket = self.bucket(bucket_name, true).await?;
-        let data = bincode::serialize(&chunk).context("chunk serialization")?;
-        let response_data = bucket.put_object(path, &data).await.context("put object")?;
-        assert_eq!(response_data.status_code(), 200);
-        println!("uploaded block to s3");
-        Ok(())
-    }
-
-    async fn download_chunk(&self, bucket_name: &str, path: &str) -> Result<Chunk, Error> {
-        let bucket = self.bucket(bucket_name, false).await?;
-        let response_data = bucket.get_object(path).await?;
-        assert_eq!(response_data.status_code(), 200);
-        let chunk: Chunk = bincode::deserialize(response_data.as_slice()).unwrap();
-
-        println!("downloaded block to s3");
-        Ok(chunk)
-    }
-
-    async fn list_paths(&self, bucket_name: &str, path: &str) -> Result<Vec<String>, Error> {
-        let bucket = self.bucket(bucket_name, false).await?;
-        let prefix = path.to_string();
-        // println!("[prefix: {}", prefix);
-        let results = bucket.list(prefix, None).await?;
-        // println!("list_paths results: {:?}", results);
-
-        let mut objects: Vec<Object> = Vec::new();
-        for mut result in results {
-            objects.append(&mut result.contents)
-        }
-
-        let paths: Vec<String> = objects.into_iter().map(|obj| obj.key).collect();
-        // println!("list_paths paths: {:?}", paths);
-        return Ok(paths);
-        // return Ok(Vec::new());
-    }
-
-    async fn bucket(&self, bucket_name: &str, try_create: bool) -> Result<s3::Bucket, Error> {
-        let region = Region::Custom {
-            region: self.region.to_string(),
-            endpoint: self.endpoint.to_string(),
-        };
-        let credentials = Credentials::new(
-            Some(self.access_key),
-            Some(self.secret_key),
-            None,
-            None,
-            None,
-        )?;
-
-        let mut bucket =
-            Bucket::new(bucket_name, region.clone(), credentials.clone())?.with_path_style();
-
-        if try_create {
-            if !bucket.exists().await? {
-                bucket = Bucket::create_with_path_style(
-                    bucket_name,
-                    region,
-                    credentials,
-                    BucketConfiguration::default(),
-                )
-                .await
-                .context("create bucket")?
-                .bucket;
-            }
-        }
-        Ok(bucket)
-    }
 }
 
 fn time() -> u128 {
