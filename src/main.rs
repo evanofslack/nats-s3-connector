@@ -8,6 +8,7 @@ use clap::{Parser, Subcommand};
 mod encoding;
 mod nats;
 mod s3;
+mod server;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -18,73 +19,10 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    // Consume messages from NATS and store in S3
-    Store {
-        /// NATS URL
-        #[arg(long, default_value = "nats://localhost:4222")]
-        nats_url: String,
-
-        /// Name of the stream
-        #[arg(long)]
-        stream: String,
-
-        /// Name of the subject
-        #[arg(long)]
-        subject: String,
-
-        /// S3 bucket name
-        #[arg(long)]
-        bucket: String,
-
+    Serve {
         /// S3 region
-        #[arg(long, default_value = "us-east-1")]
-        region: String,
-
-        /// S3 endpoint
-        #[arg(long)]
-        endpoint: String,
-
-        /// S3 access key
-        #[arg(long)]
-        access_key: String,
-
-        /// S3 secret key
-        #[arg(long)]
-        secret_key: String,
-    },
-    /// Load messages from S3 and publish to NATS
-    Load {
-        /// NATS URL
-        #[arg(long, default_value = "nats://localhost:4222")]
-        nats_url: String,
-
-        /// NATS subject to read from
-        #[arg(long)]
-        read_subject: String,
-
-        /// NATS subject to write to
-        #[arg(long)]
-        write_subject: String,
-
-        /// S3 bucket name
-        #[arg(long)]
-        bucket: String,
-
-        /// S3 region
-        #[arg(long, default_value = "us-east-1")]
-        region: String,
-
-        /// S3 endpoint
-        #[arg(long)]
-        endpoint: String,
-
-        /// S3 access key
-        #[arg(long)]
-        access_key: String,
-
-        /// S3 secret key
-        #[arg(long)]
-        secret_key: String,
+        #[arg(long, default_value = "0.0.0.0:3001")]
+        addr: String,
     },
 }
 
@@ -93,48 +31,15 @@ async fn main() -> Result<(), Error> {
     let args = Args::parse();
 
     match args.command {
-        Command::Store {
-            nats_url,
-            stream,
-            subject,
-            bucket,
-            region,
-            endpoint,
-            access_key,
-            secret_key,
-        } => {
-            store(
-                nats_url, stream, subject, bucket, region, endpoint, access_key, secret_key,
-            )
-            .await?
-        }
-        Command::Load {
-            nats_url,
-            read_subject,
-            write_subject,
-            bucket,
-            region,
-            endpoint,
-            access_key,
-            secret_key,
-        } => {
-            load(
-                nats_url,
-                read_subject,
-                write_subject,
-                bucket,
-                region,
-                endpoint,
-                access_key,
-                secret_key,
-            )
-            .await?
+        Command::Serve { addr } => {
+            let server = server::Server::new(addr)?;
+            tokio::join!(server.serve());
         }
     }
     Ok(())
 }
 
-async fn store(
+async fn _store(
     nats_url: String,
     stream: String,
     subject: String,
@@ -185,7 +90,7 @@ async fn store(
     Ok(())
 }
 
-async fn load(
+async fn _load(
     nats_url: String,
     read_subject: String,
     write_subject: String,
