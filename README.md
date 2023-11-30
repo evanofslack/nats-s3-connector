@@ -1,4 +1,4 @@
-# s3-nats-connect
+# nats-s3-connect
 
 Connect NATS Jetstream to S3 for long term storage and replay.
 
