@@ -1,11 +1,13 @@
-use anyhow::{Context, Error, Result};
-use async_nats::jetstream;
-use futures::StreamExt;
-use std::{str::from_utf8, time::SystemTime};
+use anyhow::{Error, Result};
+use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
+use tracing_subscriber::FmtSubscriber;
 
+mod app;
+mod config;
 mod encoding;
+mod handlers;
 mod nats;
 mod s3;
 mod server;
@@ -13,123 +15,33 @@ mod server;
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Args {
-    #[clap(subcommand)]
-    command: Command,
-}
-
-#[derive(Debug, Subcommand)]
-enum Command {
-    Serve {
-        /// S3 region
-        #[arg(long, default_value = "0.0.0.0:3001")]
-        addr: String,
-    },
+    /// Path to the config file
+    #[arg(short, long, value_name = "FILE")]
+    config: Option<PathBuf>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let args = Args::parse();
+    let _config_path = args.config;
 
-    match args.command {
-        Command::Serve { addr } => {
-            let server = server::Server::new(addr)?;
-            tokio::join!(server.serve());
-        }
-    }
+    // load config from path
+    let config = config::load()?;
+
+    // init tracing
+    let _ = FmtSubscriber::builder()
+        .with_max_level(config.log_level())
+        .try_init();
+
+    // create app
+    let app = app::new(config.clone()).await?;
+
+    // start all store jobs
+    app.start_store_jobs().await;
+
+    // start server
+    let server = server::Server::new(config.server.addr.expect("always have addr"))?;
+    server.serve().await;
+
     Ok(())
-}
-
-async fn _store(
-    nats_url: String,
-    stream: String,
-    subject: String,
-    bucket: String,
-    region: String,
-    endpoint: String,
-    access_key: String,
-    secret_key: String,
-) -> Result<(), Error> {
-    let s3_client = s3::Client::new(&region, &endpoint, &access_key, &secret_key);
-    let nats_client = nats::Client::new(nats_url)
-        .await
-        .context("failed to connect to nats server")?;
-
-    let mut buffer: Vec<jetstream::Message> = Vec::new();
-    let mut block_size = 0;
-    let mut messages = nats_client.consume(stream, subject.clone()).await?;
-
-    while let Some(message) = messages.next().await {
-        let message = message?;
-        println!(
-            "got message on subject {} with payload {:?}",
-            message.subject,
-            from_utf8(&message.payload)?
-        );
-        block_size += &message.length;
-        buffer.push(message);
-
-        // Upload to S3 if threshold's reached
-        if buffer.len() > encoding::BUFFER_MAX || block_size > encoding::BLOCK_MAX {
-            let block = encoding::MessageBlock::from(buffer.clone());
-            let chunk = encoding::Chunk::from_block(block);
-            let path = format!("{}/{}", subject, time());
-            s3_client.upload_chunk(chunk, &bucket, &path).await?;
-            println!("wrote chunk to s3 at path {}", path);
-            for message in &buffer {
-                message.ack().await.expect("ack");
-                // match message.ack().await {
-                //     Ok(()) => {}
-                //     Err(err) => dbg!("{}", err),
-                // }
-            }
-            // Clear buffer and counter
-            buffer.clear();
-            block_size = 0;
-        }
-    }
-    Ok(())
-}
-
-async fn _load(
-    nats_url: String,
-    read_subject: String,
-    write_subject: String,
-    bucket: String,
-    region: String,
-    endpoint: String,
-    access_key: String,
-    secret_key: String,
-) -> Result<(), Error> {
-    let nats_client = nats::Client::new(nats_url)
-        .await
-        .context("failed to connect to nats server")?;
-    let s3_client = s3::Client::new(&region, &endpoint, &access_key, &secret_key);
-    let paths = s3_client.list_paths(&bucket, &read_subject).await?;
-
-    for path in paths {
-        let prefix = format!("{}/", read_subject);
-        if let Some(key) = path.strip_prefix(&prefix) {
-            let _key_int = key.parse::<i128>()?;
-            // if key_int > 1701150969777385 {
-            //     break;
-            // }
-            println!("trying s3 path {}", path);
-            let chunk = s3_client.download_chunk(&bucket, &path).await?;
-            for message in chunk.block.messages {
-                println!("load message {}", from_utf8(&message.payload)?);
-                println!("write message to {}", write_subject);
-                nats_client
-                    .publish(write_subject.clone(), message.payload)
-                    .await?;
-            }
-        }
-    }
-    Ok(())
-}
-
-fn time() -> u128 {
-    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_micros(),
-        Err(_) => panic!("SystemTime before UNIX EPOCH!"),
-    }
 }

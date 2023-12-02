@@ -2,12 +2,15 @@ use anyhow::{Error, Result};
 use std::convert::Infallible;
 use std::net::SocketAddr;
 
-use axum::{extract::Request, routing::get, Router};
+use axum::{extract::Request, Router};
 use hyper::body::Incoming;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server;
 use tokio::net::TcpListener;
 use tower::{Service, ServiceExt};
+use tracing::{info, warn};
+
+use crate::handlers;
 
 pub struct Server {
     addr: String,
@@ -23,6 +26,8 @@ impl Server {
         let app = create_router();
         let mut make_service = app.into_make_service_with_connect_info::<SocketAddr>();
         let listener = TcpListener::bind(self.addr.clone()).await.unwrap();
+        info!("serving on addr {:?}", self.addr);
+
         loop {
             let (socket, remote_addr) = listener.accept().await.unwrap();
             let tower_service = unwrap_infallible(make_service.call(remote_addr).await);
@@ -39,7 +44,7 @@ impl Server {
                     .serve_connection(socket, hyper_service)
                     .await
                 {
-                    eprintln!("failed to serve connection: {err:#}");
+                    warn!(err = err, "failed to serve connection")
                 }
             });
         }
@@ -53,11 +58,9 @@ fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
     }
 }
 
-async fn root() -> &'static str {
-    "nats-s3-connect"
-}
-
-pub fn create_router() -> Router {
-    let router: Router = Router::new().route("/", get(root));
-    return router;
+fn create_router() -> Router {
+    let app = handlers::status::create_router()
+        .merge(handlers::load::create_router())
+        .merge(handlers::store::create_router());
+    return app;
 }
