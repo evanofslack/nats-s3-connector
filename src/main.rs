@@ -23,10 +23,9 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let args = Args::parse();
-    let _config_path = args.config;
 
     // load config from path
-    let config = config::load()?;
+    let config = config::Config::load(args.config)?;
 
     // init tracing
     let _ = FmtSubscriber::builder()

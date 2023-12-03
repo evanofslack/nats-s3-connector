@@ -1,10 +1,14 @@
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Error, Result};
 use figment::{
     providers::{Env, Format, Toml, Yaml},
     Figment,
 };
 use serde::Deserialize;
+use std::ffi::OsStr;
+use std::path::PathBuf;
 use tracing_subscriber::filter::LevelFilter;
+
+const DEFAULT_CONFIG_PATH: &'static str = "/etc/nats-s3-connector/config.toml";
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
@@ -56,7 +60,22 @@ pub struct Load {
 }
 
 impl Config {
-    /// Utility function for parsing the log level from the configuration.
+    pub fn load(path: Option<PathBuf>) -> Result<Self, Error> {
+        let path = path.unwrap_or(PathBuf::from(DEFAULT_CONFIG_PATH));
+        let figment = Figment::new();
+        let figment = match path.extension().and_then(OsStr::to_str) {
+            Some(".toml") => figment.merge(Toml::file(path)),
+            Some(".yaml") => figment.merge(Yaml::file(path)),
+            Some(ext) => return Err(anyhow!("unexpected file extension '{}'", ext)),
+            None => return Err(anyhow!("failed to parse path")),
+        };
+
+        let config: Config = figment
+            .join(Env::prefixed("NATS_S3_CONNECTOR_").split("_"))
+            .extract()?;
+        return Ok(config);
+    }
+
     pub fn log_level(&self) -> LevelFilter {
         match self
             .log
@@ -72,13 +91,4 @@ impl Config {
             _ => LevelFilter::INFO,
         }
     }
-}
-
-pub fn load() -> Result<Config, Error> {
-    let config: Config = Figment::new()
-        .merge(Toml::file("config.toml"))
-        .merge(Env::prefixed("NATSS3_"))
-        .join(Yaml::file("config.yaml"))
-        .extract()?;
-    return Ok(config);
 }
