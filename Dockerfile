@@ -1,0 +1,34 @@
+FROM rust:bookworm as builder
+
+RUN USER=root cargo new --bin nats-s3-connector
+WORKDIR /nats-s3-connector
+COPY ./Cargo.toml ./Cargo.toml
+RUN cargo build --release && rm src/*.rs
+
+COPY . ./
+
+RUN rm ./target/release/deps/nats_s3_connector* && cargo build --release
+
+
+FROM debian:bookworm-slim
+ARG APP=/usr/src/app/nats-s3-connector
+
+RUN apt-get update \
+    && apt install -y openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV TZ=Etc/UTC \
+    APP_USER=appuser
+
+RUN groupadd $APP_USER \
+    && useradd -g $APP_USER $APP_USER \
+    && mkdir -p ${APP}
+
+COPY --from=builder /nats-s3-connector/target/release/nats-s3-connector ${APP}
+
+RUN chown -R $APP_USER:$APP_USER ${APP}
+
+USER $APP_USER
+WORKDIR ${APP}
+
+CMD ["./nats-s3-connector"]

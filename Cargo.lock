@@ -1774,7 +1774,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nats-s3"
+name = "nats-s3-connector"
 version = "0.1.0"
 dependencies = [
  "anyhow",

@@ -1,6 +1,15 @@
-version: "3"
+version: "3.7"
 
 services:
+  nats-s3-connector:
+    build: .
+    restart: unless-stopped
+    ports:
+      - 9999:8080
+    depends_on:
+      - "nats"
+      - "minio"
+
   nats:
     image: nats:latest
     ports:
