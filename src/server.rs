@@ -11,20 +11,33 @@ use tower::{Service, ServiceExt};
 use tracing::{info, warn};
 
 use crate::handlers;
+use crate::nats;
+use crate::s3;
 
 pub struct Server {
     addr: String,
+    s3_client: s3::Client,
+    nats_client: nats::Client,
 }
 
 impl Server {
-    pub fn new(addr: String) -> Result<Self, Error> {
-        let server = Self { addr };
+    pub fn new(
+        addr: String,
+        s3_client: s3::Client,
+        nats_client: nats::Client,
+    ) -> Result<Self, Error> {
+        let server = Self {
+            addr,
+            s3_client,
+            nats_client,
+        };
         Ok(server)
     }
 
     pub async fn serve(&self) {
-        let app = create_router();
-        let mut make_service = app.into_make_service_with_connect_info::<SocketAddr>();
+        let state = handlers::State::new(self.s3_client.clone(), self.nats_client.clone());
+        let router = create_router(state.clone());
+        let mut make_service = router.into_make_service_with_connect_info::<SocketAddr>();
         let listener = TcpListener::bind(self.addr.clone()).await.unwrap();
         info!("serving on addr {:?}", self.addr);
 
@@ -58,9 +71,9 @@ fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
     }
 }
 
-fn create_router() -> Router {
+fn create_router(state: handlers::State) -> Router {
     let app = handlers::status::create_router()
-        .merge(handlers::load::create_router())
+        .merge(handlers::load::create_router(state))
         .merge(handlers::store::create_router());
     return app;
 }

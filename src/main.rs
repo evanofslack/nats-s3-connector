@@ -39,7 +39,11 @@ async fn main() -> Result<(), Error> {
     app.start_store_jobs().await;
 
     // start server
-    let server = server::Server::new(config.server.addr.expect("always have addr"))?;
+    let server = server::Server::new(
+        config.server.addr.expect("always have addr"),
+        app.s3_client,
+        app.nats_client,
+    )?;
     server.serve().await;
 
     Ok(())
