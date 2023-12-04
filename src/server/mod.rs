@@ -10,9 +10,27 @@ use tokio::net::TcpListener;
 use tower::{Service, ServiceExt};
 use tracing::{info, warn};
 
-use crate::handlers;
 use crate::nats;
 use crate::s3;
+
+pub mod load;
+pub mod status;
+pub mod store;
+
+#[derive(Clone)]
+pub struct Dependencies {
+    pub s3_client: s3::Client,
+    pub nats_client: nats::Client,
+}
+
+impl Dependencies {
+    pub fn new(s3_client: s3::Client, nats_client: nats::Client) -> Self {
+        Self {
+            s3_client,
+            nats_client,
+        }
+    }
+}
 
 pub struct Server {
     addr: String,
@@ -35,7 +53,7 @@ impl Server {
     }
 
     pub async fn serve(&self) {
-        let state = handlers::State::new(self.s3_client.clone(), self.nats_client.clone());
+        let state = Dependencies::new(self.s3_client.clone(), self.nats_client.clone());
         let router = create_router(state.clone());
         let mut make_service = router.into_make_service_with_connect_info::<SocketAddr>();
         let listener = TcpListener::bind(self.addr.clone()).await.unwrap();
@@ -71,9 +89,9 @@ fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
     }
 }
 
-fn create_router(state: handlers::State) -> Router {
-    let app = handlers::status::create_router()
-        .merge(handlers::load::create_router(state))
-        .merge(handlers::store::create_router());
+fn create_router(deps: Dependencies) -> Router {
+    let app = status::create_router()
+        .merge(load::create_router(deps))
+        .merge(store::create_router());
     return app;
 }

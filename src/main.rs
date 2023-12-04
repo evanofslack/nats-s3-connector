@@ -7,7 +7,6 @@ use tracing_subscriber::FmtSubscriber;
 mod app;
 mod config;
 mod encoding;
-mod handlers;
 mod nats;
 mod s3;
 mod server;
