@@ -64,8 +64,8 @@ impl Config {
         let path = path.unwrap_or(PathBuf::from(DEFAULT_CONFIG_PATH));
         let figment = Figment::new();
         let figment = match path.extension().and_then(OsStr::to_str) {
-            Some(".toml") => figment.merge(Toml::file(path)),
-            Some(".yaml") => figment.merge(Yaml::file(path)),
+            Some("toml") => figment.merge(Toml::file(path)),
+            Some("yaml") => figment.merge(Yaml::file(path)),
             Some(ext) => return Err(anyhow!("unexpected file extension '{}'", ext)),
             None => return Err(anyhow!("failed to parse path")),
         };

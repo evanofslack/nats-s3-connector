@@ -2,7 +2,7 @@ use anyhow::{Context, Error, Result};
 use async_nats::jetstream::{self, consumer::pull::Stream, consumer::PullConsumer};
 
 use bytes::Bytes;
-use tracing::debug;
+use tracing::{debug, trace};
 
 #[derive(Clone, Debug)]
 pub struct Client {
@@ -59,6 +59,7 @@ impl Client {
     }
 
     pub async fn publish(&self, subject: String, payload: Bytes) -> Result<(), Error> {
+        trace!(subject = subject, "publishing to stream");
         let jetstream = jetstream::new(self.client.clone());
         jetstream.publish(subject, payload).await?;
         return Ok(());

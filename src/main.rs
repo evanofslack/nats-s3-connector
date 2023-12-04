@@ -2,11 +2,12 @@ use anyhow::{Error, Result};
 use std::path::PathBuf;
 
 use clap::Parser;
-use tracing_subscriber::FmtSubscriber;
+use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 mod app;
 mod config;
 mod encoding;
+mod io;
 mod nats;
 mod s3;
 mod server;
@@ -29,6 +30,7 @@ async fn main() -> Result<(), Error> {
     // init tracing
     let _ = FmtSubscriber::builder()
         .with_max_level(config.log_level())
+        .with_env_filter(EnvFilter::from_default_env())
         .try_init();
 
     // create app
@@ -38,12 +40,7 @@ async fn main() -> Result<(), Error> {
     app.start_store_jobs().await;
 
     // start server
-    let server = server::Server::new(
-        config.server.addr.expect("always have addr"),
-        app.s3_client,
-        app.nats_client,
-    )?;
-    server.serve().await;
+    app.server.serve().await;
 
     Ok(())
 }
