@@ -13,7 +13,7 @@ pub fn create_router(deps: server::Dependencies) -> Router {
 
 async fn start_load_job(
     State(state): State<server::Dependencies>,
-    Json(payload): Json<StartLoadJob>,
+    Json(payload): Json<CreateLoadJob>,
 ) -> (StatusCode, Json<LoadJob>) {
     debug!(
         route = "/load",
@@ -23,6 +23,16 @@ async fn start_load_job(
         write_subject = payload.write_subject,
         "handle request"
     );
+
+    let job = LoadJob {
+        id: 0,
+        status: LoadJobStatus::Pending,
+        bucket: payload.bucket.clone(),
+        read_stream: payload.read_stream.clone(),
+        read_subject: payload.read_subject.clone(),
+        write_stream: payload.write_stream.clone(),
+        write_subject: payload.write_subject.clone(),
+    };
 
     // spawn a background task loading the messages
     // from S3 and publishing to stream.
@@ -42,18 +52,13 @@ async fn start_load_job(
         }
     });
 
-    let job = LoadJob {
-        id: 0,
-        status: LoadJobStatus::Pending,
-    };
-
     // return a 201 resp
     // TODO: write location header
     (StatusCode::ACCEPTED, Json(job))
 }
 
 #[derive(Deserialize)]
-struct StartLoadJob {
+struct CreateLoadJob {
     bucket: String,
     read_stream: String,
     read_subject: String,
@@ -65,6 +70,11 @@ struct StartLoadJob {
 struct LoadJob {
     id: u64,
     status: LoadJobStatus,
+    bucket: String,
+    read_stream: String,
+    read_subject: String,
+    write_stream: String,
+    write_subject: String,
 }
 
 #[derive(Serialize)]

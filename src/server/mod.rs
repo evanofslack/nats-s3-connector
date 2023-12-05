@@ -19,6 +19,7 @@ pub mod store;
 #[derive(Clone)]
 pub struct Dependencies {
     io: io::IO,
+    // TODO: hashmap to track job state
 }
 
 impl Dependencies {
