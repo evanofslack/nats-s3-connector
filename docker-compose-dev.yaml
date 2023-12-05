@@ -4,14 +4,19 @@ services:
   nats-s3-connector:
     build: .
     restart: unless-stopped
+    container_name: nats-s3-connector
     ports:
       - 9999:8080
     depends_on:
       - "nats"
       - "minio"
+    volumes:
+      - "./config.toml:/etc/nats-s3-connector/config.toml"
+      # - ./config/vector.toml:/etc/vector/vector.toml:ro
 
   nats:
     image: nats:latest
+    container_name: nats
     ports:
       - "8222:8222"
       - "4222:4222"
@@ -19,6 +24,7 @@ services:
 
   minio:
     image: quay.io/minio/minio
+    container_name: minio
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
@@ -31,4 +37,3 @@ services:
 
 volumes:
   minio_data:
-    driver: local

@@ -1,5 +1,5 @@
 [package]
-name = "nats-s3-connector"
+name = "nats3"
 version = "0.1.0"
 edition = "2021"
 
