@@ -6,8 +6,10 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 mod app;
 mod config;
+mod db;
 mod encoding;
 mod io;
+mod jobs;
 mod nats;
 mod s3;
 mod server;

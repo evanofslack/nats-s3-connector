@@ -594,6 +594,7 @@ checksum = "810a80b128d70e6ed2bdf3fe8ed72c0ae56f5f5948d01c2753282dd92a84fce8"
 dependencies = [
  "async-trait",
  "axum-core",
+ "axum-macros",
  "bytes",
  "futures-util",
  "http 1.0.0",
@@ -641,14 +642,14 @@ dependencies = [
 
 [[package]]
 name = "axum-macros"
-version = "0.2.3"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6293dae2ec708e679da6736e857cf8532886ef258e92930f38279c12641628b8"
+checksum = "5a2edad600410b905404c594e2523549f1bcd4bded1e252c8f74524ccce0b867"
 dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -1774,15 +1775,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "nats-s3-connector"
+name = "nats3"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-nats",
+ "async-trait",
  "aws-config",
  "aws-sdk-s3",
  "axum",
- "axum-macros",
  "bincode",
  "bytes",
  "clap",
@@ -1795,6 +1796,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "thiserror",
  "tokio",
  "tower",
  "tower-http",

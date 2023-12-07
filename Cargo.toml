@@ -10,8 +10,7 @@ anyhow = "1.0.75"
 async-nats = "0.32.1"
 aws-config = "1.0.1"
 aws-sdk-s3 = "0.39.1"
-axum = "0.7.1"
-axum-macros = "0.2.3"
+axum = {version = "0.7.1", features = ["macros"]}
 bincode = "1.3.3"
 bytes = "1.5.0"
 clap = { version = "4.4.6", features = ["derive"] }
@@ -29,3 +28,5 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 hyper-util = "0.1.1"
 figment = { version = "0.10.12", features = ["env", "toml", "yaml"]}
+async-trait = "0.1.74"
+thiserror = "1.0.50"

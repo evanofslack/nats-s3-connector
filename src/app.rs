@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::config::Config;
+use crate::db;
 use crate::io;
 use crate::nats;
 use crate::s3;
@@ -12,6 +13,7 @@ use tracing::{debug, info, warn};
 #[derive(Debug, Clone)]
 pub struct App {
     pub config: Arc<Config>,
+    pub db: db::DynStorer,
     pub io: io::IO,
     pub server: server::Server,
 }
@@ -19,6 +21,9 @@ pub struct App {
 /// Construct a new instance of NATS-S3
 pub async fn new(config: Config) -> Result<App> {
     debug!("creating new application from config");
+
+    // TODO: switch store based on config
+    let db: db::DynStorer = Arc::new(db::inmem::InMemory::new());
 
     let s3_client = s3::Client::new(
         config.s3.region.clone(),
@@ -36,12 +41,14 @@ pub async fn new(config: Config) -> Result<App> {
     let server = server::Server::new(
         config.clone().server.addr.expect("always have addr"),
         io.clone(),
+        db.clone(),
     );
 
     let app = App {
         config: Arc::new(config),
         io,
         server,
+        db,
     };
 
     return Ok(app);
