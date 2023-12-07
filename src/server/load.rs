@@ -1,4 +1,9 @@
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use axum::{
+    debug_handler,
+    extract::State,
+    routing::{get, post},
+    Json, Router,
+};
 use tracing::{debug, warn};
 
 use crate::jobs;
@@ -6,9 +11,22 @@ use crate::server::{Dependencies, ServerError};
 
 pub fn create_router(deps: Dependencies) -> Router {
     let router: Router = Router::new()
+        .route("/jobs/load", get(get_load_jobs))
         .route("/jobs/load", post(start_load_job))
         .with_state(deps);
     return router;
+}
+
+#[debug_handler]
+async fn get_load_jobs(
+    State(state): State<Dependencies>,
+) -> Result<Json<Vec<jobs::LoadJob>>, ServerError> {
+    debug!(route = "/jobs/load", method = "GET", "handle request");
+
+    // fetch jobs from db
+    let jobs = state.db.get_load_jobs().await?;
+
+    return Ok(Json(jobs));
 }
 
 #[debug_handler]
@@ -32,6 +50,7 @@ async fn start_load_job(
         payload.write_stream.clone(),
         payload.write_subject.clone(),
     );
+    let job_id = job.clone().id;
 
     // store job in db
     state.db.create_load_job(job.clone()).await?;
@@ -52,10 +71,13 @@ async fn start_load_job(
         {
             warn!("{}", err);
         }
+        // delete job when finished
+        if let Err(err) = state.db.delete_load_job(job_id).await {
+            warn!("{}", err)
+        }
     });
 
     // return a 201 resp
     // TODO: write location header
-    // Ok((Json(job), StatusCode::ACCEPTED))
     return Ok(Json(job));
 }

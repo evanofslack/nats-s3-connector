@@ -32,6 +32,17 @@ impl db::JobStorer for InMemory {
         return Ok(found_job);
     }
 
+    async fn get_load_jobs(&self) -> Result<Vec<jobs::LoadJob>, db::JobStoreError> {
+        let jobs = self
+            .db
+            .read()
+            .expect("lock not poisoned")
+            .values()
+            .cloned()
+            .collect();
+        return Ok(jobs);
+    }
+
     async fn create_load_job(&self, job: jobs::LoadJob) -> Result<(), db::JobStoreError> {
         self.db
             .write()
