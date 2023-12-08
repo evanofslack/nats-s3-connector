@@ -31,6 +31,8 @@ impl IO {
         stream: String,
         subject: String,
         bucket: String,
+        max_bytes: usize,
+        max_count: usize,
     ) -> Result<()> {
         debug!(
             stream = stream,
@@ -54,7 +56,7 @@ impl IO {
             buffer.push(message);
 
             // Upload to S3 if threshold's reached
-            if buffer.len() > encoding::BUFFER_MAX || block_size > encoding::BLOCK_MAX {
+            if buffer.len() > max_count || block_size > max_bytes {
                 trace!(
                     buffer_size = buffer.len(),
                     block_size = block_size,
@@ -85,6 +87,8 @@ impl IO {
         write_stream: String,
         write_subject: String,
         bucket: String,
+        start: Option<usize>,
+        end: Option<usize>,
     ) -> Result<()> {
         trace!(
             read_stream = read_stream,
@@ -92,22 +96,40 @@ impl IO {
             write_stream = write_stream,
             write_subject = write_subject,
             bucket = bucket,
+            start = start,
+            end = end,
             "starting to download from bucket and publish to stream "
         );
         let paths = self.s3_client.list_paths(&bucket, &read_subject).await?;
 
         for path in paths {
             let prefix = format!("{}/", read_subject);
+
+            // check if block falls within allowed timespan.
+            // since each block's key is the unix timestamp at
+            // upload time, we can parse and compare.
             if let Some(key) = path.strip_prefix(&prefix) {
-                let _key_int = key.parse::<i128>()?;
-                // if key_int > 1701150969777385 {
-                //     break;
-                // }
+                let key_int = key.parse::<usize>()?;
+                if let Some(start) = start {
+                    if key_int < start {
+                        continue;
+                    }
+                }
+                if let Some(end) = end {
+                    if key_int > end {
+                        continue;
+                    }
+                }
+
+                // download from s3 and publish to nats
                 let chunk = self.s3_client.download_chunk(&bucket, &path).await?;
                 for message in chunk.block.messages {
-                    // trace!("load message {}", from_utf8(&message.payload)?);
                     let subject = format!("{}.{}", write_stream, write_subject);
-                    trace!("writing message to {}", subject);
+                    trace!(
+                        bytes = message.payload.len(),
+                        subject = subject,
+                        "writing message to nats"
+                    );
                     self.nats_client
                         .publish(write_subject.clone(), message.payload)
                         .await?;
@@ -118,7 +140,7 @@ impl IO {
             read_subject = read_subject,
             write_subject = write_subject,
             bucket = bucket,
-            "finished download from bucket and publish to stream"
+            "finished download from s3 and publish to nats"
         );
         Ok(())
     }

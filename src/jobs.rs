@@ -7,6 +7,8 @@ pub struct CreateLoadJob {
     pub read_subject: String,
     pub write_stream: String,
     pub write_subject: String,
+    pub start: Option<usize>,
+    pub end: Option<usize>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -18,6 +20,8 @@ pub struct LoadJob {
     pub read_subject: String,
     pub write_stream: String,
     pub write_subject: String,
+    pub start: Option<usize>,
+    pub end: Option<usize>,
 }
 
 impl LoadJob {
@@ -27,10 +31,12 @@ impl LoadJob {
         read_subject: String,
         write_stream: String,
         write_subject: String,
+        start: Option<usize>,
+        end: Option<usize>,
     ) -> Self {
         // TODO: ULID
         let id = "".to_string();
-        let status = LoadJobStatus::Pending;
+        let status = LoadJobStatus::Created;
         Self {
             id,
             status,
@@ -39,13 +45,16 @@ impl LoadJob {
             read_subject,
             write_stream,
             write_subject,
+            start,
+            end,
         }
     }
 }
 
 #[derive(Serialize, Clone, Debug)]
 pub enum LoadJobStatus {
-    Pending,
-    _Finished,
-    _Unknown,
+    Created,
+    Running,
+    Success,
+    Failure,
 }

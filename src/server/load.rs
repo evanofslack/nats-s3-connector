@@ -40,6 +40,8 @@ async fn start_load_job(
         bucket = payload.bucket,
         read_subject = payload.read_subject,
         write_subject = payload.write_subject,
+        start = payload.start,
+        end = payload.end,
         "handle request"
     );
 
@@ -49,6 +51,8 @@ async fn start_load_job(
         payload.read_subject.clone(),
         payload.write_stream.clone(),
         payload.write_subject.clone(),
+        payload.start,
+        payload.end,
     );
     let job_id = job.clone().id;
 
@@ -59,6 +63,15 @@ async fn start_load_job(
     // from S3 and publishing to stream.
     tokio::spawn(async move {
         if let Err(err) = state
+            .db
+            .update_load_job(job_id.clone(), jobs::LoadJobStatus::Running)
+            .await
+        {
+            warn!("{}", err)
+        }
+
+        let mut success = true;
+        if let Err(err) = state
             .io
             .publish_stream(
                 payload.read_stream,
@@ -66,13 +79,21 @@ async fn start_load_job(
                 payload.write_stream,
                 payload.write_subject,
                 payload.bucket,
+                payload.start,
+                payload.end,
             )
             .await
         {
+            success = false;
             warn!("{}", err);
         }
-        // delete job when finished
-        if let Err(err) = state.db.delete_load_job(job_id).await {
+
+        // update job when finished
+        let status = match success {
+            true => jobs::LoadJobStatus::Success,
+            false => jobs::LoadJobStatus::Failure,
+        };
+        if let Err(err) = state.db.update_load_job(job_id, status).await {
             warn!("{}", err)
         }
     });

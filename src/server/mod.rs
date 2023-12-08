@@ -93,12 +93,11 @@ fn create_router(deps: Dependencies) -> Router {
 }
 
 enum ServerError {
-    /// Something went wrong when calling the job store
+    // something went wrong when calling the job store
     JobStore(db::JobStoreError),
 }
 
-/// This makes it possible to use `?` to automatically convert a `db::JobStoreError`
-/// into an `ServerError`.
+// enable conversion of `db::JobStoreError` -> `ServerError` with `?` operator
 impl From<db::JobStoreError> for ServerError {
     fn from(inner: db::JobStoreError) -> Self {
         ServerError::JobStore(inner)
@@ -111,10 +110,10 @@ impl IntoResponse for ServerError {
             ServerError::JobStore(db::JobStoreError::NotFound { id }) => {
                 (StatusCode::NOT_FOUND, format!("job id {} not found", id))
             }
-            ServerError::JobStore(db::JobStoreError::Unknown) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "unknown error".to_string(),
-            ),
+            // _ => (
+            //     StatusCode::INTERNAL_SERVER_ERROR,
+            //     "unknown error".to_string(),
+            // ),
         };
         let body = Json(json!({
             "error": error_message,

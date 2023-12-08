@@ -8,7 +8,10 @@ use std::ffi::OsStr;
 use std::path::PathBuf;
 use tracing_subscriber::filter::LevelFilter;
 
-const DEFAULT_CONFIG_PATH: &'static str = "/etc/nats-s3-connector/config.toml";
+const DEFAULT_CONFIG_PATH: &'static str = "/etc/nats3/config.toml";
+const DEFAULT_SERVER_ADDR: &'static str = "0.0.0.0:8080";
+const DEFAULT_MAX_BYTES: usize = 1_000_000;
+const DEFAULT_MAX_COUNT: usize = 1000;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
@@ -17,17 +20,16 @@ pub struct Config {
     pub nats: Nats,
     pub s3: S3,
     pub store: Option<Vec<Store>>,
-    pub load: Option<Vec<Load>>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Server {
     #[serde(default = "addr_default")]
-    pub addr: Option<String>,
+    pub addr: String,
 }
 
-fn addr_default() -> Option<String> {
-    Some("0.0.0.0:8080".to_string())
+fn addr_default() -> String {
+    DEFAULT_SERVER_ADDR.to_string()
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -49,14 +51,23 @@ pub struct Store {
     pub stream: String,
     pub subject: String,
     pub bucket: String,
+    pub batch: Batch,
 }
 
 #[derive(Deserialize, Clone, Debug)]
-pub struct Load {
-    pub name: String,
-    pub stream: String,
-    pub subject: String,
-    pub bucket: String,
+pub struct Batch {
+    #[serde(default = "max_bytes_default")]
+    pub max_bytes: usize,
+    #[serde(default = "max_count_default")]
+    pub max_count: usize,
+}
+
+fn max_bytes_default() -> usize {
+    DEFAULT_MAX_BYTES
+}
+
+fn max_count_default() -> usize {
+    DEFAULT_MAX_COUNT
 }
 
 impl Config {

@@ -6,8 +6,6 @@ use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub const BUFFER_MAX: usize = 10;
-pub const BLOCK_MAX: usize = 10000000;
 const MAGIC_NUMBER: &'static str = "S3NATSCONNECT";
 const VERSION: &'static str = "1";
 

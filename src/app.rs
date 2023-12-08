@@ -38,11 +38,7 @@ pub async fn new(config: Config) -> Result<App> {
 
     let io = io::IO::new(s3_client, nats_client);
 
-    let server = server::Server::new(
-        config.clone().server.addr.expect("always have addr"),
-        io.clone(),
-        db.clone(),
-    );
+    let server = server::Server::new(config.clone().server.addr, io.clone(), db.clone());
 
     let app = App {
         config: Arc::new(config),
@@ -70,6 +66,8 @@ impl App {
                             store.stream.clone(),
                             store.subject.clone(),
                             store.bucket.clone(),
+                            store.batch.max_bytes,
+                            store.batch.max_count,
                         )
                         .await
                     {
