@@ -43,6 +43,17 @@ impl db::JobStorer for InMemory {
         return Ok(jobs);
     }
 
+    async fn update_load_job(
+        &self,
+        id: String,
+        status: jobs::LoadJobStatus,
+    ) -> Result<jobs::LoadJob, db::JobStoreError> {
+        let mut job = self.get_load_job(id).await?;
+        job.status = status;
+        self.create_load_job(job.clone()).await?;
+        return Ok(job);
+    }
+
     async fn create_load_job(&self, job: jobs::LoadJob) -> Result<(), db::JobStoreError> {
         self.db
             .write()
