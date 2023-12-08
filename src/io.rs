@@ -57,7 +57,7 @@ impl IO {
 
             // Upload to S3 if threshold's reached
             if buffer.len() > max_count || block_size > max_bytes {
-                trace!(
+                debug!(
                     buffer_size = buffer.len(),
                     block_size = block_size,
                     "reached buffer threshold"

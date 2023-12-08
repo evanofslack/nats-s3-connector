@@ -94,14 +94,18 @@ impl Client {
             if !bucket.exists().await? {
                 bucket = Bucket::create_with_path_style(
                     bucket_name,
-                    region,
+                    region.clone(),
                     credentials,
                     BucketConfiguration::default(),
                 )
                 .await
                 .context("create bucket")?
                 .bucket;
-                debug!(bucket = bucket_name, "created bucket in s3");
+                info!(
+                    bucket = bucket_name,
+                    endpoint = region.endpoint(),
+                    "created bucket in s3"
+                );
             }
         }
         Ok(bucket)

@@ -27,7 +27,6 @@ impl Client {
 
         // TODO: option to subscribe to existing consumer
         // let consumer: PullConsumer = stream.get_consumer(&consumer_name).await?;
-        // stream.get_or_create_consumer
 
         // Need to replace special chars for consumer names
         let name = subject
