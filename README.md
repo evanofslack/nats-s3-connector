@@ -1,6 +1,6 @@
 # nats-s3-connector
 
-Connect NATS Jetstream to S3 for long term storage and replay.
+Connect [NATS Jetstream](https://docs.nats.io/nats-concepts/jetstream) to S3 for long term storage and replay.
 
 ## Description
 
@@ -13,17 +13,17 @@ from S3 and submit back into NATS.
 
 ## Running
 
+See the [examples](https://github.com/evanofslack/nats-s3-connector/tree/main/examples) directory to get started.
+
 The app can be run from a [pre-built docker container](https://hub.docker.com/r/evanofslack/nats-s3-connector/tags)
 
 ```yaml
 version: "3.7"
 services:
-  nats-s3-connector:
-    container_name: nats-s3-connector
+  nats3:
     image: evanofslack/nats-s3-connector:latest
     ports:
       - 8080:8080
-    restart: unless-stopped
     volumes:
       - ./config.toml:/etc/nats3/config.toml
 ```
@@ -36,24 +36,12 @@ cd nats-s3-connector
 cargo build
 ```
 
-### Configuration
-
 ### Store
 
 Jobs that store NATS messages in S3 are defined through the config file.
-Config values can be defined through toml or yaml formats, or passed in
-as environmental variables.
+Config values can be defined through toml or yaml formats.
 
 ```toml
-[nats]
-url = "localhost:4222"
-
-[s3]
-region = "us-east-1"
-endpoint = "http://localhost:9000"
-access_key = "test-user"
-secret_key = "test-password"
-
 [[store]]
 name ="job-1"
 stream = "test"
@@ -74,13 +62,13 @@ threads to monitor each job.
 
 Messages stored in S3 can be loaded and submitted back into NATS.
 These load jobs are started by sending a PUT request to the HTTP server
-on the endpoint `load`:
+on the endpoint `/load`:
 
 ```bash
 curl --header "Content-Type: application/json" \
   --request POST \
   --data '{
-            "bucket":"bucket-demo-1",
+            "bucket":"bucket-1",
             "read_stream":"test",
             "read_subject":"subjects-1",
             "write_stream":"test",
