@@ -1,25 +1,31 @@
-log = "info"
+log = "debug"
 
 [server]
 addr = "0.0.0.0:8080"
 
 [nats]
-url = "localhost:4222"
+# url = "localhost:4222"
+url = "nats:4222"
 
 [s3]
 region = "us-east-1"
-endpoint = "http://localhost:9000"
+# endpoint = "http://localhost:9000"
+endpoint = "http://minio:9000"
 access_key = "test-user"
 secret_key = "test-password"
 
 [[store]]
-name ="job1"
-stream = "test-stream"
-subject = "subjects-1"
-bucket = "bucket-demo-1"
+name = "job-1"
+stream = "jobs"
+subject = "1"
+bucket = "jobs-bucket-1"
+batch.max_count = 500
+
 
 [[store]]
-name ="job2"
-stream = "test-stream"
-subject = "subjects-2"
-bucket = "bucket-demo-2"
+name = "job-2"
+stream = "jobs"
+subject = "2"
+bucket = "jobs-bucket-2"
+[store.batch]
+batch.max_count = 500

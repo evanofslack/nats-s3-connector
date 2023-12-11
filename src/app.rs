@@ -9,7 +9,7 @@ use crate::server;
 use anyhow::{Context, Result};
 use tracing::{debug, info, warn};
 
-/// nats-s3 application
+/// nats3 application
 #[derive(Debug, Clone)]
 pub struct App {
     pub config: Arc<Config>,
@@ -18,7 +18,7 @@ pub struct App {
     pub server: server::Server,
 }
 
-/// Construct a new instance of NATS-S3
+/// Construct a new instance of nats3 application
 pub async fn new(config: Config) -> Result<App> {
     debug!("creating new application from config");
 

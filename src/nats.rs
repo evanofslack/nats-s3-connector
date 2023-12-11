@@ -19,7 +19,12 @@ impl Client {
         return Ok(client);
     }
 
-    pub async fn consume(&self, stream_name: String, subject: String) -> Result<Stream, Error> {
+    pub async fn consume(
+        &self,
+        stream_name: String,
+        subject: String,
+        max_ack_pending: i64,
+    ) -> Result<Stream, Error> {
         debug!(stream = stream_name, subject = subject, "consuming stream");
         let jetstream = jetstream::new(self.client.clone());
 
@@ -48,6 +53,7 @@ impl Client {
                 jetstream::consumer::pull::Config {
                     filter_subject,
                     durable_name: Some(name.clone().into()),
+                    max_ack_pending,
                     ..Default::default()
                 },
             )

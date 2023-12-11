@@ -1,12 +1,84 @@
 use async_nats::jetstream;
 use futures::StreamExt;
+use std::sync::Arc;
 use std::{str::from_utf8, time::SystemTime};
+use tokio::{sync::RwLock, time};
 
 use crate::encoding;
 use crate::nats;
 use crate::s3;
 use anyhow::Result;
 use tracing::{debug, trace, warn};
+
+const KEEP_ALIVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
+
+// MessageBuffer is a thread safe Vec<jetstream::Message>
+struct MessageBuffer {
+    messages: Arc<RwLock<Vec<jetstream::Message>>>,
+}
+
+impl MessageBuffer {
+    fn new() -> Self {
+        Self {
+            messages: Arc::new(RwLock::new(Vec::new())),
+        }
+    }
+
+    // starts a thread periodically keeping nats messages alive
+    fn keep_alive(&self, interval: time::Duration) -> () {
+        let messages = self.messages.clone();
+        // keepalive thread currently runs forever.
+        // TODO: cancel thread on job cancellation.
+        tokio::spawn(async move {
+            let mut interval = time::interval(interval);
+            loop {
+                // send ack::progress for all messages
+                let messages = messages.read().await;
+                for i in 0..messages.len() {
+                    let message = &messages[i];
+                    match message
+                        .ack_with(jetstream::message::AckKind::Progress)
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(err) => warn!(err = err, "message ack::progress"),
+                    }
+                }
+                // sleep for interval
+                interval.tick().await;
+            }
+        });
+    }
+
+    // push message onto vec
+    async fn push(&self, message: jetstream::Message) -> () {
+        self.messages.clone().write_owned().await.push(message);
+    }
+
+    // clear vec
+    async fn clear(&self) -> () {
+        self.messages.clone().write_owned().await.clear();
+    }
+
+    async fn len(&self) -> usize {
+        self.messages.clone().write_owned().await.len()
+    }
+    async fn to_vec(&self) -> Vec<jetstream::Message> {
+        self.messages.clone().read().await.to_vec()
+    }
+
+    // ack all messages with nats
+    async fn ack_all(&self) -> () {
+        let messages = self.messages.read().await;
+        for i in 0..messages.len() {
+            let message = &messages[i];
+            match message.ack().await {
+                Ok(()) => {}
+                Err(err) => warn!(err = err, "message ack"),
+            }
+        }
+    }
+}
 
 // IO handles interfacing with NATs and S3
 #[derive(Debug, Clone)]
@@ -31,8 +103,8 @@ impl IO {
         stream: String,
         subject: String,
         bucket: String,
-        max_bytes: usize,
-        max_count: usize,
+        max_bytes: i64,
+        max_count: i64,
     ) -> Result<()> {
         debug!(
             stream = stream,
@@ -41,9 +113,16 @@ impl IO {
             "starting to consume from stream and upload to bucket"
         );
 
-        let mut buffer: Vec<jetstream::Message> = Vec::new();
+        // create new buffer and start thread to
+        // let nats know all messages are in progress.
+        let buffer = MessageBuffer::new();
+        buffer.keep_alive(KEEP_ALIVE_INTERVAL);
+
         let mut block_size = 0;
-        let mut messages = self.nats_client.consume(stream, subject.clone()).await?;
+        let mut messages = self
+            .nats_client
+            .consume(stream, subject.clone(), max_count)
+            .await?;
 
         while let Some(message) = messages.next().await {
             let message = message?;
@@ -53,27 +132,24 @@ impl IO {
                 from_utf8(&message.payload)
             );
             block_size += &message.length;
-            buffer.push(message);
+            buffer.push(message).await;
 
             // Upload to S3 if threshold's reached
-            if buffer.len() > max_count || block_size > max_bytes {
+            let buffer_count = buffer.len().await;
+            if buffer_count >= max_count as usize || block_size >= max_bytes as usize {
                 debug!(
-                    buffer_size = buffer.len(),
+                    buffer_size = buffer_count,
                     block_size = block_size,
                     "reached buffer threshold"
                 );
-                let block = encoding::MessageBlock::from(buffer.clone());
+                let block = encoding::MessageBlock::from(buffer.to_vec().await);
                 let chunk = encoding::Chunk::from_block(block);
                 let path = format!("{}/{}", subject, time());
                 self.s3_client.upload_chunk(chunk, &bucket, &path).await?;
-                for message in &buffer {
-                    match message.ack().await {
-                        Ok(()) => {}
-                        Err(err) => warn!(err = err, "message ack"),
-                    }
-                }
-                // Clear buffer and counter
-                buffer.clear();
+
+                // Ack all messages, clear buffer and counter
+                buffer.ack_all().await;
+                buffer.clear().await;
                 block_size = 0;
             }
         }
@@ -112,11 +188,23 @@ impl IO {
                 let key_int = key.parse::<usize>()?;
                 if let Some(start) = start {
                     if key_int < start {
+                        trace!(
+                            start = start,
+                            key = key_int,
+                            "message block falls before time window, skipping"
+                        );
                         continue;
                     }
                 }
                 if let Some(end) = end {
                     if key_int > end {
+                        trace!(
+                            start = start,
+                            key = key_int,
+                            "message block falls after time window, skipping"
+                        );
+                        // TODO: potentially skip rest of keys if ensured
+                        // they are sorted such that all remaining are too old.
                         continue;
                     }
                 }

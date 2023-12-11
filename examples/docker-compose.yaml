@@ -11,7 +11,7 @@ services:
       - "nats"
       - "minio"
     volumes:
-      - "./config.toml:/etc/nats-s3-connector/config.toml"
+      - "./config.toml:/etc/nats3/config.toml"
       # - ./config/vector.toml:/etc/vector/vector.toml:ro
 
   nats:

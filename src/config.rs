@@ -10,8 +10,8 @@ use tracing_subscriber::filter::LevelFilter;
 
 const DEFAULT_CONFIG_PATH: &'static str = "/etc/nats3/config.toml";
 const DEFAULT_SERVER_ADDR: &'static str = "0.0.0.0:8080";
-const DEFAULT_MAX_BYTES: usize = 1_000_000;
-const DEFAULT_MAX_COUNT: usize = 1000;
+const DEFAULT_MAX_BYTES: i64 = 1_000_000;
+const DEFAULT_MAX_COUNT: i64 = 1000;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
@@ -41,7 +41,9 @@ pub struct Nats {
 pub struct S3 {
     pub endpoint: String,
     pub region: String,
+    #[serde(rename = "secret")]
     pub secret_key: String,
+    #[serde(rename = "access")]
     pub access_key: String,
 }
 
@@ -57,16 +59,16 @@ pub struct Store {
 #[derive(Deserialize, Clone, Debug)]
 pub struct Batch {
     #[serde(default = "max_bytes_default")]
-    pub max_bytes: usize,
+    pub max_bytes: i64,
     #[serde(default = "max_count_default")]
-    pub max_count: usize,
+    pub max_count: i64,
 }
 
-fn max_bytes_default() -> usize {
+fn max_bytes_default() -> i64 {
     DEFAULT_MAX_BYTES
 }
 
-fn max_count_default() -> usize {
+fn max_count_default() -> i64 {
     DEFAULT_MAX_COUNT
 }
 
@@ -81,9 +83,7 @@ impl Config {
             None => return Err(anyhow!("failed to parse path")),
         };
 
-        let config: Config = figment
-            .join(Env::prefixed("NATS_S3_CONNECTOR_").split("_"))
-            .extract()?;
+        let config: Config = figment.join(Env::prefixed("NATS3_").split("_")).extract()?;
         return Ok(config);
     }
 
