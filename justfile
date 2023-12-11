@@ -1,0 +1,23 @@
+default:
+  @just --list
+
+test:
+    cargo test
+
+build:
+    cargo build
+
+run: build
+    ./target/debug/nats3 --config examples/config.toml
+
+up:
+    cd examples && docker compose -f docker-compose-dev.yaml up -d && docker compose logs --follow
+
+upb:
+    cd examples && docker compose -f docker-compose-dev.yaml up -d --build --force-recreate && docker compose logs --follow
+
+down:
+    cd examples && docker compose -f docker-compose-dev.yaml down
+
+infra:
+    cd examples && docker compose -f docker-compose-dev.yaml  up -d nats minio && docker compose logs --follow
