@@ -33,7 +33,7 @@ impl Client {
         // TODO: option to subscribe to existing consumer
         // let consumer: PullConsumer = stream.get_consumer(&consumer_name).await?;
 
-        // Need to replace special chars for consumer names
+        // need to replace special chars for consumer names
         let name = subject
             .replace(".", "_")
             .replace(">", "_")

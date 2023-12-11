@@ -9,14 +9,14 @@ use std::collections::HashMap;
 const MAGIC_NUMBER: &'static str = "S3NATSCONNECT";
 const VERSION: &'static str = "1";
 
-// Our repr of a NATS message.
+// our repr of a NATS message.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Message {
-    /// Subject to which message is published to.
+    /// subject to which message is published to.
     pub subject: String,
-    /// Payload of the message. Can be any arbitrary data format.
+    /// payload of the message. Can be any arbitrary data format.
     pub payload: Bytes,
-    /// Optional headers.
+    /// optional headers.
     pub headers: Option<HashMap<String, String>>,
     pub length: usize,
 }

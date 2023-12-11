@@ -12,74 +12,6 @@ use tracing::{debug, trace, warn};
 
 const KEEP_ALIVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
 
-// MessageBuffer is a thread safe Vec<jetstream::Message>
-struct MessageBuffer {
-    messages: Arc<RwLock<Vec<jetstream::Message>>>,
-}
-
-impl MessageBuffer {
-    fn new() -> Self {
-        Self {
-            messages: Arc::new(RwLock::new(Vec::new())),
-        }
-    }
-
-    // starts a thread periodically keeping nats messages alive
-    fn keep_alive(&self, interval: time::Duration) -> () {
-        let messages = self.messages.clone();
-        // keepalive thread currently runs forever.
-        // TODO: cancel thread on job cancellation.
-        tokio::spawn(async move {
-            let mut interval = time::interval(interval);
-            loop {
-                // send ack::progress for all messages
-                let messages = messages.read().await;
-                for i in 0..messages.len() {
-                    let message = &messages[i];
-                    match message
-                        .ack_with(jetstream::message::AckKind::Progress)
-                        .await
-                    {
-                        Ok(()) => {}
-                        Err(err) => warn!(err = err, "message ack::progress"),
-                    }
-                }
-                // sleep for interval
-                interval.tick().await;
-            }
-        });
-    }
-
-    // push message onto vec
-    async fn push(&self, message: jetstream::Message) -> () {
-        self.messages.clone().write_owned().await.push(message);
-    }
-
-    // clear vec
-    async fn clear(&self) -> () {
-        self.messages.clone().write_owned().await.clear();
-    }
-
-    async fn len(&self) -> usize {
-        self.messages.clone().write_owned().await.len()
-    }
-    async fn to_vec(&self) -> Vec<jetstream::Message> {
-        self.messages.clone().read().await.to_vec()
-    }
-
-    // ack all messages with nats
-    async fn ack_all(&self) -> () {
-        let messages = self.messages.read().await;
-        for i in 0..messages.len() {
-            let message = &messages[i];
-            match message.ack().await {
-                Ok(()) => {}
-                Err(err) => warn!(err = err, "message ack"),
-            }
-        }
-    }
-}
-
 // IO handles interfacing with NATs and S3
 #[derive(Debug, Clone)]
 pub struct IO {
@@ -231,6 +163,74 @@ impl IO {
             "finished download from s3 and publish to nats"
         );
         Ok(())
+    }
+}
+
+// MessageBuffer is a thread safe Vec<jetstream::Message>
+struct MessageBuffer {
+    messages: Arc<RwLock<Vec<jetstream::Message>>>,
+}
+
+impl MessageBuffer {
+    fn new() -> Self {
+        Self {
+            messages: Arc::new(RwLock::new(Vec::new())),
+        }
+    }
+
+    // starts a thread periodically keeping nats messages alive
+    fn keep_alive(&self, interval: time::Duration) -> () {
+        let messages = self.messages.clone();
+        // keepalive thread currently runs forever.
+        // TODO: cancel thread on job cancellation.
+        tokio::spawn(async move {
+            let mut interval = time::interval(interval);
+            loop {
+                // send ack::progress for all messages
+                let messages = messages.read().await;
+                for i in 0..messages.len() {
+                    let message = &messages[i];
+                    match message
+                        .ack_with(jetstream::message::AckKind::Progress)
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(err) => warn!(err = err, "message ack::progress"),
+                    }
+                }
+                // sleep for interval
+                interval.tick().await;
+            }
+        });
+    }
+
+    // push message onto vec
+    async fn push(&self, message: jetstream::Message) -> () {
+        self.messages.clone().write_owned().await.push(message);
+    }
+
+    // clear vec
+    async fn clear(&self) -> () {
+        self.messages.clone().write_owned().await.clear();
+    }
+
+    async fn len(&self) -> usize {
+        self.messages.clone().write_owned().await.len()
+    }
+    async fn to_vec(&self) -> Vec<jetstream::Message> {
+        self.messages.clone().read().await.to_vec()
+    }
+
+    // ack all messages with nats
+    async fn ack_all(&self) -> () {
+        let messages = self.messages.read().await;
+        for i in 0..messages.len() {
+            let message = &messages[i];
+            match message.ack().await {
+                Ok(()) => {}
+                Err(err) => warn!(err = err, "message ack"),
+            }
+        }
     }
 }
 

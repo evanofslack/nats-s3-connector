@@ -17,7 +17,7 @@ mod server;
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Args {
-    /// Path to the config file
+    /// path to the config file
     #[arg(short, long, value_name = "FILE")]
     config: Option<PathBuf>,
 }
