@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   nats-s3-connector:
-    image: evanofslack/nats3:latest
+    build: ../.
     restart: unless-stopped
     container_name: nats-s3-connector
     ports:
@@ -13,6 +13,7 @@ services:
       NATS3_S3_REGION: "us-east-1"
       NATS3_S3_ACCESS: "test-user"
       NATS3_S3_SECRET: "test-password"
+      RUST_LOG: "none,nats3=TRACE"
     depends_on:
       - "nats"
       - "minio"
@@ -39,8 +40,8 @@ services:
     volumes:
       - "minio_data:/data"
     environment:
-      - MINIO_ROOT_USER=test-user
-      - MINIO_ROOT_PASSWORD=test-password
+      MINIO_ROOT_USER: "test-user"
+      MINIO_ROOT_PASSWORD: "test-password"
 
 volumes:
   minio_data:

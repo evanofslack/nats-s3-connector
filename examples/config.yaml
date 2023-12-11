@@ -1,0 +1,28 @@
+log: "debug"
+
+server:
+  addr: "0.0.0.0:8080"
+
+nats:
+  url: "localhost:4222"
+
+s3:
+  region: "us-east-1"
+  endpoint: "http://localhost:9000"
+  access_key: "test-user"
+  secret_key: "test-password"
+
+store:
+  - name: job-1
+    stream: jobs
+    subject: 1
+    bucket: jobs-bucket-1
+    batch:
+      max_count: 500
+
+  - name: job-2
+    stream: jobs
+    subject: 2
+    bucket: jobs-bucket-2
+    batch:
+      max_count: 500
