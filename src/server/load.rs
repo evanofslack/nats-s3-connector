@@ -11,8 +11,8 @@ use crate::server::{Dependencies, ServerError};
 
 pub fn create_router(deps: Dependencies) -> Router {
     let router: Router = Router::new()
-        .route("/jobs/load", get(get_load_jobs))
-        .route("/jobs/load", post(start_load_job))
+        .route("/load", get(get_load_jobs))
+        .route("/load", post(start_load_job))
         .with_state(deps);
     return router;
 }
@@ -35,11 +35,12 @@ async fn start_load_job(
     Json(payload): Json<jobs::CreateLoadJob>,
 ) -> Result<Json<jobs::LoadJob>, ServerError> {
     debug!(
-        route = "/jobs/load",
+        route = "/load",
         method = "PUT",
         bucket = payload.bucket,
         read_subject = payload.read_subject,
         write_subject = payload.write_subject,
+        delete_chunks = payload.delete_chunks,
         start = payload.start,
         end = payload.end,
         "handle request"
@@ -51,6 +52,7 @@ async fn start_load_job(
         payload.read_subject.clone(),
         payload.write_stream.clone(),
         payload.write_subject.clone(),
+        payload.delete_chunks,
         payload.start,
         payload.end,
     );
@@ -79,6 +81,7 @@ async fn start_load_job(
                 payload.write_stream,
                 payload.write_subject,
                 payload.bucket,
+                payload.delete_chunks,
                 payload.start,
                 payload.end,
             )

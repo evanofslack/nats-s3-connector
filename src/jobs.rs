@@ -7,6 +7,7 @@ pub struct CreateLoadJob {
     pub read_subject: String,
     pub write_stream: String,
     pub write_subject: String,
+    pub delete_chunks: bool,
     pub start: Option<usize>,
     pub end: Option<usize>,
 }
@@ -20,6 +21,7 @@ pub struct LoadJob {
     pub read_subject: String,
     pub write_stream: String,
     pub write_subject: String,
+    pub delete_chunks: bool,
     pub start: Option<usize>,
     pub end: Option<usize>,
 }
@@ -31,6 +33,7 @@ impl LoadJob {
         read_subject: String,
         write_stream: String,
         write_subject: String,
+        delete_chunks: bool,
         start: Option<usize>,
         end: Option<usize>,
     ) -> Self {
@@ -45,6 +48,7 @@ impl LoadJob {
             read_subject,
             write_stream,
             write_subject,
+            delete_chunks,
             start,
             end,
         }

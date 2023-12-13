@@ -1,7 +1,7 @@
-use anyhow::{Context, Error, Result};
+use anyhow::{Context, Result};
 use bincode;
 use s3::{creds::Credentials, serde_types::Object, Bucket, BucketConfiguration, Region};
-use tracing::{debug, info, trace};
+use tracing::{debug, info, trace, warn};
 
 use crate::encoding;
 
@@ -33,23 +33,25 @@ impl Client {
         chunk: encoding::Chunk,
         bucket_name: &str,
         path: &str,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let bucket = self.bucket(bucket_name, true).await?;
         let data = bincode::serialize(&chunk).context("chunk serialization")?;
         let response_data = bucket.put_object(path, &data).await.context("put object")?;
-        assert_eq!(response_data.status_code(), 200);
+        let code = response_data.status_code();
+        if code != 200 {
+            warn!(code = code, "unexpected status code")
+        }
         info!(bucket = bucket_name, path = path, "uploaded block to s3");
         Ok(())
     }
 
-    pub async fn download_chunk(
-        &self,
-        bucket_name: &str,
-        path: &str,
-    ) -> Result<encoding::Chunk, Error> {
+    pub async fn download_chunk(&self, bucket_name: &str, path: &str) -> Result<encoding::Chunk> {
         let bucket = self.bucket(bucket_name, false).await?;
         let response_data = bucket.get_object(path).await?;
-        assert_eq!(response_data.status_code(), 200);
+        let code = response_data.status_code();
+        if code != 200 {
+            warn!(code = code, "unexpected status code")
+        }
         let chunk: encoding::Chunk = bincode::deserialize(response_data.as_slice()).unwrap();
         debug!(
             bucket = bucket_name,
@@ -59,7 +61,18 @@ impl Client {
         Ok(chunk)
     }
 
-    pub async fn list_paths(&self, bucket_name: &str, path: &str) -> Result<Vec<String>, Error> {
+    pub async fn delete_chunk(&self, bucket_name: &str, path: &str) -> Result<()> {
+        let bucket = self.bucket(bucket_name, false).await?;
+        let response_data = bucket.delete_object(path).await?;
+        let code = response_data.status_code();
+        if code != 200 {
+            warn!(code = code, "unexpected status code")
+        }
+        debug!(bucket = bucket_name, path = path, "deleted block from s3");
+        Ok(())
+    }
+
+    pub async fn list_paths(&self, bucket_name: &str, path: &str) -> Result<Vec<String>> {
         let bucket = self.bucket(bucket_name, false).await?;
         let prefix = path.to_string();
         let results = bucket.list(prefix, None).await?;
@@ -74,7 +87,7 @@ impl Client {
         return Ok(paths);
     }
 
-    async fn bucket(&self, bucket_name: &str, try_create: bool) -> Result<s3::Bucket, Error> {
+    async fn bucket(&self, bucket_name: &str, try_create: bool) -> Result<s3::Bucket> {
         let region = Region::Custom {
             region: self.region.to_string(),
             endpoint: self.endpoint.to_string(),

@@ -95,6 +95,7 @@ impl IO {
         write_stream: String,
         write_subject: String,
         bucket: String,
+        delete_chunks: bool,
         start: Option<usize>,
         end: Option<usize>,
     ) -> Result<()> {
@@ -104,6 +105,7 @@ impl IO {
             write_stream = write_stream,
             write_subject = write_subject,
             bucket = bucket,
+            delete_chunks = delete_chunks,
             start = start,
             end = end,
             "starting to download from bucket and publish to stream "
@@ -148,11 +150,15 @@ impl IO {
                     trace!(
                         bytes = message.payload.len(),
                         subject = subject,
-                        "writing message to nats"
+                        "publishing message to nats"
                     );
                     self.nats_client
                         .publish(write_subject.clone(), message.payload)
                         .await?;
+                }
+                // if enabled, delete published chunks from s3
+                if delete_chunks {
+                    self.s3_client.delete_chunk(&bucket, &path).await?;
                 }
             }
         }
