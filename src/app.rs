@@ -68,6 +68,7 @@ impl App {
                             store.bucket.clone(),
                             store.batch.max_bytes,
                             store.batch.max_count,
+                            store.encoding.codec,
                         )
                         .await
                     {
