@@ -1,4 +1,8 @@
 use serde::{Deserialize, Serialize};
+use std::string::ToString;
+use strum_macros::Display;
+use tracing::debug;
+use ulid::Ulid;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct CreateLoadJob {
@@ -37,9 +41,9 @@ impl LoadJob {
         start: Option<usize>,
         end: Option<usize>,
     ) -> Self {
-        // TODO: ULID
-        let id = "".to_string();
+        let id = Ulid::new().to_string();
         let status = LoadJobStatus::Created;
+        debug!(id = id, status = status.to_string(), "new load job");
         Self {
             id,
             status,
@@ -55,7 +59,7 @@ impl LoadJob {
     }
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug, Display)]
 pub enum LoadJobStatus {
     Created,
     Running,

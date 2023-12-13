@@ -30,3 +30,5 @@ hyper-util = "0.1.1"
 figment = { version = "0.10.12", features = ["env", "toml", "yaml"]}
 async-trait = "0.1.74"
 thiserror = "1.0.50"
+ulid = "1.1.0"
+strum_macros = "0.25.3"
