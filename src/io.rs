@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::{str::from_utf8, time::SystemTime};
 use tokio::{sync::RwLock, time};
 
+use crate::config;
 use crate::encoding;
 use crate::nats;
 use crate::s3;
@@ -37,11 +38,13 @@ impl IO {
         bucket: String,
         max_bytes: i64,
         max_count: i64,
+        codec: config::Codec,
     ) -> Result<()> {
         debug!(
             stream = stream,
             subject = subject,
             bucket = bucket,
+            codec = codec.to_string(),
             "starting to consume from stream and upload to bucket"
         );
 
@@ -77,7 +80,9 @@ impl IO {
                 let block = encoding::MessageBlock::from(buffer.to_vec().await);
                 let chunk = encoding::Chunk::from_block(block);
                 let path = format!("{}/{}", subject, time());
-                self.s3_client.upload_chunk(chunk, &bucket, &path).await?;
+                self.s3_client
+                    .upload_chunk(chunk, &bucket, &path, &codec)
+                    .await?;
 
                 // Ack all messages, clear buffer and counter
                 buffer.ack_all().await;

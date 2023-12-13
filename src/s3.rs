@@ -1,8 +1,10 @@
 use anyhow::{Context, Result};
 use bincode;
 use s3::{creds::Credentials, serde_types::Object, Bucket, BucketConfiguration, Region};
+use serde_json;
 use tracing::{debug, info, trace, warn};
 
+use crate::config;
 use crate::encoding;
 
 #[derive(Clone, Debug)]
@@ -33,15 +35,32 @@ impl Client {
         chunk: encoding::Chunk,
         bucket_name: &str,
         path: &str,
+        codec: &config::Codec,
     ) -> Result<()> {
         let bucket = self.bucket(bucket_name, true).await?;
-        let data = bincode::serialize(&chunk).context("chunk serialization")?;
-        let response_data = bucket.put_object(path, &data).await.context("put object")?;
+        let data = match codec {
+            config::Codec::Json => serde_json::to_vec(&chunk).context("serialization")?,
+            config::Codec::Binary => bincode::serialize(&chunk).context("serialization")?,
+        };
+        let mime_type = match codec {
+            config::Codec::Binary => "bin",
+            config::Codec::Json => "json",
+        };
+        let path = format!("{}.{}", path, mime_type);
+        let response_data = bucket
+            .put_object(path.clone(), &data)
+            .await
+            .context("put object")?;
         let code = response_data.status_code();
         if code != 200 {
             warn!(code = code, "unexpected status code")
         }
-        info!(bucket = bucket_name, path = path, "uploaded block to s3");
+        info!(
+            bucket = bucket_name,
+            path = path,
+            codec = codec.to_string(),
+            "uploaded block to s3"
+        );
         Ok(())
     }
 
