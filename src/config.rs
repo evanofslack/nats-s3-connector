@@ -57,7 +57,7 @@ pub struct Store {
     pub stream: String,
     pub subject: String,
     pub bucket: String,
-    pub path: Option<String>,
+    pub prefix: Option<String>,
     pub batch: Batch,
     pub encoding: Encoding,
 }

@@ -17,7 +17,8 @@ name = "job-1"
 stream = "jobs"
 subject = "1"
 bucket = "jobs-bucket-1"
-batch.max_count = 500
+prefix = "test-prefix"
+batch.max_count = 100
 encoding.codec = "json"
 
 
@@ -26,5 +27,3 @@ name = "job-2"
 stream = "jobs"
 subject = "2"
 bucket = "jobs-bucket-2"
-batch.max_count = 500
-encoding.codec = "json"

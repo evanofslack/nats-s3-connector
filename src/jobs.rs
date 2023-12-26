@@ -7,7 +7,7 @@ use ulid::Ulid;
 #[derive(Deserialize, Clone, Debug)]
 pub struct CreateLoadJob {
     pub bucket: String,
-    pub key_prefix: Option<String>,
+    pub prefix: Option<String>,
     pub read_stream: String,
     pub read_subject: String,
     pub write_stream: String,
@@ -22,6 +22,7 @@ pub struct LoadJob {
     pub id: String,
     pub status: LoadJobStatus,
     pub bucket: String,
+    pub prefix: Option<String>,
     pub read_stream: String,
     pub read_subject: String,
     pub write_stream: String,
@@ -34,6 +35,7 @@ pub struct LoadJob {
 impl LoadJob {
     pub fn new(
         bucket: String,
+        prefix: Option<String>,
         read_stream: String,
         read_subject: String,
         write_stream: String,
@@ -49,6 +51,7 @@ impl LoadJob {
             id,
             status,
             bucket,
+            prefix,
             read_stream,
             read_subject,
             write_stream,

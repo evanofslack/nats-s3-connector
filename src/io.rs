@@ -35,7 +35,7 @@ impl IO {
         stream: String,
         subject: String,
         bucket: String,
-        path: Option<String>,
+        prefix: Option<String>,
         max_bytes: i64,
         max_count: i64,
         codec: encoding::Codec,
@@ -44,7 +44,7 @@ impl IO {
             stream = stream,
             subject = subject,
             bucket = bucket,
-            path = path,
+            prefix = prefix,
             codec = codec.to_string(),
             "starting to consume from stream and upload to bucket"
         );
@@ -59,7 +59,7 @@ impl IO {
             .nats_client
             .consume(stream.clone(), subject.clone(), max_count)
             .await?;
-        let path = &path;
+        let prefix = &prefix;
 
         while let Some(message) = messages.next().await {
             let message = message?;
@@ -86,17 +86,15 @@ impl IO {
                 // stream and consumer/subject are part of path
                 let key = format!("{stream}/{subject}/{key}");
 
-                // append the path if provided
-                trace!(path);
-                let upload_path = if let Some(path) = path {
-                    format!("{}/{}", path, key)
+                // append the prefix if provided
+                let path = if let Some(prefix) = prefix {
+                    format!("{}/{}", prefix, key)
                 } else {
                     key
                 };
-                trace!("upload_path: {}", upload_path);
 
                 self.s3_client
-                    .upload_chunk(chunk, &bucket, &upload_path, codec.clone())
+                    .upload_chunk(chunk, &bucket, &path, codec.clone())
                     .await?;
 
                 // Ack all messages, clear buffer and counter
@@ -115,7 +113,7 @@ impl IO {
         write_stream: String,
         write_subject: String,
         bucket: String,
-        bucket_prefix: Option<String>,
+        key_prefix: Option<String>,
         delete_chunks: bool,
         start: Option<usize>,
         end: Option<usize>,
@@ -126,7 +124,7 @@ impl IO {
             write_stream = write_stream,
             write_subject = write_subject,
             bucket = bucket,
-            prefix = bucket_prefix,
+            prefix = key_prefix,
             delete_chunks = delete_chunks,
             start = start,
             end = end,
@@ -136,7 +134,7 @@ impl IO {
         // build up the prefix
         let mut prefix = format!("{read_stream}/{read_subject}");
         // append optional provided bucket prefix
-        if let Some(pre) = bucket_prefix {
+        if let Some(pre) = key_prefix {
             prefix = format!("{pre}/{prefix}")
         }
 
@@ -178,9 +176,7 @@ impl IO {
                     .await?;
                 for message in chunk.block.messages {
                     let subject = format!("{write_stream}.{write_subject}");
-                    self.nats_client
-                        .publish(subject, message.payload)
-                        .await?;
+                    self.nats_client.publish(subject, message.payload).await?;
                 }
                 // if enabled, delete published chunks from s3
                 if delete_chunks {
