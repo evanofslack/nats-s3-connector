@@ -204,6 +204,8 @@ impl MessageBuffer {
                         Err(err) => warn!(err = err, "message ack::progress"),
                     }
                 }
+                // release read lock
+                drop(messages);
                 // sleep for interval
                 interval.tick().await;
             }
