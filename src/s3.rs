@@ -36,10 +36,8 @@ impl Client {
     ) -> Result<()> {
         let bucket = self.bucket(bucket_name, true).await?;
         let data = chunk.serialize(codec.clone())?;
-        let key = chunk.key(codec.clone()).to_string();
-        let path = format!("{}/{}", path, key);
         let response_data = bucket
-            .put_object(path.clone(), &data)
+            .put_object(&path, &data)
             .await
             .context("put object")?;
         let code = response_data.status_code();

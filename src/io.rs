@@ -57,7 +57,7 @@ impl IO {
         let mut block_size = 0;
         let mut messages = self
             .nats_client
-            .consume(stream, subject.clone(), max_count)
+            .consume(stream.clone(), subject.clone(), max_count)
             .await?;
         let path = &path;
 
@@ -83,12 +83,17 @@ impl IO {
                 let chunk = encoding::Chunk::from_block(block);
                 let key = chunk.key(codec.clone()).to_string();
 
+                // stream and consumer/subject are part of path
+                let key = format!("{stream}/{subject}/{key}");
+
                 // append the path if provided
+                trace!(path);
                 let upload_path = if let Some(path) = path {
                     format!("{}/{}", path, key)
                 } else {
                     key
                 };
+                trace!("upload_path: {}", upload_path);
 
                 self.s3_client
                     .upload_chunk(chunk, &bucket, &upload_path, codec.clone())
@@ -110,7 +115,7 @@ impl IO {
         write_stream: String,
         write_subject: String,
         bucket: String,
-        key_prefix: Option<String>,
+        bucket_prefix: Option<String>,
         delete_chunks: bool,
         start: Option<usize>,
         end: Option<usize>,
@@ -121,24 +126,26 @@ impl IO {
             write_stream = write_stream,
             write_subject = write_subject,
             bucket = bucket,
-            key_prefix = key_prefix,
+            prefix = bucket_prefix,
             delete_chunks = delete_chunks,
             start = start,
             end = end,
             "starting to download from bucket and publish to stream "
         );
-        let prefix = if let Some(prefix) = key_prefix {
-            format!("{}/{}", prefix, read_subject)
-        } else {
-            read_subject.clone()
-        };
-        let paths = self.s3_client.list_paths(&bucket, &prefix).await?;
 
+        // build up the prefix
+        let mut prefix = format!("{read_stream}/{read_subject}");
+        // append optional provided bucket prefix
+        if let Some(pre) = bucket_prefix {
+            prefix = format!("{pre}/{prefix}")
+        }
+
+        let paths = self.s3_client.list_paths(&bucket, &prefix).await?;
         for path in paths {
             // check if block falls within allowed timespan.
             // since each block's key is the unix timestamp at
             // upload time, we can parse and compare.
-            let prefix = format!("{}/", prefix);
+            let prefix = format!("{prefix}/");
             if let Some(key) = path.strip_prefix(&prefix) {
                 let chunk_key = encoding::ChunkKey::from_string(key.to_string())?;
                 if let Some(start) = start {
@@ -170,14 +177,9 @@ impl IO {
                     .download_chunk(&bucket, &path, chunk_key.codec)
                     .await?;
                 for message in chunk.block.messages {
-                    let subject = format!("{}.{}", write_stream, write_subject);
-                    trace!(
-                        bytes = message.payload.len(),
-                        subject = subject,
-                        "publishing message to nats"
-                    );
+                    let subject = format!("{write_stream}.{write_subject}");
                     self.nats_client
-                        .publish(write_subject.clone(), message.payload)
+                        .publish(subject, message.payload)
                         .await?;
                 }
                 // if enabled, delete published chunks from s3
