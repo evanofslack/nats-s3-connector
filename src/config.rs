@@ -6,12 +6,16 @@ use figment::{
 use serde::Deserialize;
 use std::ffi::OsStr;
 use std::path::PathBuf;
+use std::string::ToString;
 use tracing_subscriber::filter::LevelFilter;
+
+use crate::encoding;
 
 const DEFAULT_CONFIG_PATH: &'static str = "/etc/nats3/config.toml";
 const DEFAULT_SERVER_ADDR: &'static str = "0.0.0.0:8080";
 const DEFAULT_MAX_BYTES: i64 = 1_000_000;
 const DEFAULT_MAX_COUNT: i64 = 1000;
+const DEFAULT_CODEC: encoding::Codec = encoding::Codec::Binary;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
@@ -53,7 +57,9 @@ pub struct Store {
     pub stream: String,
     pub subject: String,
     pub bucket: String,
+    pub prefix: Option<String>,
     pub batch: Batch,
+    pub encoding: Encoding,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -70,6 +76,16 @@ fn max_bytes_default() -> i64 {
 
 fn max_count_default() -> i64 {
     DEFAULT_MAX_COUNT
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct Encoding {
+    #[serde(default = "codec_default")]
+    pub codec: encoding::Codec,
+}
+
+fn codec_default() -> encoding::Codec {
+    DEFAULT_CODEC
 }
 
 impl Config {

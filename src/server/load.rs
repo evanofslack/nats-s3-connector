@@ -48,6 +48,7 @@ async fn start_load_job(
 
     let job = jobs::LoadJob::new(
         payload.bucket.clone(),
+        payload.prefix.clone(),
         payload.read_stream.clone(),
         payload.read_subject.clone(),
         payload.write_stream.clone(),
@@ -81,6 +82,7 @@ async fn start_load_job(
                 payload.write_stream,
                 payload.write_subject,
                 payload.bucket,
+                payload.prefix,
                 payload.delete_chunks,
                 payload.start,
                 payload.end,

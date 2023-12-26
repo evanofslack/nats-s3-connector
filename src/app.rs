@@ -66,8 +66,10 @@ impl App {
                             store.stream.clone(),
                             store.subject.clone(),
                             store.bucket.clone(),
+                            store.prefix,
                             store.batch.max_bytes,
                             store.batch.max_count,
+                            store.encoding.codec,
                         )
                         .await
                     {

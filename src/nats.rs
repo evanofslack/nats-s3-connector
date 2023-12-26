@@ -64,9 +64,13 @@ impl Client {
     }
 
     pub async fn publish(&self, subject: String, payload: Bytes) -> Result<(), Error> {
-        trace!(subject = subject, "publishing to stream");
+        trace!(
+            bytes = payload.len(),
+            subject = subject,
+            "publishing message"
+        );
         let jetstream = jetstream::new(self.client.clone());
-        jetstream.publish(subject, payload).await?;
+        jetstream.publish(subject, payload).await?.await?;
         return Ok(());
     }
 }

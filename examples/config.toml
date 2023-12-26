@@ -4,20 +4,22 @@ log = "debug"
 addr = "0.0.0.0:8080"
 
 [nats]
-url = "nats:4222"
+url = "localhost:4222"
 
 [s3]
 region = "us-east-1"
-endpoint = "http://minio:9000"
-access_key = "test-user"
-secret_key = "test-password"
+endpoint = "http://localhost:9000"
+access = "test-user"
+secret = "test-password"
 
 [[store]]
 name = "job-1"
 stream = "jobs"
 subject = "1"
 bucket = "jobs-bucket-1"
-batch.max_count = 500
+prefix = "test-prefix"
+batch.max_count = 100
+encoding.codec = "json"
 
 
 [[store]]
@@ -25,4 +27,3 @@ name = "job-2"
 stream = "jobs"
 subject = "2"
 bucket = "jobs-bucket-2"
-batch.max_count = 500

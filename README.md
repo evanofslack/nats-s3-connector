@@ -72,8 +72,8 @@ curl --header "Content-Type: application/json" \
             "read_stream":"test",
             "read_subject":"subjects-1",
             "write_stream":"test",
-            "write_subject":"dest-1"
-            "delete_chunks":"true"
+            "write_subject":"dest-1",
+            "delete_chunks":true
         }' \
   http://localhost:8080/load
 ```
