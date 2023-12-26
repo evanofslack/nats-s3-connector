@@ -1,10 +1,9 @@
 use async_nats::jetstream;
 use futures::StreamExt;
+use std::str::from_utf8;
 use std::sync::Arc;
-use std::{str::from_utf8, time::SystemTime};
 use tokio::{sync::RwLock, time};
 
-use crate::config;
 use crate::encoding;
 use crate::nats;
 use crate::s3;
@@ -36,14 +35,16 @@ impl IO {
         stream: String,
         subject: String,
         bucket: String,
+        path: Option<String>,
         max_bytes: i64,
         max_count: i64,
-        codec: config::Codec,
+        codec: encoding::Codec,
     ) -> Result<()> {
         debug!(
             stream = stream,
             subject = subject,
             bucket = bucket,
+            path = path,
             codec = codec.to_string(),
             "starting to consume from stream and upload to bucket"
         );
@@ -58,6 +59,7 @@ impl IO {
             .nats_client
             .consume(stream, subject.clone(), max_count)
             .await?;
+        let path = &path;
 
         while let Some(message) = messages.next().await {
             let message = message?;
@@ -79,9 +81,17 @@ impl IO {
                 );
                 let block = encoding::MessageBlock::from(buffer.to_vec().await);
                 let chunk = encoding::Chunk::from_block(block);
-                let path = format!("{}/{}", subject, time());
+                let key = chunk.key(codec.clone()).to_string();
+
+                // append the path if provided
+                let upload_path = if let Some(path) = path {
+                    format!("{}/{}", path, key)
+                } else {
+                    key
+                };
+
                 self.s3_client
-                    .upload_chunk(chunk, &bucket, &path, &codec)
+                    .upload_chunk(chunk, &bucket, &upload_path, codec.clone())
                     .await?;
 
                 // Ack all messages, clear buffer and counter
@@ -100,6 +110,7 @@ impl IO {
         write_stream: String,
         write_subject: String,
         bucket: String,
+        key_prefix: Option<String>,
         delete_chunks: bool,
         start: Option<usize>,
         end: Option<usize>,
@@ -110,36 +121,41 @@ impl IO {
             write_stream = write_stream,
             write_subject = write_subject,
             bucket = bucket,
+            key_prefix = key_prefix,
             delete_chunks = delete_chunks,
             start = start,
             end = end,
             "starting to download from bucket and publish to stream "
         );
-        let paths = self.s3_client.list_paths(&bucket, &read_subject).await?;
+        let prefix = if let Some(prefix) = key_prefix {
+            format!("{}/{}", prefix, read_subject)
+        } else {
+            read_subject.clone()
+        };
+        let paths = self.s3_client.list_paths(&bucket, &prefix).await?;
 
         for path in paths {
-            let prefix = format!("{}/", read_subject);
-
             // check if block falls within allowed timespan.
             // since each block's key is the unix timestamp at
             // upload time, we can parse and compare.
+            let prefix = format!("{}/", prefix);
             if let Some(key) = path.strip_prefix(&prefix) {
-                let key_int = key.parse::<usize>()?;
+                let chunk_key = encoding::ChunkKey::from_string(key.to_string())?;
                 if let Some(start) = start {
-                    if key_int < start {
+                    if chunk_key.timestamp < start as u128 {
                         trace!(
                             start = start,
-                            key = key_int,
+                            key = chunk_key.timestamp,
                             "message block falls before time window, skipping"
                         );
                         continue;
                     }
                 }
                 if let Some(end) = end {
-                    if key_int > end {
+                    if chunk_key.timestamp > end as u128 {
                         trace!(
                             start = start,
-                            key = key_int,
+                            key = chunk_key.timestamp,
                             "message block falls after time window, skipping"
                         );
                         // TODO: potentially skip rest of keys if ensured
@@ -149,7 +165,10 @@ impl IO {
                 }
 
                 // download from s3 and publish to nats
-                let chunk = self.s3_client.download_chunk(&bucket, &path).await?;
+                let chunk = self
+                    .s3_client
+                    .download_chunk(&bucket, &path, chunk_key.codec)
+                    .await?;
                 for message in chunk.block.messages {
                     let subject = format!("{}.{}", write_stream, write_subject);
                     trace!(
@@ -244,12 +263,5 @@ impl MessageBuffer {
                 Err(err) => warn!(err = err, "message ack"),
             }
         }
-    }
-}
-
-fn time() -> u128 {
-    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_micros(),
-        Err(_) => panic!("SystemTime before UNIX EPOCH!"),
     }
 }

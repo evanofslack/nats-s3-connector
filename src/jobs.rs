@@ -7,6 +7,7 @@ use ulid::Ulid;
 #[derive(Deserialize, Clone, Debug)]
 pub struct CreateLoadJob {
     pub bucket: String,
+    pub key_prefix: Option<String>,
     pub read_stream: String,
     pub read_subject: String,
     pub write_stream: String,
