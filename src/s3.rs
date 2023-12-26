@@ -1,10 +1,7 @@
 use anyhow::{Context, Result};
-use bincode;
 use s3::{creds::Credentials, serde_types::Object, Bucket, BucketConfiguration, Region};
-use serde_json;
 use tracing::{debug, info, trace, warn};
 
-use crate::config;
 use crate::encoding;
 
 #[derive(Clone, Debug)]
@@ -35,18 +32,12 @@ impl Client {
         chunk: encoding::Chunk,
         bucket_name: &str,
         path: &str,
-        codec: &config::Codec,
+        codec: encoding::Codec,
     ) -> Result<()> {
         let bucket = self.bucket(bucket_name, true).await?;
-        let data = match codec {
-            config::Codec::Json => serde_json::to_vec(&chunk).context("serialization")?,
-            config::Codec::Binary => bincode::serialize(&chunk).context("serialization")?,
-        };
-        let mime_type = match codec {
-            config::Codec::Binary => "bin",
-            config::Codec::Json => "json",
-        };
-        let path = format!("{}.{}", path, mime_type);
+        let data = chunk.serialize(codec.clone())?;
+        let key = chunk.key(codec.clone()).to_string();
+        let path = format!("{}/{}", path, key);
         let response_data = bucket
             .put_object(path.clone(), &data)
             .await
@@ -64,14 +55,20 @@ impl Client {
         Ok(())
     }
 
-    pub async fn download_chunk(&self, bucket_name: &str, path: &str) -> Result<encoding::Chunk> {
+    pub async fn download_chunk(
+        &self,
+        bucket_name: &str,
+        path: &str,
+        codec: encoding::Codec,
+    ) -> Result<encoding::Chunk> {
         let bucket = self.bucket(bucket_name, false).await?;
         let response_data = bucket.get_object(path).await?;
         let code = response_data.status_code();
         if code != 200 {
             warn!(code = code, "unexpected status code")
         }
-        let chunk: encoding::Chunk = bincode::deserialize(response_data.as_slice()).unwrap();
+        let chunk = encoding::Chunk::deserialize(response_data.as_slice().into(), codec)?;
+
         debug!(
             bucket = bucket_name,
             path = path,
@@ -91,10 +88,9 @@ impl Client {
         Ok(())
     }
 
-    pub async fn list_paths(&self, bucket_name: &str, path: &str) -> Result<Vec<String>> {
+    pub async fn list_paths(&self, bucket_name: &str, prefix: &str) -> Result<Vec<String>> {
         let bucket = self.bucket(bucket_name, false).await?;
-        let prefix = path.to_string();
-        let results = bucket.list(prefix, None).await?;
+        let results = bucket.list(prefix.to_string().clone(), None).await?;
 
         let mut objects: Vec<Object> = Vec::new();
         for mut result in results {
@@ -102,7 +98,12 @@ impl Client {
         }
 
         let paths: Vec<String> = objects.into_iter().map(|obj| obj.key).collect();
-        trace!(bucket = bucket_name, path = path, "listed objects from s3");
+        trace!(
+            bucket = bucket_name,
+            prefix = prefix,
+            count = paths.len(),
+            "listed objects from s3"
+        );
         return Ok(paths);
     }
 

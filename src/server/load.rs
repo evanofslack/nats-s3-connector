@@ -81,6 +81,7 @@ async fn start_load_job(
                 payload.write_stream,
                 payload.write_subject,
                 payload.bucket,
+                payload.key_prefix,
                 payload.delete_chunks,
                 payload.start,
                 payload.end,
