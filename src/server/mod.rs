@@ -19,37 +19,46 @@ use tracing::{info, warn};
 
 use crate::db;
 use crate::io;
+use crate::metrics as counter;
 
 pub mod load;
+pub mod metrics;
 pub mod status;
 pub mod store;
 
 #[derive(Clone)]
 pub struct Dependencies {
+    metrics: counter::Metrics,
     io: io::IO,
     db: db::DynStorer,
 }
 
 impl Dependencies {
-    pub fn new(io: io::IO, db: db::DynStorer) -> Self {
-        Self { io, db }
+    pub fn new(metrics: counter::Metrics, io: io::IO, db: db::DynStorer) -> Self {
+        Self { metrics, io, db }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Server {
     addr: String,
+    metrics: counter::Metrics,
     io: io::IO,
     db: db::DynStorer,
 }
 
 impl Server {
-    pub fn new(addr: String, io: io::IO, db: db::DynStorer) -> Self {
-        Self { addr, io, db }
+    pub fn new(addr: String, metrics: counter::Metrics, io: io::IO, db: db::DynStorer) -> Self {
+        Self {
+            addr,
+            metrics,
+            io,
+            db,
+        }
     }
 
     pub async fn serve(&self) {
-        let state = Dependencies::new(self.io.clone(), self.db.clone());
+        let state = Dependencies::new(self.metrics.clone(), self.io.clone(), self.db.clone());
         let router = create_router(state.clone());
         let mut make_service = router.into_make_service_with_connect_info::<SocketAddr>();
         let listener = TcpListener::bind(self.addr.clone()).await.unwrap();
@@ -87,6 +96,7 @@ fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
 
 fn create_router(deps: Dependencies) -> Router {
     let app = status::create_router()
+        .merge(metrics::create_router(deps.clone()))
         .merge(load::create_router(deps))
         .merge(store::create_router());
     return app;

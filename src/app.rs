@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::config::Config;
 use crate::db;
 use crate::io;
+use crate::metrics;
 use crate::nats;
 use crate::s3;
 use crate::server;
@@ -15,6 +16,7 @@ pub struct App {
     pub config: Arc<Config>,
     pub db: db::DynStorer,
     pub io: io::IO,
+    pub metrics: metrics::Metrics,
     pub server: server::Server,
 }
 
@@ -38,12 +40,20 @@ pub async fn new(config: Config) -> Result<App> {
 
     let io = io::IO::new(s3_client, nats_client);
 
-    let server = server::Server::new(config.clone().server.addr, io.clone(), db.clone());
+    let metrics = metrics::Metrics::new();
+
+    let server = server::Server::new(
+        config.clone().server.addr,
+        metrics.clone(),
+        io.clone(),
+        db.clone(),
+    );
 
     let app = App {
         config: Arc::new(config),
         io,
         server,
+        metrics,
         db,
     };
 
