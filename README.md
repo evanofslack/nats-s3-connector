@@ -1,6 +1,7 @@
 # nats-s3-connector
 
-Connect [NATS Jetstream](https://docs.nats.io/nats-concepts/jetstream) to S3 for long term storage and replay.
+Connect [NATS Jetstream](https://docs.nats.io/nats-concepts/jetstream) to S3 for
+long term storage and replay.
 
 ## Description
 
@@ -44,13 +45,13 @@ Config values can be defined through toml or yaml formats.
 ```toml
 [[store]]
 name ="job-1"
-stream = "test"
+stream = "jobs"
 subject = "subjects-1"
 bucket = "bucket-1"
 
 [[store]]
 name ="job-2"
-stream = "test"
+stream = "jobs"
 subject = "subjects-2"
 bucket = "bucket-2"
 ```
@@ -69,13 +70,19 @@ curl --header "Content-Type: application/json" \
   --request POST \
   --data '{
             "bucket":"bucket-1",
-            "read_stream":"test",
+            "read_stream":"jobs",
             "read_subject":"subjects-1",
-            "write_stream":"test",
-            "write_subject":"dest-1",
+            "write_stream":"jobs",
+            "write_subject":"destination",
             "delete_chunks":true
         }' \
   http://localhost:8080/load
 ```
 
 This will start loading messages from S3 and publishing them to specified stream.
+
+### Metrics
+
+There is an prometheus compatible metrics endpoint at `/metrics`. It provides
+counters for messages stored and loaded, as well as gauges tracking in-progress
+jobs. All metrics are prefixed with `nats3`.
