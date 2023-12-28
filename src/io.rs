@@ -39,8 +39,8 @@ impl IO {
         subject: String,
         bucket: String,
         prefix: Option<String>,
-        max_bytes: i64,
-        max_count: i64,
+        bytes_max: i64,
+        messages_max: i64,
         codec: encoding::Codec,
     ) -> Result<()> {
         debug!(
@@ -57,10 +57,10 @@ impl IO {
         let buffer = MessageBuffer::new();
         buffer.keep_alive(KEEP_ALIVE_INTERVAL);
 
-        let mut block_size = 0;
+        let mut bytes_total = 0;
         let mut messages = self
             .nats_client
-            .consume(stream.clone(), subject.clone(), max_count)
+            .consume(stream.clone(), subject.clone(), messages_max)
             .await?;
         let prefix = &prefix;
 
@@ -71,15 +71,15 @@ impl IO {
                 "got message with payload {:?}",
                 from_utf8(&message.payload)
             );
-            block_size += &message.length;
+            bytes_total += &message.payload.len();
             buffer.push(message).await;
 
-            // Upload to S3 if threshold's reached
-            let buffer_count = buffer.len().await;
-            if buffer_count >= max_count as usize || block_size >= max_bytes as usize {
+            // upload to S3 if thresholds reached
+            let messages_total = buffer.len().await;
+            if messages_total >= messages_max as usize || bytes_total >= bytes_max as usize {
                 debug!(
-                    buffer_size = buffer_count,
-                    block_size = block_size,
+                    messages = messages_total,
+                    bytes = bytes_total,
                     "reached buffer threshold"
                 );
                 let block = encoding::MessageBlock::from(buffer.to_vec().await);
@@ -108,19 +108,19 @@ impl IO {
                     stream: stream.clone(),
                 };
                 nats_metrics
-                    .store_messages_total
+                    .store_messages
                     .get_or_create(&labels)
-                    .inc_by(buffer_count as u64);
+                    .inc_by(messages_total as u64);
                 nats_metrics
-                    .store_bytes_total
+                    .store_bytes
                     .get_or_create(&labels)
-                    .inc_by(block_size as u64);
+                    .inc_by(bytes_total as u64);
                 drop(nats_metrics);
 
-                // Ack all messages, clear buffer and counter
+                // ack all messages, clear buffer and counter
                 buffer.ack_all().await;
                 buffer.clear().await;
-                block_size = 0;
+                bytes_total = 0;
             }
         }
         Ok(())
@@ -214,16 +214,16 @@ impl IO {
                     stream: write_stream.clone(),
                 };
                 nats_metrics
-                    .load_messages_total
+                    .load_messages
                     .get_or_create(&labels)
                     .inc_by(messages_total as u64);
                 nats_metrics
-                    .load_bytes_total
+                    .load_bytes
                     .get_or_create(&labels)
                     .inc_by(bytes_total as u64);
                 drop(nats_metrics);
 
-                // if enabled, delete published chunks from s3
+                // if enabled, delete published chunk from s3
                 if delete_chunks {
                     self.s3_client.delete_chunk(&bucket, &path).await?;
                 }

@@ -23,8 +23,10 @@ pub struct App {
 pub async fn new(config: Config) -> Result<App> {
     debug!("creating new application from config");
 
+    let metrics = metrics::Metrics::new().await;
+
     // TODO: switch store based on config
-    let db: db::DynStorer = Arc::new(db::inmem::InMemory::new());
+    let db: db::DynStorer = Arc::new(db::inmem::InMemory::new(metrics.clone()));
 
     let s3_client = s3::Client::new(
         config.s3.region.clone(),
@@ -36,8 +38,6 @@ pub async fn new(config: Config) -> Result<App> {
     let nats_client = nats::Client::new(config.nats.url.clone())
         .await
         .context("failed to connect to nats server")?;
-
-    let metrics = metrics::Metrics::new().await;
 
     let io = io::IO::new(metrics.clone(), s3_client, nats_client);
 
@@ -68,6 +68,20 @@ impl App {
                 let app = self.clone();
                 let store = store.clone();
                 tokio::spawn(async move {
+                    // TODO: move store job metrics into JobStorer
+                    app.io
+                        .metrics
+                        .jobs
+                        .write()
+                        .await
+                        .store_jobs
+                        .get_or_create(&metrics::JobLabels {
+                            stream: store.stream.clone(),
+                            subject: store.subject.clone(),
+                            bucket: store.bucket.clone(),
+                        })
+                        .inc();
+
                     if let Err(err) = app
                         .io
                         .consume_stream(
@@ -82,6 +96,18 @@ impl App {
                         .await
                     {
                         warn!("{}", err);
+                        app.io
+                            .metrics
+                            .jobs
+                            .write()
+                            .await
+                            .store_jobs
+                            .get_or_create(&metrics::JobLabels {
+                                stream: store.stream.clone(),
+                                subject: store.subject.clone(),
+                                bucket: store.bucket.clone(),
+                            })
+                            .dec();
                     }
                 });
             }
