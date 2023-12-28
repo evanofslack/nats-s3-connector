@@ -4,7 +4,7 @@ use prometheus_client::encoding::text::encode;
 
 #[debug_handler]
 async fn metrics(State(state): State<Dependencies>) -> (StatusCode, String) {
-    let registry = state.metrics.registry.write().expect("lock not poisoned");
+    let registry = state.metrics.registry.write().await;
     let mut body = String::new();
     encode(&mut body, &registry).expect("read metrics registry");
     return (StatusCode::OK, body);

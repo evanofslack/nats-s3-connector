@@ -2,7 +2,8 @@ use prometheus_client::encoding::EncodeLabelSet;
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::family::Family;
 use prometheus_client::registry::Registry;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
 pub struct NatsLabels {
@@ -12,10 +13,10 @@ pub struct NatsLabels {
 
 #[derive(Default, Debug, Clone)]
 pub struct NatsMetrics {
-    publish_bytes_total: Family<NatsLabels, Counter>,
-    publish_messages_total: Family<NatsLabels, Counter>,
-    fetch_bytes_total: Family<NatsLabels, Counter>,
-    fetch_messages_total: Family<NatsLabels, Counter>,
+    pub load_messages_total: Family<NatsLabels, Counter>,
+    pub load_bytes_total: Family<NatsLabels, Counter>,
+    pub store_messages_total: Family<NatsLabels, Counter>,
+    pub store_bytes_total: Family<NatsLabels, Counter>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -25,34 +26,34 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    pub fn new() -> Self {
+    pub async fn new() -> Self {
         let metrics = Metrics {
             registry: Arc::new(RwLock::new(<Registry>::default())),
             nats: Arc::new(RwLock::new(NatsMetrics::default())),
         };
 
-        let mut registry = metrics.registry.write().expect("lock not poisoned");
-        let nats = metrics.nats.read().expect("lock not poisoned");
+        let mut registry = metrics.registry.write().await;
+        let nats = metrics.nats.read().await;
 
         registry.register(
-            "publish_bytes_total",
-            "Total size of published messages in bytes",
-            nats.publish_bytes_total.clone(),
+            "store_messages_total",
+            "Total count of stored messages",
+            nats.store_messages_total.clone(),
         );
         registry.register(
-            "publish_messages_total",
-            "Total count of published messages",
-            nats.publish_messages_total.clone(),
+            "store_bytes_total",
+            "Total size of stored messages in bytes",
+            nats.store_bytes_total.clone(),
         );
         registry.register(
-            "fetch_bytes_total",
-            "Total size of fetched messages in bytes",
-            nats.fetch_bytes_total.clone(),
+            "load_messages_total",
+            "Total count of loaded messages",
+            nats.load_messages_total.clone(),
         );
         registry.register(
-            "fetch_messages_total",
-            "Total count of fetched messages",
-            nats.fetch_messages_total.clone(),
+            "load_bytes_total",
+            "Total size of loaded messages in bytes",
+            nats.load_bytes_total.clone(),
         );
 
         drop(registry);

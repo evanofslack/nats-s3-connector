@@ -16,7 +16,6 @@ pub struct App {
     pub config: Arc<Config>,
     pub db: db::DynStorer,
     pub io: io::IO,
-    pub metrics: metrics::Metrics,
     pub server: server::Server,
 }
 
@@ -38,9 +37,9 @@ pub async fn new(config: Config) -> Result<App> {
         .await
         .context("failed to connect to nats server")?;
 
-    let io = io::IO::new(s3_client, nats_client);
+    let metrics = metrics::Metrics::new().await;
 
-    let metrics = metrics::Metrics::new();
+    let io = io::IO::new(metrics.clone(), s3_client, nats_client);
 
     let server = server::Server::new(
         config.clone().server.addr,
@@ -53,7 +52,6 @@ pub async fn new(config: Config) -> Result<App> {
         config: Arc::new(config),
         io,
         server,
-        metrics,
         db,
     };
 

@@ -10,10 +10,10 @@ mod db;
 mod encoding;
 mod io;
 mod jobs;
+mod metrics;
 mod nats;
 mod s3;
 mod server;
-mod metrics;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
