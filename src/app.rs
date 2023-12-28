@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::config::Config;
 use crate::db;
 use crate::io;
+use crate::metrics;
 use crate::nats;
 use crate::s3;
 use crate::server;
@@ -22,8 +23,10 @@ pub struct App {
 pub async fn new(config: Config) -> Result<App> {
     debug!("creating new application from config");
 
+    let metrics = metrics::Metrics::new().await;
+
     // TODO: switch store based on config
-    let db: db::DynStorer = Arc::new(db::inmem::InMemory::new());
+    let db: db::DynStorer = Arc::new(db::inmem::InMemory::new(metrics.clone()));
 
     let s3_client = s3::Client::new(
         config.s3.region.clone(),
@@ -36,9 +39,14 @@ pub async fn new(config: Config) -> Result<App> {
         .await
         .context("failed to connect to nats server")?;
 
-    let io = io::IO::new(s3_client, nats_client);
+    let io = io::IO::new(metrics.clone(), s3_client, nats_client);
 
-    let server = server::Server::new(config.clone().server.addr, io.clone(), db.clone());
+    let server = server::Server::new(
+        config.clone().server.addr,
+        metrics.clone(),
+        io.clone(),
+        db.clone(),
+    );
 
     let app = App {
         config: Arc::new(config),
@@ -60,6 +68,20 @@ impl App {
                 let app = self.clone();
                 let store = store.clone();
                 tokio::spawn(async move {
+                    // TODO: move store job metrics into JobStorer
+                    app.io
+                        .metrics
+                        .jobs
+                        .write()
+                        .await
+                        .store_jobs
+                        .get_or_create(&metrics::JobLabels {
+                            stream: store.stream.clone(),
+                            subject: store.subject.clone(),
+                            bucket: store.bucket.clone(),
+                        })
+                        .inc();
+
                     if let Err(err) = app
                         .io
                         .consume_stream(
@@ -74,6 +96,18 @@ impl App {
                         .await
                     {
                         warn!("{}", err);
+                        app.io
+                            .metrics
+                            .jobs
+                            .write()
+                            .await
+                            .store_jobs
+                            .get_or_create(&metrics::JobLabels {
+                                stream: store.stream.clone(),
+                                subject: store.subject.clone(),
+                                bucket: store.bucket.clone(),
+                            })
+                            .dec();
                     }
                 });
             }

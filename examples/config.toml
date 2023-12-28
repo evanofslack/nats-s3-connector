@@ -27,3 +27,5 @@ name = "job-2"
 stream = "jobs"
 subject = "2"
 bucket = "jobs-bucket-2"
+batch.max_count = 100
+encoding.codec = "json"

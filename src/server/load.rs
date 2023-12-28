@@ -90,7 +90,7 @@ async fn start_load_job(
             .await
         {
             success = false;
-            warn!("{}", err);
+            warn!("{err}");
         }
 
         // update job when finished
@@ -99,7 +99,7 @@ async fn start_load_job(
             false => jobs::LoadJobStatus::Failure,
         };
         if let Err(err) = state.db.update_load_job(job_id, status).await {
-            warn!("{}", err)
+            warn!("{err}")
         }
     });
 

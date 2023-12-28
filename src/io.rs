@@ -5,6 +5,7 @@ use std::sync::Arc;
 use tokio::{sync::RwLock, time};
 
 use crate::encoding;
+use crate::metrics;
 use crate::nats;
 use crate::s3;
 use anyhow::Result;
@@ -15,15 +16,17 @@ const KEEP_ALIVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
 // IO handles interfacing with NATs and S3
 #[derive(Debug, Clone)]
 pub struct IO {
+    pub metrics: metrics::Metrics,
     pub s3_client: s3::Client,
     pub nats_client: nats::Client,
 }
 
 impl IO {
-    pub fn new(s3_client: s3::Client, nats_client: nats::Client) -> IO {
+    pub fn new(metrics: metrics::Metrics, s3_client: s3::Client, nats_client: nats::Client) -> IO {
         debug!("creating new IO instance");
 
         let io = IO {
+            metrics,
             s3_client,
             nats_client,
         };
@@ -36,8 +39,8 @@ impl IO {
         subject: String,
         bucket: String,
         prefix: Option<String>,
-        max_bytes: i64,
-        max_count: i64,
+        bytes_max: i64,
+        messages_max: i64,
         codec: encoding::Codec,
     ) -> Result<()> {
         debug!(
@@ -54,10 +57,10 @@ impl IO {
         let buffer = MessageBuffer::new();
         buffer.keep_alive(KEEP_ALIVE_INTERVAL);
 
-        let mut block_size = 0;
+        let mut bytes_total = 0;
         let mut messages = self
             .nats_client
-            .consume(stream.clone(), subject.clone(), max_count)
+            .consume(stream.clone(), subject.clone(), messages_max)
             .await?;
         let prefix = &prefix;
 
@@ -68,15 +71,15 @@ impl IO {
                 "got message with payload {:?}",
                 from_utf8(&message.payload)
             );
-            block_size += &message.length;
+            bytes_total += &message.payload.len();
             buffer.push(message).await;
 
-            // Upload to S3 if threshold's reached
-            let buffer_count = buffer.len().await;
-            if buffer_count >= max_count as usize || block_size >= max_bytes as usize {
+            // upload to S3 if thresholds reached
+            let messages_total = buffer.len().await;
+            if messages_total >= messages_max as usize || bytes_total >= bytes_max as usize {
                 debug!(
-                    buffer_size = buffer_count,
-                    block_size = block_size,
+                    messages = messages_total,
+                    bytes = bytes_total,
                     "reached buffer threshold"
                 );
                 let block = encoding::MessageBlock::from(buffer.to_vec().await);
@@ -93,14 +96,31 @@ impl IO {
                     key
                 };
 
+                // do upload
                 self.s3_client
                     .upload_chunk(chunk, &bucket, &path, codec.clone())
                     .await?;
 
-                // Ack all messages, clear buffer and counter
+                // increment metrics
+                let nats_metrics = self.metrics.nats.write().await;
+                let labels = metrics::NatsLabels {
+                    subject: subject.clone(),
+                    stream: stream.clone(),
+                };
+                nats_metrics
+                    .store_messages
+                    .get_or_create(&labels)
+                    .inc_by(messages_total as u64);
+                nats_metrics
+                    .store_bytes
+                    .get_or_create(&labels)
+                    .inc_by(bytes_total as u64);
+                drop(nats_metrics);
+
+                // ack all messages, clear buffer and counter
                 buffer.ack_all().await;
                 buffer.clear().await;
-                block_size = 0;
+                bytes_total = 0;
             }
         }
         Ok(())
@@ -169,16 +189,41 @@ impl IO {
                     }
                 }
 
-                // download from s3 and publish to nats
+                // download from s3
                 let chunk = self
                     .s3_client
                     .download_chunk(&bucket, &path, chunk_key.codec)
                     .await?;
+
+                let mut bytes_total = 0;
+                let messages_total = chunk.block.messages.len();
+                let subject = format!("{write_stream}.{write_subject}");
+
+                // publish each message to nats
                 for message in chunk.block.messages {
-                    let subject = format!("{write_stream}.{write_subject}");
-                    self.nats_client.publish(subject, message.payload).await?;
+                    bytes_total += message.payload.len();
+                    self.nats_client
+                        .publish(subject.clone(), message.payload)
+                        .await?;
                 }
-                // if enabled, delete published chunks from s3
+
+                // increment metrics
+                let nats_metrics = self.metrics.nats.write().await;
+                let labels = metrics::NatsLabels {
+                    subject: write_subject.clone(),
+                    stream: write_stream.clone(),
+                };
+                nats_metrics
+                    .load_messages
+                    .get_or_create(&labels)
+                    .inc_by(messages_total as u64);
+                nats_metrics
+                    .load_bytes
+                    .get_or_create(&labels)
+                    .inc_by(bytes_total as u64);
+                drop(nats_metrics);
+
+                // if enabled, delete published chunk from s3
                 if delete_chunks {
                     self.s3_client.delete_chunk(&bucket, &path).await?;
                 }

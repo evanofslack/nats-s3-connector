@@ -10,6 +10,9 @@ build:
 run: build
     ./target/debug/nats3 --config examples/config.toml
 
+dev: build
+    RUST_LOG=none,nats3=TRACE RUST_BACKTRACE=1 ./target/debug/nats3 --config examples/config.toml
+
 up:
     cd examples && docker compose -f docker-compose-dev.yaml up -d && docker compose logs --follow
 
