@@ -8,6 +8,9 @@ build:
     cargo build
 
 run: build
+    ./target/debug/nats3 --config examples/config.toml
+
+dev: build
     RUST_LOG=none,nats3=TRACE RUST_BACKTRACE=1 ./target/debug/nats3 --config examples/config.toml
 
 up:
