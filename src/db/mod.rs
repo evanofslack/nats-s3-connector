@@ -26,12 +26,12 @@ pub trait LoadJobStorer: Sync + Debug {
     async fn delete_load_job(&self, id: String) -> Result<(), JobStoreError>;
 }
 
-// #[async_trait]
-// pub trait StoreJobStorer: Sync + Debug {
-//     async fn get_store_job(&self, id: String) -> Result<jobs::LoadJob, JobStoreError>;
-//     async fn get_store_jobs(&self) -> Result<Vec<jobs::LoadJob>, JobStoreError>;
-//     async fn create_store_job(&self, job: jobs::LoadJob) -> Result<(), JobStoreError>;
-//     async fn delete_store_job(&self, id: String) -> Result<(), JobStoreError>;
-// }
+#[async_trait]
+pub trait StoreJobStorer: Sync + Debug {
+    async fn get_store_job(&self, id: String) -> Result<jobs::LoadJob, JobStoreError>;
+    async fn get_store_jobs(&self) -> Result<Vec<jobs::LoadJob>, JobStoreError>;
+    async fn create_store_job(&self, job: jobs::LoadJob) -> Result<(), JobStoreError>;
+    async fn delete_store_job(&self, id: String) -> Result<(), JobStoreError>;
+}
 
 pub type DynStorer = Arc<dyn LoadJobStorer + Send + Sync>;
