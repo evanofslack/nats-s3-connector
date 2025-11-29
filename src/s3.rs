@@ -139,6 +139,6 @@ impl Client {
                 );
             }
         }
-        Ok(bucket)
+        Ok(*bucket)
     }
 }
