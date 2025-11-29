@@ -119,11 +119,10 @@ impl IntoResponse for ServerError {
         let (status, error_message) = match self {
             ServerError::JobStore(db::JobStoreError::NotFound { id }) => {
                 (StatusCode::NOT_FOUND, format!("job id {} not found", id))
-            }
-            // _ => (
-            //     StatusCode::INTERNAL_SERVER_ERROR,
-            //     "unknown error".to_string(),
-            // ),
+            } // _ => (
+              //     StatusCode::INTERNAL_SERVER_ERROR,
+              //     "unknown error".to_string(),
+              // ),
         };
         let body = Json(json!({
             "error": error_message,
