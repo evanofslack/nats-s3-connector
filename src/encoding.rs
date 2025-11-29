@@ -59,7 +59,7 @@ pub struct Message {
 impl From<jetstream::Message> for Message {
     fn from(source: jetstream::Message) -> Message {
         Message {
-            subject: source.subject.clone(),
+            subject: source.subject.clone().to_string(),
             payload: source.payload.clone(),
             headers: None,
             length: source.length,
