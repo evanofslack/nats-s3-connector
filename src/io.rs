@@ -67,7 +67,7 @@ impl IO {
         while let Some(message) = messages.next().await {
             let message = message?;
             trace!(
-                subject = message.subject,
+                subject = message.subject.to_string(),
                 "got message with payload {:?}",
                 from_utf8(&message.payload)
             );
