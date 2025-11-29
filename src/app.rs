@@ -61,41 +61,32 @@ pub async fn new(config: Config) -> Result<App> {
 impl App {
     // start all store jobs as defined in config
     pub async fn start_store_jobs(&self) {
-        if let Some(stores) = self.config.clone().store.clone() {
-            info!("starting up {} store jobs", stores.len());
-            for store in stores.iter() {
+        if let Some(store_jobs) = self.config.clone().store_jobs.clone() {
+            info!("starting up {} store jobs", store_jobs.len());
+            for job in store_jobs.iter() {
                 // must clone the instances we pass to the async thread
                 let app = self.clone();
-                let store = store.clone();
+                let job = job.clone();
                 tokio::spawn(async move {
-                    // TODO: move store job metrics into JobStorer
-                    app.io
-                        .metrics
-                        .jobs
-                        .write()
-                        .await
-                        .store_jobs
-                        .get_or_create(&metrics::JobLabels {
-                            stream: store.stream.clone(),
-                            subject: store.subject.clone(),
-                            bucket: store.bucket.clone(),
-                        })
-                        .inc();
+                    if let Err(err) = app.db.create_store_job(job.clone()).await {
+                        warn!("{err}");
+                    }
 
                     if let Err(err) = app
                         .io
                         .consume_stream(
-                            store.stream.clone(),
-                            store.subject.clone(),
-                            store.bucket.clone(),
-                            store.prefix,
-                            store.batch.max_bytes,
-                            store.batch.max_count,
-                            store.encoding.codec,
+                            job.stream.clone(),
+                            job.subject.clone(),
+                            job.bucket.clone(),
+                            job.prefix,
+                            job.batch.max_bytes,
+                            job.batch.max_count,
+                            job.encoding.codec,
                         )
                         .await
                     {
                         warn!("{}", err);
+                        warn!(id = job.id, "store job terminated with error: {err}");
                         app.io
                             .metrics
                             .jobs
@@ -103,9 +94,9 @@ impl App {
                             .await
                             .store_jobs
                             .get_or_create(&metrics::JobLabels {
-                                stream: store.stream.clone(),
-                                subject: store.subject.clone(),
-                                bucket: store.bucket.clone(),
+                                stream: job.stream.clone(),
+                                subject: job.subject.clone(),
+                                bucket: job.bucket.clone(),
                             })
                             .dec();
                     }

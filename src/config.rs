@@ -20,7 +20,7 @@ pub struct Config {
     pub server: Server,
     pub nats: Nats,
     pub s3: S3,
-    pub store: Option<Vec<jobs::StoreJob>>,
+    pub store_jobs: Option<Vec<jobs::StoreJob>>,
 }
 
 #[derive(Deserialize, Clone, Debug)]

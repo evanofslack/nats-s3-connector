@@ -12,7 +12,8 @@ use tracing::debug;
 #[derive(Debug)]
 pub struct InMemory {
     metrics: metrics::Metrics,
-    db: RwLock<HashMap<String, jobs::LoadJob>>,
+    store_db: RwLock<HashMap<String, jobs::StoreJob>>,
+    load_db: RwLock<HashMap<String, jobs::LoadJob>>,
 }
 
 impl InMemory {
@@ -20,8 +21,121 @@ impl InMemory {
         debug!("creating new in-memory job store");
         return InMemory {
             metrics,
-            db: RwLock::new(HashMap::new()),
+            store_db: RwLock::new(HashMap::new()),
+            load_db: RwLock::new(HashMap::new()),
         };
+    }
+}
+
+// JobStorer is a supertrait comprised of
+// StoreJobStorer and LoadJobStorer which
+// are both implemented below.
+impl db::JobStorer for InMemory {}
+
+#[async_trait]
+impl db::StoreJobStorer for InMemory {
+    async fn get_store_job(&self, id: String) -> Result<jobs::StoreJob, db::JobStoreError> {
+        debug!(id = id, "getting store job");
+        let found_job: jobs::StoreJob;
+        if let Some(job) = self.store_db.read().expect("lock not poisoned").get(&id) {
+            found_job = job.clone();
+        } else {
+            let err = db::JobStoreError::NotFound { id };
+            return Err(err);
+        }
+        return Ok(found_job);
+    }
+
+    async fn get_store_jobs(&self) -> Result<Vec<jobs::StoreJob>, db::JobStoreError> {
+        debug!("getting store jobs");
+        let jobs = self
+            .store_db
+            .read()
+            .expect("lock not poisoned")
+            .values()
+            .cloned()
+            .collect();
+        return Ok(jobs);
+    }
+
+    async fn create_store_job(&self, job: jobs::StoreJob) -> Result<(), db::JobStoreError> {
+        debug!(
+            id = job.id,
+            stream = job.stream,
+            subject = job.subject,
+            bucket = job.bucket,
+            "creating store job"
+        );
+        self.store_db
+            .write()
+            .expect("lock not poisoned")
+            .insert(job.id.clone(), job.clone());
+
+        self.metrics
+            .jobs
+            .write()
+            .await
+            .store_jobs
+            .get_or_create(&metrics::JobLabels {
+                stream: job.stream,
+                subject: job.subject,
+                bucket: job.bucket,
+            })
+            .inc();
+        return Ok(());
+    }
+
+    async fn update_store_job(
+        &self,
+        id: String,
+        status: jobs::StoreJobStatus,
+    ) -> Result<jobs::StoreJob, db::JobStoreError> {
+        debug!(id = id, status = status.to_string(), "updating store job");
+
+        // lookup existing job
+        let mut job = self.get_store_job(id).await?;
+        job.status = status.clone();
+
+        // insert updated job
+        self.store_db
+            .write()
+            .expect("lock not poisoned")
+            .insert(job.id.clone(), job.clone());
+
+        // decrement gauge if job status is terminal
+        let label_job = job.clone();
+        match status {
+            jobs::StoreJobStatus::Failure => {
+                self.metrics
+                    .jobs
+                    .write()
+                    .await
+                    .store_jobs
+                    .get_or_create(&metrics::JobLabels {
+                        stream: label_job.stream,
+                        subject: label_job.subject,
+                        bucket: label_job.bucket,
+                    })
+                    .dec();
+            }
+            _ => {}
+        }
+        return Ok(job);
+    }
+
+    async fn delete_store_job(&self, id: String) -> Result<(), db::JobStoreError> {
+        debug!(id = id, "deleting store job");
+        if let Some(_) = self
+            .store_db
+            .write()
+            .expect("lock not poisoned")
+            .remove(&id)
+        {
+            return Ok(());
+        } else {
+            let err = db::JobStoreError::NotFound { id };
+            return Err(err);
+        }
     }
 }
 
@@ -30,7 +144,7 @@ impl db::LoadJobStorer for InMemory {
     async fn get_load_job(&self, id: String) -> Result<jobs::LoadJob, db::JobStoreError> {
         debug!(id = id, "getting load job");
         let found_job: jobs::LoadJob;
-        if let Some(job) = self.db.read().expect("lock not poisoned").get(&id) {
+        if let Some(job) = self.load_db.read().expect("lock not poisoned").get(&id) {
             found_job = job.clone();
         } else {
             let err = db::JobStoreError::NotFound { id };
@@ -42,7 +156,7 @@ impl db::LoadJobStorer for InMemory {
     async fn get_load_jobs(&self) -> Result<Vec<jobs::LoadJob>, db::JobStoreError> {
         debug!("getting load jobs");
         let jobs = self
-            .db
+            .load_db
             .read()
             .expect("lock not poisoned")
             .values()
@@ -59,7 +173,7 @@ impl db::LoadJobStorer for InMemory {
             bucket = job.bucket,
             "creating load job"
         );
-        self.db
+        self.load_db
             .write()
             .expect("lock not poisoned")
             .insert(job.id.clone(), job.clone());
@@ -90,7 +204,7 @@ impl db::LoadJobStorer for InMemory {
         job.status = status.clone();
 
         // insert updated job
-        self.db
+        self.load_db
             .write()
             .expect("lock not poisoned")
             .insert(job.id.clone(), job.clone());
@@ -118,7 +232,7 @@ impl db::LoadJobStorer for InMemory {
 
     async fn delete_load_job(&self, id: String) -> Result<(), db::JobStoreError> {
         debug!(id = id, "deleting load job");
-        if let Some(_) = self.db.write().expect("lock not poisoned").remove(&id) {
+        if let Some(_) = self.load_db.write().expect("lock not poisoned").remove(&id) {
             return Ok(());
         } else {
             let err = db::JobStoreError::NotFound { id };

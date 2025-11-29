@@ -21,7 +21,7 @@ pub struct CreateStoreJob {
     pub encoding: Option<Encoding>,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct StoreJob {
     pub id: String,
     pub name: String,
@@ -61,7 +61,7 @@ impl StoreJob {
     }
 }
 
-#[derive(Serialize, Clone, Debug, Display)]
+#[derive(Serialize, Deserialize, Clone, Debug, Display)]
 pub enum StoreJobStatus {
     Created,
     Running,
