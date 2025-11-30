@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use async_nats::jetstream;
-use bincode;
 use sha2::{Digest, Sha256};
 use std::time::SystemTime;
 
@@ -60,7 +59,7 @@ pub struct Message {
 impl From<jetstream::Message> for Message {
     fn from(source: jetstream::Message) -> Message {
         Message {
-            subject: source.subject.clone(),
+            subject: source.subject.clone().to_string(),
             payload: source.payload.clone(),
             headers: None,
             length: source.length,
@@ -94,7 +93,9 @@ pub struct Chunk {
 
 impl Chunk {
     pub fn from_block(block: MessageBlock) -> Self {
-        let payload: Vec<u8> = bincode::serialize(&block).unwrap();
+        let config = bincode::config::legacy();
+        let payload: Vec<u8> = bincode::serde::encode_to_vec(&block, config).unwrap();
+        // let payload: Vec<u8> = serialize(&block).unwrap();
         let hash = Sha256::digest(&payload);
 
         Chunk {
@@ -108,13 +109,22 @@ impl Chunk {
     pub fn serialize(&self, codec: Codec) -> Result<Vec<u8>> {
         match codec {
             Codec::Json => return serde_json::to_vec(&self).context("json serialization"),
-            Codec::Binary => return bincode::serialize(&self).context("binary serialization"),
+            Codec::Binary => {
+                let config = bincode::config::legacy();
+                return bincode::serde::encode_to_vec(&self, config)
+                    .context("binary serialization");
+            }
         };
     }
     pub fn deserialize(data: Vec<u8>, codec: Codec) -> Result<Self> {
         match codec {
             Codec::Json => return serde_json::from_slice(&data).context("binary deserialization"),
-            Codec::Binary => return bincode::deserialize(&data).context("binary deserialization"),
+            Codec::Binary => {
+                let config = bincode::config::legacy();
+                let (chunk, _) = bincode::serde::decode_from_slice(&data, config)
+                    .context("binary deserialization")?;
+                return Ok(chunk);
+            }
         };
     }
 
