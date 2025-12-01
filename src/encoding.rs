@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use async_nats::jetstream;
 use sha2::{Digest, Sha256};
+use std::fmt;
 use std::time::SystemTime;
 
 use bytes::Bytes;
@@ -9,8 +10,8 @@ use std::collections::HashMap;
 use strum_macros::Display;
 use thiserror::Error;
 
-const MAGIC_NUMBER: &'static str = "NATS3";
-const VERSION: &'static str = "1.0";
+const MAGIC_NUMBER: &str = "NATS3";
+const VERSION: &str = "1.0";
 
 #[derive(Error, Debug)]
 pub enum ChunkKeyError {
@@ -108,24 +109,23 @@ impl Chunk {
     }
     pub fn serialize(&self, codec: Codec) -> Result<Vec<u8>> {
         match codec {
-            Codec::Json => return serde_json::to_vec(&self).context("json serialization"),
+            Codec::Json => serde_json::to_vec(&self).context("json serialization"),
             Codec::Binary => {
                 let config = bincode::config::legacy();
-                return bincode::serde::encode_to_vec(&self, config)
-                    .context("binary serialization");
+                bincode::serde::encode_to_vec(self, config).context("binary serialization")
             }
-        };
+        }
     }
     pub fn deserialize(data: Vec<u8>, codec: Codec) -> Result<Self> {
         match codec {
-            Codec::Json => return serde_json::from_slice(&data).context("binary deserialization"),
+            Codec::Json => serde_json::from_slice(&data).context("binary deserialization"),
             Codec::Binary => {
                 let config = bincode::config::legacy();
                 let (chunk, _) = bincode::serde::decode_from_slice(&data, config)
                     .context("binary deserialization")?;
-                return Ok(chunk);
+                Ok(chunk)
             }
-        };
+        }
     }
 
     pub fn key(&self, codec: Codec) -> ChunkKey {
@@ -148,14 +148,6 @@ pub struct ChunkKey {
 }
 
 impl ChunkKey {
-    pub fn to_string(&self) -> String {
-        format!(
-            "{}-{}.{}",
-            self.timestamp,
-            self.message_count,
-            self.codec.to_extension()
-        )
-    }
     pub fn from_string(input: String) -> Result<Self> {
         let input_field = input.clone();
         let (timestamp, rest) = input.split_once("-").ok_or(ChunkKeyError::InvalidKey {
@@ -170,7 +162,19 @@ impl ChunkKey {
             message_count: count.parse::<usize>()?,
             codec: Codec::from_string(ext.to_string())?,
         };
-        return Ok(key);
+        Ok(key)
+    }
+}
+
+impl fmt::Display for ChunkKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}-{}.{}",
+            self.timestamp,
+            self.message_count,
+            self.codec.to_extension()
+        )
     }
 }
 

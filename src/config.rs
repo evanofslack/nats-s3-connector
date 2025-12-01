@@ -11,8 +11,8 @@ use tracing_subscriber::filter::LevelFilter;
 
 use crate::jobs;
 
-const DEFAULT_CONFIG_PATH: &'static str = "/etc/nats3/config.toml";
-const DEFAULT_SERVER_ADDR: &'static str = "0.0.0.0:8080";
+const DEFAULT_CONFIG_PATH: &str = "/etc/nats3/config.toml";
+const DEFAULT_SERVER_ADDR: &str = "0.0.0.0:8080";
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
@@ -60,7 +60,7 @@ impl Config {
         };
 
         let config: Config = figment.join(Env::prefixed("NATS3_").split("_")).extract()?;
-        return Ok(config);
+        Ok(config)
     }
 
     pub fn log_level(&self) -> LevelFilter {

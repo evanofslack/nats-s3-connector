@@ -16,7 +16,7 @@ impl Client {
             .await
             .context("failed to connect to nats server")?;
         let client = Client { client };
-        return Ok(client);
+        Ok(client)
     }
 
     pub async fn consume(
@@ -52,7 +52,7 @@ impl Client {
                 name.as_str(),
                 jetstream::consumer::pull::Config {
                     filter_subject,
-                    durable_name: Some(name.clone().into()),
+                    durable_name: Some(name.clone()),
                     max_ack_pending,
                     ..Default::default()
                 },
@@ -60,7 +60,7 @@ impl Client {
             .await?;
 
         let messages = consumer.messages().await?;
-        return Ok(messages);
+        Ok(messages)
     }
 
     pub async fn publish(&self, subject: String, payload: Bytes) -> Result<(), Error> {
@@ -71,6 +71,6 @@ impl Client {
         );
         let jetstream = jetstream::new(self.client.clone());
         jetstream.publish(subject, payload).await?.await?;
-        return Ok(());
+        Ok(())
     }
 }

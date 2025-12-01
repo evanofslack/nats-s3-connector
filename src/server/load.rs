@@ -6,15 +6,15 @@ use axum::{
 };
 use tracing::{debug, warn};
 
-use crate::jobs;
 use crate::server::{Dependencies, ServerError};
+use crate::{io, jobs};
 
 pub fn create_router(deps: Dependencies) -> Router {
     let router: Router = Router::new()
         .route("/load", get(get_load_jobs))
         .route("/load", post(start_load_job))
         .with_state(deps);
-    return router;
+    router
 }
 
 #[debug_handler]
@@ -26,7 +26,7 @@ async fn get_load_jobs(
     // fetch load jobs from db
     let jobs = state.db.get_load_jobs().await?;
 
-    return Ok(Json(jobs));
+    Ok(Json(jobs))
 }
 
 #[debug_handler]
@@ -76,17 +76,17 @@ async fn start_load_job(
         let mut success = true;
         if let Err(err) = state
             .io
-            .publish_stream(
-                payload.read_stream,
-                payload.read_subject,
-                payload.write_stream,
-                payload.write_subject,
-                payload.bucket,
-                payload.prefix,
-                payload.delete_chunks,
-                payload.start,
-                payload.end,
-            )
+            .publish_stream(io::PublishConfig {
+                read_stream: payload.read_stream,
+                read_subject: payload.read_subject,
+                write_stream: payload.write_stream,
+                write_subject: payload.write_subject,
+                bucket: payload.bucket,
+                key_prefix: payload.prefix,
+                delete_chunks: payload.delete_chunks,
+                start: payload.start,
+                end: payload.end,
+            })
             .await
         {
             success = false;
@@ -105,5 +105,5 @@ async fn start_load_job(
 
     // return a 201 resp
     // TODO: write location header
-    return Ok(Json(job));
+    Ok(Json(job))
 }

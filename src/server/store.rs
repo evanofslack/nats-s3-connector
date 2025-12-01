@@ -6,6 +6,7 @@ use axum::{
 };
 use tracing::{debug, warn};
 
+use crate::io;
 use crate::jobs;
 use crate::metrics;
 use crate::server::{Dependencies, ServerError};
@@ -15,7 +16,7 @@ pub fn create_router(deps: Dependencies) -> Router {
         .route("/store", get(get_store_jobs))
         .route("/store", post(start_store_job))
         .with_state(deps);
-    return router;
+    router
 }
 
 #[debug_handler]
@@ -27,7 +28,7 @@ async fn get_store_jobs(
     // fetch store jobs from db
     let jobs = state.db.get_store_jobs().await?;
 
-    return Ok(Json(jobs));
+    Ok(Json(jobs))
 }
 
 #[debug_handler]
@@ -83,15 +84,15 @@ async fn start_store_job(
         // and writing to s3.
         if let Err(err) = state
             .io
-            .consume_stream(
-                job_clone.stream.clone(),
-                job_clone.subject.clone(),
-                job_clone.bucket.clone(),
-                job_clone.prefix.clone(),
-                job_clone.batch.max_bytes,
-                job_clone.batch.max_count,
-                job_clone.encoding.codec,
-            )
+            .consume_stream(io::ConsumeConfig {
+                stream: job_clone.stream.clone(),
+                subject: job_clone.subject.clone(),
+                bucket: job_clone.bucket.clone(),
+                prefix: job_clone.prefix.clone(),
+                bytes_max: job_clone.batch.max_bytes,
+                messages_max: job_clone.batch.max_count,
+                codec: job_clone.encoding.codec,
+            })
             .await
         {
             warn!(id = job_id, "store job terminated with error: {err}");
@@ -112,5 +113,5 @@ async fn start_store_job(
     });
 
     // return a 201 resp
-    return Ok(Json(job));
+    Ok(Json(job))
 }
