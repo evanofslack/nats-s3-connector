@@ -97,8 +97,8 @@ fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
 fn create_router(deps: Dependencies) -> Router {
     let app = status::create_router()
         .merge(metrics::create_router(deps.clone()))
-        .merge(load::create_router(deps))
-        .merge(store::create_router());
+        .merge(load::create_router(deps.clone()))
+        .merge(store::create_router(deps));
     return app;
 }
 
@@ -119,11 +119,10 @@ impl IntoResponse for ServerError {
         let (status, error_message) = match self {
             ServerError::JobStore(db::JobStoreError::NotFound { id }) => {
                 (StatusCode::NOT_FOUND, format!("job id {} not found", id))
-            }
-            // _ => (
-            //     StatusCode::INTERNAL_SERVER_ERROR,
-            //     "unknown error".to_string(),
-            // ),
+            } // _ => (
+              //     StatusCode::INTERNAL_SERVER_ERROR,
+              //     "unknown error".to_string(),
+              // ),
         };
         let body = Json(json!({
             "error": error_message,

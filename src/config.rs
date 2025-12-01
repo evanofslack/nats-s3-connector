@@ -9,13 +9,10 @@ use std::path::PathBuf;
 use std::string::ToString;
 use tracing_subscriber::filter::LevelFilter;
 
-use crate::encoding;
+use crate::jobs;
 
 const DEFAULT_CONFIG_PATH: &'static str = "/etc/nats3/config.toml";
 const DEFAULT_SERVER_ADDR: &'static str = "0.0.0.0:8080";
-const DEFAULT_MAX_BYTES: i64 = 1_000_000;
-const DEFAULT_MAX_COUNT: i64 = 1000;
-const DEFAULT_CODEC: encoding::Codec = encoding::Codec::Binary;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
@@ -23,7 +20,7 @@ pub struct Config {
     pub server: Server,
     pub nats: Nats,
     pub s3: S3,
-    pub store: Option<Vec<Store>>,
+    pub store_jobs: Option<Vec<jobs::StoreJob>>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -49,43 +46,6 @@ pub struct S3 {
     pub secret_key: String,
     #[serde(rename = "access")]
     pub access_key: String,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-pub struct Store {
-    pub name: String,
-    pub stream: String,
-    pub subject: String,
-    pub bucket: String,
-    pub prefix: Option<String>,
-    pub batch: Batch,
-    pub encoding: Encoding,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-pub struct Batch {
-    #[serde(default = "max_bytes_default")]
-    pub max_bytes: i64,
-    #[serde(default = "max_count_default")]
-    pub max_count: i64,
-}
-
-fn max_bytes_default() -> i64 {
-    DEFAULT_MAX_BYTES
-}
-
-fn max_count_default() -> i64 {
-    DEFAULT_MAX_COUNT
-}
-
-#[derive(Deserialize, Clone, Debug)]
-pub struct Encoding {
-    #[serde(default = "codec_default")]
-    pub codec: encoding::Codec,
-}
-
-fn codec_default() -> encoding::Codec {
-    DEFAULT_CODEC
 }
 
 impl Config {

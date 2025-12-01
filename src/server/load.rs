@@ -23,7 +23,7 @@ async fn get_load_jobs(
 ) -> Result<Json<Vec<jobs::LoadJob>>, ServerError> {
     debug!(route = "/jobs/load", method = "GET", "handle request");
 
-    // fetch jobs from db
+    // fetch load jobs from db
     let jobs = state.db.get_load_jobs().await?;
 
     return Ok(Json(jobs));

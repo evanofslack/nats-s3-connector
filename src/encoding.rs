@@ -20,7 +20,7 @@ pub enum ChunkKeyError {
     InvalidExt { ext: String },
 }
 
-#[derive(Deserialize, Clone, Debug, Display)]
+#[derive(Serialize, Deserialize, Clone, Debug, Display)]
 pub enum Codec {
     #[serde(alias = "json", alias = "JSON")]
     Json,
