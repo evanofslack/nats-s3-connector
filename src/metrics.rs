@@ -86,6 +86,6 @@ impl Metrics {
         drop(registry);
         drop(nats);
         drop(jobs);
-        return metrics;
+        metrics
     }
 }

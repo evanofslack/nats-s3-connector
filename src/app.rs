@@ -55,7 +55,7 @@ pub async fn new(config: Config) -> Result<App> {
         db,
     };
 
-    return Ok(app);
+    Ok(app)
 }
 
 impl App {

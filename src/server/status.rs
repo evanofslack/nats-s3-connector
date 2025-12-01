@@ -1,11 +1,11 @@
 use axum::{http::StatusCode, routing::get, Router};
 
 async fn ping() -> (StatusCode, &'static str) {
-    return (StatusCode::OK, "pong");
+    (StatusCode::OK, "pong")
 }
 
 async fn ready() -> (StatusCode, &'static str) {
-    return (StatusCode::OK, "ready");
+    (StatusCode::OK, "ready")
 }
 
 pub fn create_router() -> Router {
@@ -13,5 +13,5 @@ pub fn create_router() -> Router {
         .route("/ping", get(ping))
         .route("/ready", get(ready));
 
-    return router;
+    router
 }

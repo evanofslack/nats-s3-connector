@@ -25,13 +25,13 @@ impl IO {
     pub fn new(metrics: metrics::Metrics, s3_client: s3::Client, nats_client: nats::Client) -> IO {
         debug!("creating new IO instance");
 
-        let io = IO {
+        
+
+        IO {
             metrics,
             s3_client,
             nats_client,
-        };
-
-        return io;
+        }
     }
     pub async fn consume_stream(
         &self,
@@ -252,7 +252,7 @@ impl MessageBuffer {
     }
 
     // starts a thread periodically keeping nats messages alive
-    fn keep_alive(&self, interval: time::Duration) -> () {
+    fn keep_alive(&self, interval: time::Duration) {
         let messages = self.messages.clone();
         // keepalive thread currently runs forever.
         // TODO: cancel thread on job cancellation.

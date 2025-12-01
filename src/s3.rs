@@ -19,12 +19,12 @@ impl Client {
             region = region,
             "creating new s3 client"
         );
-        return Client {
+        Client {
             region,
             endpoint,
             access_key,
             secret_key,
-        };
+        }
     }
 
     pub async fn upload_chunk(
@@ -102,7 +102,7 @@ impl Client {
             count = paths.len(),
             "listed objects from s3"
         );
-        return Ok(paths);
+        Ok(paths)
     }
 
     async fn bucket(&self, bucket_name: &str, try_create: bool) -> Result<s3::Bucket> {
@@ -121,8 +121,8 @@ impl Client {
         let mut bucket =
             Bucket::new(bucket_name, region.clone(), credentials.clone())?.with_path_style();
 
-        if try_create {
-            if !bucket.exists().await? {
+        if try_create
+            && !bucket.exists().await? {
                 bucket = Bucket::create_with_path_style(
                     bucket_name,
                     region.clone(),
@@ -138,7 +138,6 @@ impl Client {
                     "created bucket in s3"
                 );
             }
-        }
         Ok(*bucket)
     }
 }

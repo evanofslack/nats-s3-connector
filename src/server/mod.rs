@@ -95,11 +95,11 @@ fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
 }
 
 fn create_router(deps: Dependencies) -> Router {
-    let app = status::create_router()
+    
+    status::create_router()
         .merge(metrics::create_router(deps.clone()))
         .merge(load::create_router(deps.clone()))
-        .merge(store::create_router(deps));
-    return app;
+        .merge(store::create_router(deps))
 }
 
 enum ServerError {
@@ -127,6 +127,6 @@ impl IntoResponse for ServerError {
         let body = Json(json!({
             "error": error_message,
         }));
-        return (status, body).into_response();
+        (status, body).into_response()
     }
 }

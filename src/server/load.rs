@@ -14,7 +14,7 @@ pub fn create_router(deps: Dependencies) -> Router {
         .route("/load", get(get_load_jobs))
         .route("/load", post(start_load_job))
         .with_state(deps);
-    return router;
+    router
 }
 
 #[debug_handler]
@@ -26,7 +26,7 @@ async fn get_load_jobs(
     // fetch load jobs from db
     let jobs = state.db.get_load_jobs().await?;
 
-    return Ok(Json(jobs));
+    Ok(Json(jobs))
 }
 
 #[debug_handler]
@@ -105,5 +105,5 @@ async fn start_load_job(
 
     // return a 201 resp
     // TODO: write location header
-    return Ok(Json(job));
+    Ok(Json(job))
 }

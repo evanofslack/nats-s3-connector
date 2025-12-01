@@ -7,7 +7,7 @@ async fn metrics(State(state): State<Dependencies>) -> (StatusCode, String) {
     let registry = state.metrics.registry.write().await;
     let mut body = String::new();
     encode(&mut body, &registry).expect("read metrics registry");
-    return (StatusCode::OK, body);
+    (StatusCode::OK, body)
 }
 
 pub fn create_router(deps: Dependencies) -> Router {
@@ -15,5 +15,5 @@ pub fn create_router(deps: Dependencies) -> Router {
         .route("/metrics", get(metrics))
         .with_state(deps);
 
-    return router;
+    router
 }

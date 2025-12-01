@@ -15,7 +15,7 @@ pub fn create_router(deps: Dependencies) -> Router {
         .route("/store", get(get_store_jobs))
         .route("/store", post(start_store_job))
         .with_state(deps);
-    return router;
+    router
 }
 
 #[debug_handler]
@@ -27,7 +27,7 @@ async fn get_store_jobs(
     // fetch store jobs from db
     let jobs = state.db.get_store_jobs().await?;
 
-    return Ok(Json(jobs));
+    Ok(Json(jobs))
 }
 
 #[debug_handler]
@@ -112,5 +112,5 @@ async fn start_store_job(
     });
 
     // return a 201 resp
-    return Ok(Json(job));
+    Ok(Json(job))
 }

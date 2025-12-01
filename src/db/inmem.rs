@@ -19,11 +19,11 @@ pub struct InMemory {
 impl InMemory {
     pub fn new(metrics: metrics::Metrics) -> Self {
         debug!("creating new in-memory job store");
-        return InMemory {
+        InMemory {
             metrics,
             store_db: RwLock::new(HashMap::new()),
             load_db: RwLock::new(HashMap::new()),
-        };
+        }
     }
 }
 
@@ -104,21 +104,18 @@ impl db::StoreJobStorer for InMemory {
 
         // decrement gauge if job status is terminal
         let label_job = job.clone();
-        match status {
-            jobs::StoreJobStatus::Failure => {
-                self.metrics
-                    .jobs
-                    .write()
-                    .await
-                    .store_jobs
-                    .get_or_create(&metrics::JobLabels {
-                        stream: label_job.stream,
-                        subject: label_job.subject,
-                        bucket: label_job.bucket,
-                    })
-                    .dec();
-            }
-            _ => {}
+        if let jobs::StoreJobStatus::Failure = status {
+            self.metrics
+                .jobs
+                .write()
+                .await
+                .store_jobs
+                .get_or_create(&metrics::JobLabels {
+                    stream: label_job.stream,
+                    subject: label_job.subject,
+                    bucket: label_job.bucket,
+                })
+                .dec();
         }
         return Ok(job);
     }
