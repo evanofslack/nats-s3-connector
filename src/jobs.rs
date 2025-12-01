@@ -141,6 +141,7 @@ pub struct LoadJob {
 }
 
 impl LoadJob {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         bucket: String,
         prefix: Option<String>,

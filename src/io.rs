@@ -13,6 +13,28 @@ use tracing::{debug, trace, warn};
 
 const KEEP_ALIVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
 
+pub struct ConsumeConfig {
+    pub stream: String,
+    pub subject: String,
+    pub bucket: String,
+    pub prefix: Option<String>,
+    pub bytes_max: i64,
+    pub messages_max: i64,
+    pub codec: encoding::Codec,
+}
+
+pub struct PublishConfig {
+    pub read_stream: String,
+    pub read_subject: String,
+    pub write_stream: String,
+    pub write_subject: String,
+    pub bucket: String,
+    pub key_prefix: Option<String>,
+    pub delete_chunks: bool,
+    pub start: Option<usize>,
+    pub end: Option<usize>,
+}
+
 // IO handles interfacing with NATs and S3
 #[derive(Debug, Clone)]
 pub struct IO {
@@ -25,30 +47,19 @@ impl IO {
     pub fn new(metrics: metrics::Metrics, s3_client: s3::Client, nats_client: nats::Client) -> IO {
         debug!("creating new IO instance");
 
-        
-
         IO {
             metrics,
             s3_client,
             nats_client,
         }
     }
-    pub async fn consume_stream(
-        &self,
-        stream: String,
-        subject: String,
-        bucket: String,
-        prefix: Option<String>,
-        bytes_max: i64,
-        messages_max: i64,
-        codec: encoding::Codec,
-    ) -> Result<()> {
+    pub async fn consume_stream(&self, config: ConsumeConfig) -> Result<()> {
         debug!(
-            stream = stream,
-            subject = subject,
-            bucket = bucket,
-            prefix = prefix,
-            codec = codec.to_string(),
+            stream = config.stream,
+            subject = config.subject,
+            bucket = config.bucket,
+            prefix = config.prefix,
+            codec = config.codec.to_string(),
             "starting to consume from stream and upload to bucket"
         );
 
@@ -60,9 +71,13 @@ impl IO {
         let mut bytes_total = 0;
         let mut messages = self
             .nats_client
-            .consume(stream.clone(), subject.clone(), messages_max)
+            .consume(
+                config.stream.clone(),
+                config.subject.clone(),
+                config.messages_max,
+            )
             .await?;
-        let prefix = &prefix;
+        let prefix = &config.prefix;
 
         while let Some(message) = messages.next().await {
             let message = message?;
@@ -76,7 +91,9 @@ impl IO {
 
             // upload to S3 if thresholds reached
             let messages_total = buffer.len().await;
-            if messages_total >= messages_max as usize || bytes_total >= bytes_max as usize {
+            if messages_total >= config.messages_max as usize
+                || bytes_total >= config.bytes_max as usize
+            {
                 debug!(
                     messages = messages_total,
                     bytes = bytes_total,
@@ -84,9 +101,11 @@ impl IO {
                 );
                 let block = encoding::MessageBlock::from(buffer.to_vec().await);
                 let chunk = encoding::Chunk::from_block(block);
-                let key = chunk.key(codec.clone()).to_string();
+                let key = chunk.key(config.codec.clone()).to_string();
 
                 // stream and consumer/subject are part of path
+                let stream = config.stream.clone();
+                let subject = config.subject.clone();
                 let key = format!("{stream}/{subject}/{key}");
 
                 // append the prefix if provided
@@ -98,7 +117,7 @@ impl IO {
 
                 // do upload
                 self.s3_client
-                    .upload_chunk(chunk, &bucket, &path, codec.clone())
+                    .upload_chunk(chunk, &config.bucket, &path, config.codec.clone())
                     .await?;
 
                 // increment metrics
@@ -126,39 +145,33 @@ impl IO {
         Ok(())
     }
 
-    pub async fn publish_stream(
-        &self,
-        read_stream: String,
-        read_subject: String,
-        write_stream: String,
-        write_subject: String,
-        bucket: String,
-        key_prefix: Option<String>,
-        delete_chunks: bool,
-        start: Option<usize>,
-        end: Option<usize>,
-    ) -> Result<()> {
+    pub async fn publish_stream(&self, config: PublishConfig) -> Result<()> {
         trace!(
-            read_stream = read_stream,
-            read_subject = read_subject,
-            write_stream = write_stream,
-            write_subject = write_subject,
-            bucket = bucket,
-            prefix = key_prefix,
-            delete_chunks = delete_chunks,
-            start = start,
-            end = end,
+            read_stream = config.read_stream,
+            read_subject = config.read_subject,
+            write_stream = config.write_stream,
+            write_subject = config.write_subject,
+            bucket = config.bucket,
+            prefix = config.key_prefix,
+            delete_chunks = config.delete_chunks,
+            start = config.start,
+            end = config.end,
             "starting to download from bucket and publish to stream "
         );
 
+        let write_stream = config.write_stream.clone();
+        let write_subject = config.write_subject.clone();
+
         // build up the prefix
+        let read_stream = config.read_stream.clone();
+        let read_subject = config.read_subject.clone();
         let mut prefix = format!("{read_stream}/{read_subject}");
         // append optional provided bucket prefix
-        if let Some(pre) = key_prefix {
+        if let Some(pre) = config.key_prefix {
             prefix = format!("{pre}/{prefix}")
         }
 
-        let paths = self.s3_client.list_paths(&bucket, &prefix).await?;
+        let paths = self.s3_client.list_paths(&config.bucket, &prefix).await?;
         for path in paths {
             // check if block falls within allowed timespan.
             // since each block's key is the unix timestamp at
@@ -166,7 +179,7 @@ impl IO {
             let prefix = format!("{prefix}/");
             if let Some(key) = path.strip_prefix(&prefix) {
                 let chunk_key = encoding::ChunkKey::from_string(key.to_string())?;
-                if let Some(start) = start {
+                if let Some(start) = config.start {
                     if chunk_key.timestamp < start as u128 {
                         trace!(
                             start = start,
@@ -176,10 +189,10 @@ impl IO {
                         continue;
                     }
                 }
-                if let Some(end) = end {
+                if let Some(end) = config.end {
                     if chunk_key.timestamp > end as u128 {
                         trace!(
-                            start = start,
+                            start = config.start,
                             key = chunk_key.timestamp,
                             "message block falls after time window, skipping"
                         );
@@ -192,7 +205,7 @@ impl IO {
                 // download from s3
                 let chunk = self
                     .s3_client
-                    .download_chunk(&bucket, &path, chunk_key.codec)
+                    .download_chunk(&config.bucket, &path, chunk_key.codec)
                     .await?;
 
                 let mut bytes_total = 0;
@@ -224,15 +237,15 @@ impl IO {
                 drop(nats_metrics);
 
                 // if enabled, delete published chunk from s3
-                if delete_chunks {
-                    self.s3_client.delete_chunk(&bucket, &path).await?;
+                if config.delete_chunks {
+                    self.s3_client.delete_chunk(&config.bucket, &path).await?;
                 }
             }
         }
         debug!(
             read_subject = read_subject,
             write_subject = write_subject,
-            bucket = bucket,
+            bucket = config.bucket,
             "finished download from s3 and publish to nats"
         );
         Ok(())

@@ -74,15 +74,15 @@ impl App {
 
                     if let Err(err) = app
                         .io
-                        .consume_stream(
-                            job.stream.clone(),
-                            job.subject.clone(),
-                            job.bucket.clone(),
-                            job.prefix,
-                            job.batch.max_bytes,
-                            job.batch.max_count,
-                            job.encoding.codec,
-                        )
+                        .consume_stream(io::ConsumeConfig {
+                            stream: job.stream.clone(),
+                            subject: job.subject.clone(),
+                            bucket: job.bucket.clone(),
+                            prefix: job.prefix,
+                            bytes_max: job.batch.max_bytes,
+                            messages_max: job.batch.max_count,
+                            codec: job.encoding.codec,
+                        })
                         .await
                     {
                         warn!("{}", err);

@@ -122,11 +122,12 @@ impl db::StoreJobStorer for InMemory {
 
     async fn delete_store_job(&self, id: String) -> Result<(), db::JobStoreError> {
         debug!(id = id, "deleting store job");
-        if let Some(_) = self
+        if self
             .store_db
             .write()
             .expect("lock not poisoned")
             .remove(&id)
+            .is_some()
         {
             return Ok(());
         } else {
@@ -229,7 +230,13 @@ impl db::LoadJobStorer for InMemory {
 
     async fn delete_load_job(&self, id: String) -> Result<(), db::JobStoreError> {
         debug!(id = id, "deleting load job");
-        if let Some(_) = self.load_db.write().expect("lock not poisoned").remove(&id) {
+        if self
+            .load_db
+            .write()
+            .expect("lock not poisoned")
+            .remove(&id)
+            .is_some()
+        {
             return Ok(());
         } else {
             let err = db::JobStoreError::NotFound { id };

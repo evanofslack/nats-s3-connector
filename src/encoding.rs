@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use async_nats::jetstream;
 use sha2::{Digest, Sha256};
+use std::fmt;
 use std::time::SystemTime;
 
 use bytes::Bytes;
@@ -111,8 +112,7 @@ impl Chunk {
             Codec::Json => serde_json::to_vec(&self).context("json serialization"),
             Codec::Binary => {
                 let config = bincode::config::legacy();
-                bincode::serde::encode_to_vec(self, config)
-                    .context("binary serialization")
+                bincode::serde::encode_to_vec(self, config).context("binary serialization")
             }
         }
     }
@@ -148,14 +148,6 @@ pub struct ChunkKey {
 }
 
 impl ChunkKey {
-    pub fn to_string(&self) -> String {
-        format!(
-            "{}-{}.{}",
-            self.timestamp,
-            self.message_count,
-            self.codec.to_extension()
-        )
-    }
     pub fn from_string(input: String) -> Result<Self> {
         let input_field = input.clone();
         let (timestamp, rest) = input.split_once("-").ok_or(ChunkKeyError::InvalidKey {
@@ -171,6 +163,18 @@ impl ChunkKey {
             codec: Codec::from_string(ext.to_string())?,
         };
         Ok(key)
+    }
+}
+
+impl fmt::Display for ChunkKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}-{}.{}",
+            self.timestamp,
+            self.message_count,
+            self.codec.to_extension()
+        )
     }
 }
 

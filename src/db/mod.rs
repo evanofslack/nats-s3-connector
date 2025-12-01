@@ -13,6 +13,7 @@ pub enum JobStoreError {
     NotFound { id: String },
 }
 
+#[allow(dead_code)]
 #[async_trait]
 pub trait LoadJobStorer: Sync + Debug {
     async fn get_load_job(&self, id: String) -> Result<jobs::LoadJob, JobStoreError>;
@@ -26,6 +27,7 @@ pub trait LoadJobStorer: Sync + Debug {
     async fn delete_load_job(&self, id: String) -> Result<(), JobStoreError>;
 }
 
+#[allow(dead_code)]
 #[async_trait]
 pub trait StoreJobStorer: Sync + Debug {
     async fn get_store_job(&self, id: String) -> Result<jobs::StoreJob, JobStoreError>;
