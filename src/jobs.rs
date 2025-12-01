@@ -77,6 +77,15 @@ pub struct Batch {
     pub max_count: i64,
 }
 
+impl Default for Batch {
+    fn default() -> Self {
+        Self {
+            max_bytes: max_bytes_default(),
+            max_count: max_count_default(),
+        }
+    }
+}
+
 fn max_bytes_default() -> i64 {
     DEFAULT_MAX_BYTES
 }
@@ -89,6 +98,14 @@ fn max_count_default() -> i64 {
 pub struct Encoding {
     #[serde(default = "codec_default")]
     pub codec: encoding::Codec,
+}
+
+impl Default for Encoding {
+    fn default() -> Self {
+        Self {
+            codec: codec_default(),
+        }
+    }
 }
 
 fn codec_default() -> encoding::Codec {
