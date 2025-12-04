@@ -21,6 +21,7 @@ pub struct Config {
     pub nats: Nats,
     pub s3: S3,
     pub store_jobs: Option<Vec<jobs::StoreJob>>,
+    pub database_url: Option<String>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
