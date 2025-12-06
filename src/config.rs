@@ -18,6 +18,7 @@ const DEFAULT_SERVER_ADDR: &str = "0.0.0.0:8080";
 pub struct Config {
     pub log: Option<String>,
     pub server: Server,
+    pub postgres: Option<Postgres>,
     pub nats: Nats,
     pub s3: S3,
     pub store_jobs: Option<Vec<jobs::StoreJob>>,
@@ -31,6 +32,12 @@ pub struct Server {
 
 fn addr_default() -> String {
     DEFAULT_SERVER_ADDR.to_string()
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct Postgres {
+    pub url: String,
+    pub migrate: bool,
 }
 
 #[derive(Deserialize, Clone, Debug)]

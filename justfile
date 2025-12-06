@@ -4,6 +4,9 @@ default:
 test:
     cargo test
 
+test-integration:
+    cargo test --features integration
+
 build:
     cargo build
 
@@ -23,4 +26,4 @@ down:
     cd examples && docker compose -f docker-compose-dev.yaml down
 
 infra:
-    cd examples && docker compose -f docker-compose-dev.yaml  up -d nats minio && docker compose logs --follow
+    cd examples && docker compose -f docker-compose-dev.yaml --profile infra up -d && docker compose logs --follow

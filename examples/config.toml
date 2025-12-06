@@ -6,6 +6,10 @@ addr = "0.0.0.0:8080"
 [nats]
 url = "localhost:4222"
 
+[postgres]
+url = "postgresql://nats3user:nats3pass@localhost:5432/nats3db"
+migrate = true
+
 [s3]
 region = "us-east-1"
 endpoint = "http://localhost:9000"

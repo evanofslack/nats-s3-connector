@@ -6,11 +6,20 @@ use thiserror::Error;
 use crate::jobs;
 
 pub mod inmem;
+pub mod postgres;
+
+pub use postgres::PostgresStore;
 
 #[derive(Error, Debug)]
 pub enum JobStoreError {
     #[error("job not found, id: {id}")]
     NotFound { id: String },
+
+    #[error("database error: {0}")]
+    Database(#[from] tokio_postgres::Error),
+
+    #[error("connection pool error: {0}")]
+    Pool(String),
 }
 
 #[allow(dead_code)]

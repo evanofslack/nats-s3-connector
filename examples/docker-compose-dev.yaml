@@ -5,24 +5,49 @@ services:
     build: ../.
     restart: unless-stopped
     container_name: nats-s3-connector
+    profiles: ["main"]
     ports:
       - 8080:8080
     environment:
       NATS3_NATS_URL: "nats:4222"
+      NATS3_SERVER_ADDR: "0.0.0.0:8080"
       NATS3_S3_ENDPOINT: "http://minio:9000"
       NATS3_S3_REGION: "us-east-1"
       NATS3_S3_ACCESS: "test-user"
       NATS3_S3_SECRET: "test-password"
+      NATS3_POSTGRES_URL: "postgresql://nats3user:nats3pass@postgres:5432/nats3db"
+      NATS3_POSTGRES_MIGRATE: "true"
       RUST_LOG: "none,nats3=TRACE"
     depends_on:
+      - "postgres"
       - "nats"
       - "minio"
+    # volumes:
+    #   - "./config.toml:/etc/nats3/config.toml"
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    profiles: ["infra"]
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: nats3user
+      POSTGRES_PASSWORD: nats3pass
+      POSTGRES_DB: nats3db
     volumes:
-      - "./config.toml:/etc/nats3/config.toml"
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nats3user -d nats3db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   nats:
     image: nats:latest
     container_name: nats
+    profiles: ["infra"]
     ports:
       - "8222:8222"
       - "4222:4222"
@@ -33,6 +58,7 @@ services:
   minio:
     image: quay.io/minio/minio
     container_name: minio
+    profiles: ["infra"]
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
@@ -44,5 +70,6 @@ services:
       MINIO_ROOT_PASSWORD: "test-password"
 
 volumes:
+  postgres_data:
   minio_data:
   nats_data:

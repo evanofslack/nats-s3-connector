@@ -49,6 +49,7 @@ pub struct Server {
 
 impl Server {
     pub fn new(addr: String, metrics: counter::Metrics, io: io::IO, db: db::DynStorer) -> Self {
+        info!("creating new server on addr {:?}", addr);
         Self {
             addr,
             metrics,
@@ -95,7 +96,6 @@ fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
 }
 
 fn create_router(deps: Dependencies) -> Router {
-    
     status::create_router()
         .merge(metrics::create_router(deps.clone()))
         .merge(load::create_router(deps.clone()))
@@ -119,10 +119,16 @@ impl IntoResponse for ServerError {
         let (status, error_message) = match self {
             ServerError::JobStore(db::JobStoreError::NotFound { id }) => {
                 (StatusCode::NOT_FOUND, format!("job id {} not found", id))
-            } // _ => (
-              //     StatusCode::INTERNAL_SERVER_ERROR,
-              //     "unknown error".to_string(),
-              // ),
+            }
+            ServerError::JobStore(db::JobStoreError::Database(_))
+            | ServerError::JobStore(db::JobStoreError::Pool(_)) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal server error".to_string(),
+            ),
+            // _ => (
+            //     StatusCode::INTERNAL_SERVER_ERROR,
+            //     "unknown error".to_string(),
+            // ),
         };
         let body = Json(json!({
             "error": error_message,
