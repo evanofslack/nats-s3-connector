@@ -61,7 +61,7 @@ impl StoreJob {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Display)]
+#[derive(Serialize, Deserialize, Clone, Debug, Display, Eq, PartialEq)]
 pub enum StoreJobStatus {
     Created,
     Running,
