@@ -172,7 +172,7 @@ impl LoadJob {
     }
 }
 
-#[derive(Serialize, Clone, Debug, Display)]
+#[derive(Serialize, Clone, Debug, Display, Eq, PartialEq)]
 pub enum LoadJobStatus {
     Created,
     Running,
