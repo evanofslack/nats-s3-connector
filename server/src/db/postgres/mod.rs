@@ -12,8 +12,8 @@ use tokio_postgres::{Config as PgConfig, NoTls};
 use tracing::{debug, error, info};
 
 use super::{JobStoreError, JobStorer, LoadJobStorer, StoreJobStorer};
-use crate::jobs;
 use models::{LoadJobRow, StoreJobRow, StoreJobRowCreate};
+use nats3_types::{LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
 
 embed_migrations!("./src/db/postgres/migrations");
 
@@ -65,7 +65,7 @@ impl PostgresStore {
 
 #[async_trait]
 impl LoadJobStorer for PostgresStore {
-    async fn get_load_job(&self, id: String) -> Result<jobs::LoadJob, JobStoreError> {
+    async fn get_load_job(&self, id: String) -> Result<LoadJob, JobStoreError> {
         let client = self.get_client().await?;
 
         let row = client
@@ -86,7 +86,7 @@ impl LoadJobStorer for PostgresStore {
         Ok(job_row.into())
     }
 
-    async fn get_load_jobs(&self) -> Result<Vec<jobs::LoadJob>, JobStoreError> {
+    async fn get_load_jobs(&self) -> Result<Vec<LoadJob>, JobStoreError> {
         let client = self.get_client().await?;
 
         let rows = client
@@ -98,7 +98,7 @@ impl LoadJobStorer for PostgresStore {
             .collect()
     }
 
-    async fn create_load_job(&self, job: jobs::LoadJob) -> Result<(), JobStoreError> {
+    async fn create_load_job(&self, job: LoadJob) -> Result<(), JobStoreError> {
         let client = self.get_client().await?;
         let row: LoadJobRow = job.into();
 
@@ -130,8 +130,8 @@ impl LoadJobStorer for PostgresStore {
     async fn update_load_job(
         &self,
         id: String,
-        status: jobs::LoadJobStatus,
-    ) -> Result<jobs::LoadJob, JobStoreError> {
+        status: LoadJobStatus,
+    ) -> Result<LoadJob, JobStoreError> {
         let client = self.get_client().await?;
         let status_row: models::LoadJobStatusEnum = status.into();
 
@@ -170,7 +170,7 @@ impl LoadJobStorer for PostgresStore {
 
 #[async_trait]
 impl StoreJobStorer for PostgresStore {
-    async fn get_store_job(&self, id: String) -> Result<jobs::StoreJob, JobStoreError> {
+    async fn get_store_job(&self, id: String) -> Result<StoreJob, JobStoreError> {
         let client = self.get_client().await?;
 
         let row = client
@@ -191,7 +191,7 @@ impl StoreJobStorer for PostgresStore {
         Ok(job_row.into())
     }
 
-    async fn get_store_jobs(&self) -> Result<Vec<jobs::StoreJob>, JobStoreError> {
+    async fn get_store_jobs(&self) -> Result<Vec<StoreJob>, JobStoreError> {
         let client = self.get_client().await?;
 
         let rows = client
@@ -203,7 +203,7 @@ impl StoreJobStorer for PostgresStore {
             .collect()
     }
 
-    async fn create_store_job(&self, job: jobs::StoreJob) -> Result<(), JobStoreError> {
+    async fn create_store_job(&self, job: StoreJob) -> Result<(), JobStoreError> {
         let client = self.get_client().await?;
         let row: StoreJobRowCreate = job.into();
 
@@ -234,8 +234,8 @@ impl StoreJobStorer for PostgresStore {
     async fn update_store_job(
         &self,
         id: String,
-        status: jobs::StoreJobStatus,
-    ) -> Result<jobs::StoreJob, JobStoreError> {
+        status: StoreJobStatus,
+    ) -> Result<StoreJob, JobStoreError> {
         let client = self.get_client().await?;
         let status_row: models::StoreJobStatusEnum = status.into();
 

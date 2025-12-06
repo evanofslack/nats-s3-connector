@@ -3,8 +3,9 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::RwLock;
 
+use nats3_types::{LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
+
 use crate::db;
-use crate::jobs;
 use crate::metrics;
 
 use tracing::debug;
@@ -12,8 +13,8 @@ use tracing::debug;
 #[derive(Debug)]
 pub struct InMemory {
     metrics: metrics::Metrics,
-    store_db: RwLock<HashMap<String, jobs::StoreJob>>,
-    load_db: RwLock<HashMap<String, jobs::LoadJob>>,
+    store_db: RwLock<HashMap<String, StoreJob>>,
+    load_db: RwLock<HashMap<String, LoadJob>>,
 }
 
 impl InMemory {
@@ -34,9 +35,9 @@ impl db::JobStorer for InMemory {}
 
 #[async_trait]
 impl db::StoreJobStorer for InMemory {
-    async fn get_store_job(&self, id: String) -> Result<jobs::StoreJob, db::JobStoreError> {
+    async fn get_store_job(&self, id: String) -> Result<StoreJob, db::JobStoreError> {
         debug!(id = id, "getting store job");
-        let found_job: jobs::StoreJob;
+        let found_job: StoreJob;
         if let Some(job) = self.store_db.read().expect("lock not poisoned").get(&id) {
             found_job = job.clone();
         } else {
@@ -46,7 +47,7 @@ impl db::StoreJobStorer for InMemory {
         return Ok(found_job);
     }
 
-    async fn get_store_jobs(&self) -> Result<Vec<jobs::StoreJob>, db::JobStoreError> {
+    async fn get_store_jobs(&self) -> Result<Vec<StoreJob>, db::JobStoreError> {
         debug!("getting store jobs");
         let jobs = self
             .store_db
@@ -58,7 +59,7 @@ impl db::StoreJobStorer for InMemory {
         return Ok(jobs);
     }
 
-    async fn create_store_job(&self, job: jobs::StoreJob) -> Result<(), db::JobStoreError> {
+    async fn create_store_job(&self, job: StoreJob) -> Result<(), db::JobStoreError> {
         debug!(
             id = job.id,
             stream = job.stream,
@@ -88,8 +89,8 @@ impl db::StoreJobStorer for InMemory {
     async fn update_store_job(
         &self,
         id: String,
-        status: jobs::StoreJobStatus,
-    ) -> Result<jobs::StoreJob, db::JobStoreError> {
+        status: StoreJobStatus,
+    ) -> Result<StoreJob, db::JobStoreError> {
         debug!(id = id, status = status.to_string(), "updating store job");
 
         // lookup existing job
@@ -104,7 +105,7 @@ impl db::StoreJobStorer for InMemory {
 
         // decrement gauge if job status is terminal
         let label_job = job.clone();
-        if let jobs::StoreJobStatus::Failure = status {
+        if let StoreJobStatus::Failure = status {
             self.metrics
                 .jobs
                 .write()
@@ -139,9 +140,9 @@ impl db::StoreJobStorer for InMemory {
 
 #[async_trait]
 impl db::LoadJobStorer for InMemory {
-    async fn get_load_job(&self, id: String) -> Result<jobs::LoadJob, db::JobStoreError> {
+    async fn get_load_job(&self, id: String) -> Result<LoadJob, db::JobStoreError> {
         debug!(id = id, "getting load job");
-        let found_job: jobs::LoadJob;
+        let found_job: LoadJob;
         if let Some(job) = self.load_db.read().expect("lock not poisoned").get(&id) {
             found_job = job.clone();
         } else {
@@ -151,7 +152,7 @@ impl db::LoadJobStorer for InMemory {
         return Ok(found_job);
     }
 
-    async fn get_load_jobs(&self) -> Result<Vec<jobs::LoadJob>, db::JobStoreError> {
+    async fn get_load_jobs(&self) -> Result<Vec<LoadJob>, db::JobStoreError> {
         debug!("getting load jobs");
         let jobs = self
             .load_db
@@ -163,7 +164,7 @@ impl db::LoadJobStorer for InMemory {
         return Ok(jobs);
     }
 
-    async fn create_load_job(&self, job: jobs::LoadJob) -> Result<(), db::JobStoreError> {
+    async fn create_load_job(&self, job: LoadJob) -> Result<(), db::JobStoreError> {
         debug!(
             id = job.id,
             stream = job.write_stream,
@@ -193,8 +194,8 @@ impl db::LoadJobStorer for InMemory {
     async fn update_load_job(
         &self,
         id: String,
-        status: jobs::LoadJobStatus,
-    ) -> Result<jobs::LoadJob, db::JobStoreError> {
+        status: LoadJobStatus,
+    ) -> Result<LoadJob, db::JobStoreError> {
         debug!(id = id, status = status.to_string(), "updating load job");
 
         // lookup existing job
@@ -210,7 +211,7 @@ impl db::LoadJobStorer for InMemory {
         // decrement gauge if job status is terminal
         let label_job = job.clone();
         match status {
-            jobs::LoadJobStatus::Success | jobs::LoadJobStatus::Failure => {
+            LoadJobStatus::Success | LoadJobStatus::Failure => {
                 self.metrics
                     .jobs
                     .write()

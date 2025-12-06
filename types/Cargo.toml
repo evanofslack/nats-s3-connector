@@ -1,0 +1,9 @@
+[package]
+name = "nats3-types"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ulid = "1.2.1"
+strum_macros = "0.27.2"
+serde = { workspace = true }

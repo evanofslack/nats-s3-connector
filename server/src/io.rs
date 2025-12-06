@@ -1,5 +1,6 @@
 use async_nats::jetstream;
 use futures::StreamExt;
+use nats3_types::Codec;
 use std::str::from_utf8;
 use std::sync::Arc;
 use tokio::{sync::RwLock, time};
@@ -20,7 +21,7 @@ pub struct ConsumeConfig {
     pub prefix: Option<String>,
     pub bytes_max: i64,
     pub messages_max: i64,
-    pub codec: encoding::Codec,
+    pub codec: Codec,
 }
 
 pub struct PublishConfig {

@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use async_nats::jetstream;
+use nats3_types::Codec;
 use sha2::{Digest, Sha256};
 use std::fmt;
 use std::time::SystemTime;
@@ -7,7 +8,6 @@ use std::time::SystemTime;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use strum_macros::Display;
 use thiserror::Error;
 
 const MAGIC_NUMBER: &str = "NATS3";
@@ -17,32 +17,12 @@ const VERSION: &str = "1.0";
 pub enum ChunkKeyError {
     #[error("invalid key: {key}")]
     InvalidKey { key: String },
-    #[error("invalid extension: {ext}")]
-    InvalidExt { ext: String },
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Display)]
-pub enum Codec {
-    #[serde(alias = "json", alias = "JSON")]
-    Json,
-    #[serde(alias = "binary", alias = "bin")]
-    Binary,
-}
-
-impl Codec {
-    pub fn to_extension(&self) -> &str {
-        match self {
-            Codec::Json => "json",
-            Codec::Binary => "bin",
-        }
-    }
-    pub fn from_string(input: String) -> Result<Self> {
-        match input.as_str() {
-            "json" => Ok(Self::Json),
-            "bin" => Ok(Self::Binary),
-            _ => Err(ChunkKeyError::InvalidExt { ext: input }.into()),
-        }
-    }
+    #[error("invalid extension: {ext}, error: {source}")]
+    InvalidExt {
+        ext: String,
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
 }
 
 // our repr of a NATS message.
@@ -160,7 +140,12 @@ impl ChunkKey {
         let key = Self {
             timestamp: timestamp.parse::<u128>()?,
             message_count: count.parse::<usize>()?,
-            codec: Codec::from_string(ext.to_string())?,
+            codec: ext
+                .parse::<Codec>()
+                .map_err(|e| ChunkKeyError::InvalidExt {
+                    ext: ext.into(),
+                    source: Box::new(e),
+                })?,
         };
         Ok(key)
     }

@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use nats3_types::Codec;
 use s3::{creds::Credentials, serde_types::Object, Bucket, BucketConfiguration, Region};
 use tracing::{debug, info, trace, warn};
 
@@ -32,7 +33,7 @@ impl Client {
         chunk: encoding::Chunk,
         bucket_name: &str,
         path: &str,
-        codec: encoding::Codec,
+        codec: Codec,
     ) -> Result<()> {
         let bucket = self.bucket(bucket_name, true).await?;
         let data = chunk.serialize(codec.clone())?;
@@ -57,7 +58,7 @@ impl Client {
         &self,
         bucket_name: &str,
         path: &str,
-        codec: encoding::Codec,
+        codec: Codec,
     ) -> Result<encoding::Chunk> {
         let bucket = self.bucket(bucket_name, false).await?;
         let response_data = bucket.get_object(path).await?;
@@ -121,23 +122,22 @@ impl Client {
         let mut bucket =
             Bucket::new(bucket_name, region.clone(), credentials.clone())?.with_path_style();
 
-        if try_create
-            && !bucket.exists().await? {
-                bucket = Bucket::create_with_path_style(
-                    bucket_name,
-                    region.clone(),
-                    credentials,
-                    BucketConfiguration::default(),
-                )
-                .await
-                .context("create bucket")?
-                .bucket;
-                info!(
-                    bucket = bucket_name,
-                    endpoint = region.endpoint(),
-                    "created bucket in s3"
-                );
-            }
+        if try_create && !bucket.exists().await? {
+            bucket = Bucket::create_with_path_style(
+                bucket_name,
+                region.clone(),
+                credentials,
+                BucketConfiguration::default(),
+            )
+            .await
+            .context("create bucket")?
+            .bucket;
+            info!(
+                bucket = bucket_name,
+                endpoint = region.endpoint(),
+                "created bucket in s3"
+            );
+        }
         Ok(*bucket)
     }
 }

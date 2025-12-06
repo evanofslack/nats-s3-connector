@@ -1,14 +1,54 @@
 use serde::{Deserialize, Serialize};
-use std::string::ToString;
+use std::str::FromStr;
 use strum_macros::Display;
-use tracing::debug;
 use ulid::Ulid;
-
-use crate::encoding;
 
 const DEFAULT_MAX_BYTES: i64 = 1_000_000;
 const DEFAULT_MAX_COUNT: i64 = 1000;
-const DEFAULT_CODEC: encoding::Codec = encoding::Codec::Binary;
+const DEFAULT_CODEC: Codec = Codec::Binary;
+
+#[derive(Serialize, Deserialize, Clone, Debug, Display, Eq, PartialEq)]
+pub enum Codec {
+    #[serde(alias = "json", alias = "JSON")]
+    Json,
+    #[serde(alias = "binary", alias = "bin")]
+    Binary,
+}
+
+impl Codec {
+    pub fn to_extension(&self) -> &str {
+        match self {
+            Codec::Json => "json",
+            Codec::Binary => "bin",
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct CodecParseError(String);
+
+impl std::fmt::Display for CodecParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for CodecParseError {}
+
+impl FromStr for Codec {
+    type Err = CodecParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "json" => Ok(Self::Json),
+            "bin" => Ok(Self::Binary),
+            _ => Err(CodecParseError(format!(
+                "Invalid codec '{}'. Valid options: json, bin",
+                s
+            ))),
+        }
+    }
+}
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct CreateStoreJob {
@@ -46,7 +86,6 @@ impl StoreJob {
     ) -> Self {
         let id = Ulid::new().to_string();
         let status = StoreJobStatus::Created;
-        debug!(id = id, status = status.to_string(), "new store job");
         Self {
             id,
             name,
@@ -97,7 +136,7 @@ fn max_count_default() -> i64 {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Encoding {
     #[serde(default = "codec_default")]
-    pub codec: encoding::Codec,
+    pub codec: Codec,
 }
 
 impl Default for Encoding {
@@ -108,7 +147,7 @@ impl Default for Encoding {
     }
 }
 
-fn codec_default() -> encoding::Codec {
+fn codec_default() -> Codec {
     DEFAULT_CODEC
 }
 
@@ -155,7 +194,6 @@ impl LoadJob {
     ) -> Self {
         let id = Ulid::new().to_string();
         let status = LoadJobStatus::Created;
-        debug!(id = id, status = status.to_string(), "new load job");
         Self {
             id,
             status,

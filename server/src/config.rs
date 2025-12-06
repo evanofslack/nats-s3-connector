@@ -3,13 +3,12 @@ use figment::{
     providers::{Env, Format, Toml, Yaml},
     Figment,
 };
+use nats3_types::StoreJob;
 use serde::Deserialize;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::string::ToString;
 use tracing_subscriber::filter::LevelFilter;
-
-use crate::jobs;
 
 const DEFAULT_CONFIG_PATH: &str = "/etc/nats3/config.toml";
 const DEFAULT_SERVER_ADDR: &str = "0.0.0.0:8080";
@@ -21,7 +20,7 @@ pub struct Config {
     pub postgres: Option<Postgres>,
     pub nats: Nats,
     pub s3: S3,
-    pub store_jobs: Option<Vec<jobs::StoreJob>>,
+    pub store_jobs: Option<Vec<StoreJob>>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
