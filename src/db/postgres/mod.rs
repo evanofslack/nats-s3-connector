@@ -1,17 +1,21 @@
 mod models;
 
+#[cfg(test)]
+mod tests;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use bb8::{Pool, PooledConnection};
 use bb8_postgres::PostgresConnectionManager;
 use refinery::embed_migrations;
 use tokio_postgres::{Config as PgConfig, NoTls};
+use tracing::{debug, error, info};
 
 use super::{JobStoreError, JobStorer, LoadJobStorer, StoreJobStorer};
 use crate::jobs;
 use models::{LoadJobRow, StoreJobRow, StoreJobRowCreate};
 
-embed_migrations!("src/db/postgres/migrations");
+embed_migrations!("./src/db/postgres/migrations");
 
 #[derive(Debug, Clone)]
 pub struct PostgresStore {
@@ -34,11 +38,18 @@ impl PostgresStore {
     }
 
     pub async fn migrate(&self) -> Result<(), JobStoreError> {
+        debug!("start run migrations");
         let mut client = self.get_client().await?;
+
         migrations::runner()
             .run_async(&mut *client)
             .await
-            .map_err(|e| JobStoreError::Pool(format!("migration failed: {}", e)))?;
+            .map_err(|e| {
+                error!("migration failed: {}", e);
+                JobStoreError::Pool(format!("migration failed: {}", e))
+            })?;
+
+        info!("finish run migrations");
         Ok(())
     }
 
@@ -200,7 +211,7 @@ impl StoreJobStorer for PostgresStore {
             .execute(
                 "INSERT INTO store_jobs 
                 (id, name, status, stream, subject, bucket, prefix,
-                batch_max_bytes, batch_max_count, encoding_codec,
+                batch_max_bytes, batch_max_count, encoding_codec)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
                 &[
                     &row.id,
