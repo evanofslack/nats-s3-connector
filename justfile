@@ -10,20 +10,23 @@ test-integration:
 build:
     cargo build
 
-run: build
-    ./target/debug/nats3 --config examples/config.toml
+build-server:
+    cargo build -p nats3-server
 
-dev: build
-    RUST_LOG=none,nats3=TRACE RUST_BACKTRACE=1 ./target/debug/nats3 --config examples/config.toml
+run: build-server
+    ./target/debug/nats3-server --config examples/config.toml
+
+dev: build-server
+    RUST_LOG=none,nats3_server=TRACE RUST_BACKTRACE=1 ./target/debug/nats3-server --config examples/config.toml
 
 up:
     cd examples && docker compose -f docker-compose-dev.yaml up -d && docker compose logs --follow
 
 upb:
-    cd examples && docker compose -f docker-compose-dev.yaml up -d --build --force-recreate && docker compose logs --follow
+    cd examples && docker compose -f docker-compose-dev.yaml --profile infra --profile main up -d --build --force-recreate && docker compose logs --follow
 
 down:
-    cd examples && docker compose -f docker-compose-dev.yaml down
+    cd examples && docker compose -f docker-compose-dev.yaml --profile infra --profile main down
 
 infra:
     cd examples && docker compose -f docker-compose-dev.yaml --profile infra up -d && docker compose logs --follow
