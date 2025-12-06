@@ -1,0 +1,20 @@
+name: test
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup
+        run: rustup update stable && rustup default stable
+
+      - name: build
+        run: cargo build
+
+      - name: test
+        run: cargo test --features integration
