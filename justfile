@@ -4,6 +4,9 @@ default:
 test:
     cargo test
 
+test-integration:
+    cargo test --features integration
+
 build:
     cargo build
 
