@@ -9,7 +9,6 @@ mod config;
 mod db;
 mod encoding;
 mod io;
-mod jobs;
 mod metrics;
 mod nats;
 mod s3;

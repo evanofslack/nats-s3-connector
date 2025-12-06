@@ -4,10 +4,10 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use nats3_types::{CreateStoreJob, StoreJob, StoreJobStatus};
 use tracing::{debug, warn};
 
 use crate::io;
-use crate::jobs;
 use crate::metrics;
 use crate::server::{Dependencies, ServerError};
 
@@ -22,7 +22,7 @@ pub fn create_router(deps: Dependencies) -> Router {
 #[debug_handler]
 async fn get_store_jobs(
     State(state): State<Dependencies>,
-) -> Result<Json<Vec<jobs::StoreJob>>, ServerError> {
+) -> Result<Json<Vec<StoreJob>>, ServerError> {
     debug!(route = "/jobs/store", method = "GET", "handle request");
 
     // fetch store jobs from db
@@ -34,8 +34,8 @@ async fn get_store_jobs(
 #[debug_handler]
 async fn start_store_job(
     State(state): State<Dependencies>,
-    Json(payload): Json<jobs::CreateStoreJob>,
-) -> Result<Json<jobs::StoreJob>, ServerError> {
+    Json(payload): Json<CreateStoreJob>,
+) -> Result<Json<StoreJob>, ServerError> {
     debug!(
         route = "/store",
         method = "PUT",
@@ -47,7 +47,7 @@ async fn start_store_job(
         "handle request"
     );
 
-    let job = jobs::StoreJob::new(
+    let job = StoreJob::new(
         payload.name.clone(),
         payload.stream.clone(),
         payload.subject.clone(),
@@ -71,7 +71,7 @@ async fn start_store_job(
     // change state to running
     state
         .db
-        .update_store_job(job_id.clone(), jobs::StoreJobStatus::Running)
+        .update_store_job(job_id.clone(), StoreJobStatus::Running)
         .await
         .map_err(|err| {
             warn!(job_id = job_id, "fail update store job status: {err}");

@@ -1,6 +1,6 @@
 use crate::db::postgres::PostgresStore;
 use crate::db::{LoadJobStorer, StoreJobStorer};
-use crate::jobs::{Batch, Encoding, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
+use nats3_types::{Batch, Codec, Encoding, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
 use testcontainers::{runners::AsyncRunner, ImageExt};
 use testcontainers_modules::postgres::Postgres;
 
@@ -138,9 +138,7 @@ impl Default for StoreJobBuilder {
             prefix: Some("test-prefix".to_string()),
             batch_max_bytes: Some(1024000),
             batch_max_count: Some(100),
-            encoding_codec: Some(Encoding {
-                codec: crate::encoding::Codec::Json,
-            }),
+            encoding_codec: Some(Encoding { codec: Codec::Json }),
         }
     }
 }

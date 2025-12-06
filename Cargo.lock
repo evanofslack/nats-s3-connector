@@ -2493,6 +2493,7 @@ dependencies = [
  "hyper 1.8.1",
  "hyper-util",
  "lazy_static",
+ "nats3-types",
  "postgres-types",
  "prometheus-client",
  "refinery",
@@ -2500,7 +2501,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "strum_macros",
  "testcontainers",
  "testcontainers-modules",
  "thiserror 2.0.17",
@@ -2512,6 +2512,15 @@ dependencies = [
  "tracing-subscriber",
  "ulid",
  "uuid",
+]
+
+[[package]]
+name = "nats3-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "strum_macros",
+ "ulid",
 ]
 
 [[package]]

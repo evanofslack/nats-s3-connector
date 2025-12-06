@@ -4,10 +4,11 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use nats3_types::{CreateLoadJob, LoadJob, LoadJobStatus};
 use tracing::{debug, warn};
 
+use crate::io;
 use crate::server::{Dependencies, ServerError};
-use crate::{io, jobs};
 
 pub fn create_router(deps: Dependencies) -> Router {
     let router: Router = Router::new()
@@ -20,7 +21,7 @@ pub fn create_router(deps: Dependencies) -> Router {
 #[debug_handler]
 async fn get_load_jobs(
     State(state): State<Dependencies>,
-) -> Result<Json<Vec<jobs::LoadJob>>, ServerError> {
+) -> Result<Json<Vec<LoadJob>>, ServerError> {
     debug!(route = "/jobs/load", method = "GET", "handle request");
 
     // fetch load jobs from db
@@ -32,8 +33,8 @@ async fn get_load_jobs(
 #[debug_handler]
 async fn start_load_job(
     State(state): State<Dependencies>,
-    Json(payload): Json<jobs::CreateLoadJob>,
-) -> Result<Json<jobs::LoadJob>, ServerError> {
+    Json(payload): Json<CreateLoadJob>,
+) -> Result<Json<LoadJob>, ServerError> {
     debug!(
         route = "/load",
         method = "PUT",
@@ -46,7 +47,7 @@ async fn start_load_job(
         "handle request"
     );
 
-    let job = jobs::LoadJob::new(
+    let job = LoadJob::new(
         payload.bucket.clone(),
         payload.prefix.clone(),
         payload.read_stream.clone(),
@@ -67,7 +68,7 @@ async fn start_load_job(
     tokio::spawn(async move {
         if let Err(err) = state
             .db
-            .update_load_job(job_id.clone(), jobs::LoadJobStatus::Running)
+            .update_load_job(job_id.clone(), LoadJobStatus::Running)
             .await
         {
             warn!("{}", err)
@@ -95,8 +96,8 @@ async fn start_load_job(
 
         // update job when finished
         let status = match success {
-            true => jobs::LoadJobStatus::Success,
-            false => jobs::LoadJobStatus::Failure,
+            true => LoadJobStatus::Success,
+            false => LoadJobStatus::Failure,
         };
         if let Err(err) = state.db.update_load_job(job_id, status).await {
             warn!("{err}")

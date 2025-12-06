@@ -1,8 +1,7 @@
 use postgres_types::{FromSql, ToSql};
 use tokio_postgres::Row;
 
-use crate::jobs;
-// use crate::jobs::Batch;
+use nats3_types::{Batch, Codec, Encoding, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
 
 use super::JobStoreError;
 
@@ -19,18 +18,18 @@ pub enum LoadJobStatusEnum {
     Failure,
 }
 
-impl From<crate::jobs::LoadJobStatus> for LoadJobStatusEnum {
-    fn from(status: crate::jobs::LoadJobStatus) -> Self {
+impl From<LoadJobStatus> for LoadJobStatusEnum {
+    fn from(status: LoadJobStatus) -> Self {
         match status {
-            crate::jobs::LoadJobStatus::Created => Self::Created,
-            crate::jobs::LoadJobStatus::Running => Self::Running,
-            crate::jobs::LoadJobStatus::Success => Self::Success,
-            crate::jobs::LoadJobStatus::Failure => Self::Failure,
+            LoadJobStatus::Created => Self::Created,
+            LoadJobStatus::Running => Self::Running,
+            LoadJobStatus::Success => Self::Success,
+            LoadJobStatus::Failure => Self::Failure,
         }
     }
 }
 
-impl From<LoadJobStatusEnum> for crate::jobs::LoadJobStatus {
+impl From<LoadJobStatusEnum> for LoadJobStatus {
     fn from(status: LoadJobStatusEnum) -> Self {
         match status {
             LoadJobStatusEnum::Created => Self::Created,
@@ -77,7 +76,7 @@ impl LoadJobRow {
     }
 }
 
-impl From<LoadJobRow> for crate::jobs::LoadJob {
+impl From<LoadJobRow> for LoadJob {
     fn from(row: LoadJobRow) -> Self {
         Self {
             id: row.id,
@@ -95,8 +94,8 @@ impl From<LoadJobRow> for crate::jobs::LoadJob {
     }
 }
 
-impl From<crate::jobs::LoadJob> for LoadJobRow {
-    fn from(job: crate::jobs::LoadJob) -> Self {
+impl From<LoadJob> for LoadJobRow {
+    fn from(job: LoadJob) -> Self {
         Self {
             id: job.id,
             status: job.status.into(),
@@ -128,18 +127,18 @@ pub enum StoreJobStatusEnum {
     Failure,
 }
 
-impl From<crate::jobs::StoreJobStatus> for StoreJobStatusEnum {
-    fn from(status: crate::jobs::StoreJobStatus) -> Self {
+impl From<StoreJobStatus> for StoreJobStatusEnum {
+    fn from(status: StoreJobStatus) -> Self {
         match status {
-            crate::jobs::StoreJobStatus::Created => Self::Created,
-            crate::jobs::StoreJobStatus::Running => Self::Running,
-            crate::jobs::StoreJobStatus::Success => Self::Success,
-            crate::jobs::StoreJobStatus::Failure => Self::Failure,
+            StoreJobStatus::Created => Self::Created,
+            StoreJobStatus::Running => Self::Running,
+            StoreJobStatus::Success => Self::Success,
+            StoreJobStatus::Failure => Self::Failure,
         }
     }
 }
 
-impl From<StoreJobStatusEnum> for crate::jobs::StoreJobStatus {
+impl From<StoreJobStatusEnum> for StoreJobStatus {
     fn from(status: StoreJobStatusEnum) -> Self {
         match status {
             StoreJobStatusEnum::Created => Self::Created,
@@ -159,16 +158,16 @@ pub enum EncodingCodec {
     Binary,
 }
 
-impl From<crate::encoding::Codec> for EncodingCodec {
-    fn from(codec: crate::encoding::Codec) -> Self {
+impl From<Codec> for EncodingCodec {
+    fn from(codec: Codec) -> Self {
         match codec {
-            crate::encoding::Codec::Json => Self::Json,
-            crate::encoding::Codec::Binary => Self::Binary,
+            Codec::Json => Self::Json,
+            Codec::Binary => Self::Binary,
         }
     }
 }
 
-impl From<EncodingCodec> for crate::encoding::Codec {
+impl From<EncodingCodec> for Codec {
     fn from(codec: EncodingCodec) -> Self {
         match codec {
             EncodingCodec::Json => Self::Json,
@@ -225,7 +224,7 @@ impl StoreJobRow {
     }
 }
 
-impl From<StoreJobRow> for crate::jobs::StoreJob {
+impl From<StoreJobRow> for StoreJob {
     fn from(row: StoreJobRow) -> Self {
         Self {
             id: row.id,
@@ -235,19 +234,19 @@ impl From<StoreJobRow> for crate::jobs::StoreJob {
             subject: row.subject,
             bucket: row.bucket,
             prefix: row.prefix,
-            batch: jobs::Batch {
+            batch: Batch {
                 max_bytes: row.batch_max_bytes,
                 max_count: row.batch_max_count,
             },
-            encoding: jobs::Encoding {
+            encoding: Encoding {
                 codec: row.encoding_codec.into(),
             },
         }
     }
 }
 
-impl From<crate::jobs::StoreJob> for StoreJobRowCreate {
-    fn from(job: crate::jobs::StoreJob) -> Self {
+impl From<StoreJob> for StoreJobRowCreate {
+    fn from(job: StoreJob) -> Self {
         Self {
             id: job.id,
             name: job.name,

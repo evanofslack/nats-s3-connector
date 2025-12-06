@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use std::{fmt::Debug, sync::Arc};
 use thiserror::Error;
 
-use crate::jobs;
+use nats3_types::{LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
 
 pub mod inmem;
 pub mod postgres;
@@ -25,28 +25,28 @@ pub enum JobStoreError {
 #[allow(dead_code)]
 #[async_trait]
 pub trait LoadJobStorer: Sync + Debug {
-    async fn get_load_job(&self, id: String) -> Result<jobs::LoadJob, JobStoreError>;
-    async fn get_load_jobs(&self) -> Result<Vec<jobs::LoadJob>, JobStoreError>;
-    async fn create_load_job(&self, job: jobs::LoadJob) -> Result<(), JobStoreError>;
+    async fn get_load_job(&self, id: String) -> Result<LoadJob, JobStoreError>;
+    async fn get_load_jobs(&self) -> Result<Vec<LoadJob>, JobStoreError>;
+    async fn create_load_job(&self, job: LoadJob) -> Result<(), JobStoreError>;
     async fn update_load_job(
         &self,
         id: String,
-        status: jobs::LoadJobStatus,
-    ) -> Result<jobs::LoadJob, JobStoreError>;
+        status: LoadJobStatus,
+    ) -> Result<LoadJob, JobStoreError>;
     async fn delete_load_job(&self, id: String) -> Result<(), JobStoreError>;
 }
 
 #[allow(dead_code)]
 #[async_trait]
 pub trait StoreJobStorer: Sync + Debug {
-    async fn get_store_job(&self, id: String) -> Result<jobs::StoreJob, JobStoreError>;
-    async fn get_store_jobs(&self) -> Result<Vec<jobs::StoreJob>, JobStoreError>;
-    async fn create_store_job(&self, job: jobs::StoreJob) -> Result<(), JobStoreError>;
+    async fn get_store_job(&self, id: String) -> Result<StoreJob, JobStoreError>;
+    async fn get_store_jobs(&self) -> Result<Vec<StoreJob>, JobStoreError>;
+    async fn create_store_job(&self, job: StoreJob) -> Result<(), JobStoreError>;
     async fn update_store_job(
         &self,
         id: String,
-        status: jobs::StoreJobStatus,
-    ) -> Result<jobs::StoreJob, JobStoreError>;
+        status: StoreJobStatus,
+    ) -> Result<StoreJob, JobStoreError>;
     async fn delete_store_job(&self, id: String) -> Result<(), JobStoreError>;
 }
 
