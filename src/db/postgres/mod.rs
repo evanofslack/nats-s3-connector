@@ -177,7 +177,7 @@ impl StoreJobStorer for PostgresStore {
             .query_one(
                 "SELECT id, name, status, stream, subject, bucket, prefix,
                  batch_max_bytes, batch_max_count, encoding_codec,
-                 created_at, updated_at,
+                 created_at, updated_at
                  FROM store_jobs WHERE id = $1",
                 &[&id],
             )
