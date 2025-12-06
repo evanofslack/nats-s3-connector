@@ -49,6 +49,7 @@ pub struct Server {
 
 impl Server {
     pub fn new(addr: String, metrics: counter::Metrics, io: io::IO, db: db::DynStorer) -> Self {
+        info!("creating new server on addr {:?}", addr);
         Self {
             addr,
             metrics,
