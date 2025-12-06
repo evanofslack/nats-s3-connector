@@ -25,15 +25,15 @@ pub async fn new(config: Config) -> Result<App> {
 
     let metrics = metrics::Metrics::new().await;
 
-    // TODO: switch store based on config
-    // let db: db::DynStorer = Arc::new(db::inmem::InMemory::new(metrics.clone()));
-    let db: db::DynStorer = match &config.database_url {
-        Some(url) => {
-            info!(url = url, "initializing postgres store");
-            let pg_store = db::PostgresStore::new(url)
+    let db: db::DynStorer = match &config.postgres {
+        Some(postgres) => {
+            info!(url = postgres.url, "using postgres store");
+            let pg_store = db::PostgresStore::new(&postgres.url)
                 .await
                 .context("fail create postgres store")?;
-            pg_store.migrate().await.context("fail run migrations")?;
+            if postgres.migrate {
+                pg_store.migrate().await.context("fail run migrations")?;
+            }
             Arc::new(pg_store)
         }
         None => {
