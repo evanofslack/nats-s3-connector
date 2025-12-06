@@ -8,7 +8,6 @@ env:
   REGISTRY: docker.io
   IMAGE_NAME: ${{ github.repository }}
 
-  
 jobs:
   test:
     name: test
@@ -66,7 +65,8 @@ jobs:
       - name: build and push
         uses: docker/build-push-action@v4
         with:
-          file: ./Dockerfile
+          context: .
+          file: ./server/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

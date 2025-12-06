@@ -1,8 +1,8 @@
-version: "3.7"
-
 services:
   nats-s3-connector:
-    build: ../.
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
     restart: unless-stopped
     container_name: nats-s3-connector
     profiles: ["main"]
