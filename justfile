@@ -22,6 +22,9 @@ dev-server: build-server
 build-cli:
     cargo build -p nats3-cli
 
+install-cli:
+    cargo install --path cli --force
+
 up:
     cd examples && docker compose -f docker-compose-dev.yaml up -d && docker compose logs --follow
 
