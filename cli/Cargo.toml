@@ -1,0 +1,22 @@
+[package]
+name = "nats3-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "nats3"
+path = "src/main.rs"
+
+[dependencies]
+nats3-client = { path = "../client" }
+nats3-types = { path = "../types" }
+clap = { version = "4.5", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+confy = "0.6"
+dirs = "5.0"
+comfy-table = "7.1"
+colored = "2.1"
+inquire = "0.7"
