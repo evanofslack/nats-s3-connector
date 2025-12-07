@@ -1,4 +1,3 @@
-use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Bytes;
 use std::fmt::Debug;
@@ -8,33 +7,36 @@ use nats3_types::Codec;
 
 #[derive(Error, Debug)]
 pub enum ChunkMetadataError {
-    #[error("chunk not found, id: {id}")]
-    NotFound { id: String },
+    #[error("chunk not found: sequence_number={sequence_number}")]
+    NotFound { sequence_number: i64 },
 
-    #[error("chunk not found at location, bucket: {bucket}, key: {key}")]
-    NotFoundAtLocation { bucket: String, key: String },
-
-    #[error("duplicate chunk, bucket: {bucket}, key: {key}")]
+    #[error("duplicate chunk at location: bucket={bucket}, key={key}")]
     Duplicate { bucket: String, key: String },
+
+    #[error("invalid timestamp range: start={start} end={end}")]
+    InvalidTimestampRange {
+        start: chrono::DateTime<chrono::Utc>,
+        end: chrono::DateTime<chrono::Utc>,
+    },
+
+    #[error("database error: {0}")]
+    Postgres(#[from] crate::db::postgres::PostgresError),
 
     #[error("database error: {0}")]
     Database(#[from] tokio_postgres::Error),
 
     #[error("connection pool error: {0}")]
     Pool(String),
-
-    #[error("invalid timestamp range: start={start} end={end}")]
-    InvalidTimestampRange { start: i64, end: i64 },
 }
 
 #[derive(Clone, Debug)]
 pub struct ChunkMetadata {
-    pub id: String,
+    pub sequence_number: i64,
     pub bucket: String,
+    pub prefix: String,
     pub key: String,
     pub stream: String,
     pub subject: String,
-    pub sequence_number: i64,
     pub timestamp_start: chrono::DateTime<chrono::Utc>,
     pub timestamp_end: chrono::DateTime<chrono::Utc>,
     pub message_count: i64,
@@ -49,10 +51,10 @@ pub struct ChunkMetadata {
 #[derive(Clone, Debug)]
 pub struct CreateChunkMetadata {
     pub bucket: String,
+    pub prefix: String,
     pub key: String,
     pub stream: String,
     pub subject: String,
-    pub sequence_number: Option<i64>,
     pub timestamp_start: chrono::DateTime<chrono::Utc>,
     pub timestamp_end: chrono::DateTime<chrono::Utc>,
     pub message_count: i64,
@@ -66,29 +68,28 @@ pub struct CreateChunkMetadata {
 pub struct ListChunksQuery {
     pub stream: String,
     pub subject: String,
-    pub timestamp_start: Option<i64>,
-    pub timestamp_end: Option<i64>,
-    pub limit: Option<i32>,
+    pub bucket: String,
+    pub prefix: String,
+    pub timestamp_start: Option<chrono::DateTime<chrono::Utc>>,
+    pub timestamp_end: Option<chrono::DateTime<chrono::Utc>>,
+    pub limit: Option<i64>,
     pub include_deleted: bool,
 }
 
 #[async_trait]
 pub trait ChunkMetadataStore: Sync + Send + Debug {
-    async fn create(&self, chunk: CreateChunkMetadata) -> Result<ChunkMetadata, ChunkMetadataError>;
-    
-    async fn get(&self, id: String) -> Result<ChunkMetadata, ChunkMetadataError>;
-    
-    async fn get_by_location(
-        &self,
-        bucket: String,
-        key: String,
-    ) -> Result<ChunkMetadata, ChunkMetadataError>;
-    
+    async fn create(&self, chunk: CreateChunkMetadata)
+        -> Result<ChunkMetadata, ChunkMetadataError>;
+
+    async fn get(&self, sequence_number: i64) -> Result<ChunkMetadata, ChunkMetadataError>;
+
+    /// List chunks matching query criteria.
+    /// Results ordered by: timestamp_start ASC, timestamp_end ASC
     async fn list(&self, query: ListChunksQuery) -> Result<Vec<ChunkMetadata>, ChunkMetadataError>;
-    
-    async fn soft_delete(&self, id: String) -> Result<ChunkMetadata, ChunkMetadataError>;
-    
-    async fn hard_delete(&self, id: String) -> Result<(), ChunkMetadataError>;
-    
-    async fn get_next_sequence(&self, stream: &str, subject: &str) -> Result<i64, ChunkMetadataError>;
+
+    /// Soft delete chunk (sets deleted_at). Returns updated metadata.
+    async fn soft_delete(&self, sequence_number: i64) -> Result<ChunkMetadata, ChunkMetadataError>;
+
+    /// Hard delete chunk (removes from database)
+    async fn hard_delete(&self, sequence_number: i64) -> Result<(), ChunkMetadataError>;
 }
