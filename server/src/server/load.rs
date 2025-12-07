@@ -15,8 +15,8 @@ pub fn create_router(deps: Dependencies) -> Router {
     let router: Router = Router::new()
         .route("/load/job", get(get_load_job))
         .route("/load/job", delete(delete_load_job))
+        .route("/load/job", post(start_load_job))
         .route("/load/jobs", get(get_load_jobs))
-        .route("/load/jobs", post(start_load_job))
         .with_state(deps);
     router
 }
@@ -78,7 +78,7 @@ async fn start_load_job(
     Json(payload): Json<CreateLoadJob>,
 ) -> Result<Json<LoadJob>, ServerError> {
     debug!(
-        route = "/load/jobs",
+        route = "/load/job",
         method = "PUT",
         bucket = payload.bucket,
         read_subject = payload.read_subject,

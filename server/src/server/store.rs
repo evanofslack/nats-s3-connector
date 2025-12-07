@@ -16,8 +16,8 @@ pub fn create_router(deps: Dependencies) -> Router {
     let router: Router = Router::new()
         .route("/store/job", get(get_store_job))
         .route("/store/job", delete(delete_store_job))
+        .route("/store/job", post(start_store_job))
         .route("/store/jobs", get(get_store_jobs))
-        .route("/store/jobs", post(start_store_job))
         .with_state(deps);
     router
 }
@@ -78,7 +78,7 @@ async fn start_store_job(
     Json(payload): Json<CreateStoreJob>,
 ) -> Result<Json<StoreJob>, ServerError> {
     debug!(
-        route = "/store/jobs",
+        route = "/store/job",
         method = "PUT",
         name = payload.name,
         stream = payload.stream,
