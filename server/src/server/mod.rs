@@ -121,7 +121,8 @@ impl IntoResponse for ServerError {
                 (StatusCode::NOT_FOUND, format!("job id {} not found", id))
             }
             ServerError::JobStore(db::JobStoreError::Database(_))
-            | ServerError::JobStore(db::JobStoreError::Pool(_)) => (
+            | ServerError::JobStore(db::JobStoreError::Pool(_))
+            | ServerError::JobStore(db::JobStoreError::Postgres(_)) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal server error".to_string(),
             ),
