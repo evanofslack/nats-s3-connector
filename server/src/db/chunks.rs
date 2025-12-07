@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use bytes::Bytes;
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 use thiserror::Error;
 
 use nats3_types::Codec;
@@ -77,7 +77,7 @@ pub struct ListChunksQuery {
 }
 
 #[async_trait]
-pub trait ChunkMetadataStore: Sync + Send + Debug {
+pub trait ChunkMetadataStorer: Sync + Send + Debug {
     async fn create_chunk(
         &self,
         chunk: CreateChunkMetadata,
@@ -101,3 +101,5 @@ pub trait ChunkMetadataStore: Sync + Send + Debug {
     /// Hard delete chunk (removes from database)
     async fn hard_delete_chunk(&self, sequence_number: i64) -> Result<(), ChunkMetadataError>;
 }
+
+pub type DynChunkStorer = Arc<dyn ChunkMetadataStorer + Send + Sync>;

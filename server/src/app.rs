@@ -14,7 +14,7 @@ use tracing::{debug, info, warn};
 #[derive(Debug, Clone)]
 pub struct App {
     pub config: Arc<Config>,
-    pub db: db::DynStorer,
+    pub db: db::DynJobStorer,
     pub io: io::IO,
     pub server: server::Server,
 }
@@ -25,7 +25,7 @@ pub async fn new(config: Config) -> Result<App> {
 
     let metrics = metrics::Metrics::new().await;
 
-    let db: db::DynStorer = match &config.postgres {
+    let db: db::DynJobStorer = match &config.postgres {
         Some(postgres) => {
             info!(url = postgres.url, "using postgres store");
             let pg_store = db::PostgresStore::new(&postgres.url)

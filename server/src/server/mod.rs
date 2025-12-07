@@ -30,11 +30,11 @@ pub mod store;
 pub struct Dependencies {
     metrics: counter::Metrics,
     io: io::IO,
-    db: db::DynStorer,
+    db: db::DynJobStorer,
 }
 
 impl Dependencies {
-    pub fn new(metrics: counter::Metrics, io: io::IO, db: db::DynStorer) -> Self {
+    pub fn new(metrics: counter::Metrics, io: io::IO, db: db::DynJobStorer) -> Self {
         Self { metrics, io, db }
     }
 }
@@ -44,11 +44,11 @@ pub struct Server {
     addr: String,
     metrics: counter::Metrics,
     io: io::IO,
-    db: db::DynStorer,
+    db: db::DynJobStorer,
 }
 
 impl Server {
-    pub fn new(addr: String, metrics: counter::Metrics, io: io::IO, db: db::DynStorer) -> Self {
+    pub fn new(addr: String, metrics: counter::Metrics, io: io::IO, db: db::DynJobStorer) -> Self {
         info!("creating new server on addr {:?}", addr);
         Self {
             addr,

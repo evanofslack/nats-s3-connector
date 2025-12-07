@@ -4,7 +4,8 @@ pub mod jobs;
 pub mod postgres;
 
 pub use chunks::{
-    ChunkMetadata, ChunkMetadataError, ChunkMetadataStore, CreateChunkMetadata, ListChunksQuery,
+    ChunkMetadata, ChunkMetadataError, ChunkMetadataStorer, CreateChunkMetadata, DynChunkStorer,
+    ListChunksQuery,
 };
-pub use jobs::{DynStorer, JobStoreError, JobStorer, LoadJobStorer, StoreJobStorer};
+pub use jobs::{DynJobStorer, JobStoreError, JobStorer, LoadJobStorer, StoreJobStorer};
 pub use postgres::PostgresStore;

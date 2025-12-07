@@ -5,6 +5,7 @@ use std::str::from_utf8;
 use std::sync::Arc;
 use tokio::{sync::RwLock, time};
 
+use crate::db;
 use crate::encoding;
 use crate::metrics;
 use crate::nats;
@@ -42,16 +43,23 @@ pub struct IO {
     pub metrics: metrics::Metrics,
     pub s3_client: s3::Client,
     pub nats_client: nats::Client,
+    pub chunk_db: db::DynChunkStorer,
 }
 
 impl IO {
-    pub fn new(metrics: metrics::Metrics, s3_client: s3::Client, nats_client: nats::Client) -> IO {
+    pub fn new(
+        metrics: metrics::Metrics,
+        s3_client: s3::Client,
+        nats_client: nats::Client,
+        chunk_db: db::DynChunkStorer,
+    ) -> IO {
         debug!("creating new IO instance");
 
         IO {
             metrics,
             s3_client,
             nats_client,
+            chunk_db,
         }
     }
     pub async fn consume_stream(&self, config: ConsumeConfig) -> Result<()> {

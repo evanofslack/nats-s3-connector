@@ -51,4 +51,4 @@ pub trait StoreJobStorer: Sync + Debug {
 #[async_trait]
 pub trait JobStorer: LoadJobStorer + StoreJobStorer {}
 
-pub type DynStorer = Arc<dyn JobStorer + Send + Sync>;
+pub type DynJobStorer = Arc<dyn JobStorer + Send + Sync>;

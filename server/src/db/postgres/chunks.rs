@@ -3,11 +3,11 @@ use async_trait::async_trait;
 use super::models::{ChunkMetadataRow, CreateChunkMetadataRow};
 use super::postgres::PostgresStore;
 use crate::db::{
-    ChunkMetadata, ChunkMetadataError, ChunkMetadataStore, CreateChunkMetadata, ListChunksQuery,
+    ChunkMetadata, ChunkMetadataError, ChunkMetadataStorer, CreateChunkMetadata, ListChunksQuery,
 };
 
 #[async_trait]
-impl ChunkMetadataStore for PostgresStore {
+impl ChunkMetadataStorer for PostgresStore {
     async fn create_chunk(
         &self,
         chunk: CreateChunkMetadata,
