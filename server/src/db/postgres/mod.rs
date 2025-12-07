@@ -4,6 +4,8 @@ mod models;
 mod postgres;
 
 #[cfg(test)]
-mod tests;
+mod chunks_tests;
+#[cfg(test)]
+mod jobs_tests;
 
 pub use postgres::{PostgresError, PostgresStore};
