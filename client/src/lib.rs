@@ -73,7 +73,7 @@ impl Client {
     }
 
     pub async fn create_load_job(&self, job: CreateLoadJob) -> Result<LoadJob> {
-        let url = format!("{}/load/jobs", self.base_url);
+        let url = format!("{}/load/job", self.base_url);
         let response = self.http.post(&url).json(&job).send().await?;
 
         if !response.status().is_success() {
@@ -146,7 +146,7 @@ impl Client {
     }
 
     pub async fn create_store_job(&self, job: CreateStoreJob) -> Result<StoreJob> {
-        let url = format!("{}/store/jobs", self.base_url);
+        let url = format!("{}/store/job", self.base_url);
         let response = self.http.post(&url).json(&job).send().await?;
 
         if !response.status().is_success() {
