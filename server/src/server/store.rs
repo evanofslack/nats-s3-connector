@@ -1,10 +1,11 @@
 use axum::{
     debug_handler,
-    extract::State,
-    routing::{get, post},
+    extract::{Query, State},
+    routing::{delete, get, post},
     Json, Router,
 };
 use nats3_types::{CreateStoreJob, StoreJob, StoreJobStatus};
+use serde::Deserialize;
 use tracing::{debug, warn};
 
 use crate::io;
@@ -13,17 +14,41 @@ use crate::server::{Dependencies, ServerError};
 
 pub fn create_router(deps: Dependencies) -> Router {
     let router: Router = Router::new()
-        .route("/store", get(get_store_jobs))
-        .route("/store", post(start_store_job))
+        .route("/store/job", get(get_store_job))
+        .route("/store/job", delete(delete_store_job))
+        .route("/store/jobs", get(get_store_jobs))
+        .route("/store/jobs", post(start_store_job))
         .with_state(deps);
     router
 }
 
+#[derive(Deserialize)]
+struct GetJobParams {
+    job_id: String,
+}
+
 #[debug_handler]
+async fn get_store_job(
+    State(state): State<Dependencies>,
+    Query(params): Query<GetJobParams>,
+) -> Result<Json<StoreJob>, ServerError> {
+    debug!(
+        route = "/store/job",
+        method = "GET",
+        job_id = params.job_id,
+        "handle request"
+    );
+
+    // fetch store jobs from db
+    let job = state.db.get_store_job(params.job_id).await?;
+
+    Ok(Json(job))
+}
+
 async fn get_store_jobs(
     State(state): State<Dependencies>,
 ) -> Result<Json<Vec<StoreJob>>, ServerError> {
-    debug!(route = "/jobs/store", method = "GET", "handle request");
+    debug!(route = "/store/jobs", method = "GET", "handle request");
 
     // fetch store jobs from db
     let jobs = state.db.get_store_jobs().await?;
@@ -32,12 +57,28 @@ async fn get_store_jobs(
 }
 
 #[debug_handler]
+async fn delete_store_job(
+    State(state): State<Dependencies>,
+    Query(params): Query<GetJobParams>,
+) -> Result<(), ServerError> {
+    debug!(
+        route = "/store/job",
+        method = "DELETE",
+        job_id = params.job_id,
+        "handle request"
+    );
+
+    state.db.delete_store_job(params.job_id).await?;
+    Ok(())
+}
+
+#[debug_handler]
 async fn start_store_job(
     State(state): State<Dependencies>,
     Json(payload): Json<CreateStoreJob>,
 ) -> Result<Json<StoreJob>, ServerError> {
     debug!(
-        route = "/store",
+        route = "/store/jobs",
         method = "PUT",
         name = payload.name,
         stream = payload.stream,
