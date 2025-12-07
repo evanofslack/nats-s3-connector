@@ -8,7 +8,7 @@ use crate::db::{
 
 #[async_trait]
 impl ChunkMetadataStore for PostgresStore {
-    async fn create(
+    async fn create_chunk(
         &self,
         chunk: CreateChunkMetadata,
     ) -> Result<ChunkMetadata, ChunkMetadataError> {
@@ -56,7 +56,7 @@ impl ChunkMetadataStore for PostgresStore {
         Ok(chunk_row.into())
     }
 
-    async fn get(&self, sequence_number: i64) -> Result<ChunkMetadata, ChunkMetadataError> {
+    async fn get_chunk(&self, sequence_number: i64) -> Result<ChunkMetadata, ChunkMetadataError> {
         let client = self.get_client().await?;
 
         let row = client
@@ -78,7 +78,10 @@ impl ChunkMetadataStore for PostgresStore {
         Ok(chunk_row.into())
     }
 
-    async fn list(&self, query: ListChunksQuery) -> Result<Vec<ChunkMetadata>, ChunkMetadataError> {
+    async fn list_chunks(
+        &self,
+        query: ListChunksQuery,
+    ) -> Result<Vec<ChunkMetadata>, ChunkMetadataError> {
         let client = self.get_client().await?;
 
         let mut sql = String::from(
@@ -123,7 +126,10 @@ impl ChunkMetadataStore for PostgresStore {
             .collect()
     }
 
-    async fn soft_delete(&self, sequence_number: i64) -> Result<ChunkMetadata, ChunkMetadataError> {
+    async fn soft_delete_chunk(
+        &self,
+        sequence_number: i64,
+    ) -> Result<ChunkMetadata, ChunkMetadataError> {
         let client = self.get_client().await?;
 
         let row = client
@@ -146,7 +152,7 @@ impl ChunkMetadataStore for PostgresStore {
         Ok(chunk_row.into())
     }
 
-    async fn hard_delete(&self, sequence_number: i64) -> Result<(), ChunkMetadataError> {
+    async fn hard_delete_chunk(&self, sequence_number: i64) -> Result<(), ChunkMetadataError> {
         let client = self.get_client().await?;
 
         let rows_affected = client

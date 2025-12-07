@@ -78,18 +78,26 @@ pub struct ListChunksQuery {
 
 #[async_trait]
 pub trait ChunkMetadataStore: Sync + Send + Debug {
-    async fn create(&self, chunk: CreateChunkMetadata)
-        -> Result<ChunkMetadata, ChunkMetadataError>;
+    async fn create_chunk(
+        &self,
+        chunk: CreateChunkMetadata,
+    ) -> Result<ChunkMetadata, ChunkMetadataError>;
 
-    async fn get(&self, sequence_number: i64) -> Result<ChunkMetadata, ChunkMetadataError>;
+    async fn get_chunk(&self, sequence_number: i64) -> Result<ChunkMetadata, ChunkMetadataError>;
 
     /// List chunks matching query criteria.
     /// Results ordered by: timestamp_start ASC, timestamp_end ASC
-    async fn list(&self, query: ListChunksQuery) -> Result<Vec<ChunkMetadata>, ChunkMetadataError>;
+    async fn list_chunks(
+        &self,
+        query: ListChunksQuery,
+    ) -> Result<Vec<ChunkMetadata>, ChunkMetadataError>;
 
     /// Soft delete chunk (sets deleted_at). Returns updated metadata.
-    async fn soft_delete(&self, sequence_number: i64) -> Result<ChunkMetadata, ChunkMetadataError>;
+    async fn soft_delete_chunk(
+        &self,
+        sequence_number: i64,
+    ) -> Result<ChunkMetadata, ChunkMetadataError>;
 
     /// Hard delete chunk (removes from database)
-    async fn hard_delete(&self, sequence_number: i64) -> Result<(), ChunkMetadataError>;
+    async fn hard_delete_chunk(&self, sequence_number: i64) -> Result<(), ChunkMetadataError>;
 }
