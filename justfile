@@ -13,11 +13,14 @@ build:
 build-server:
     cargo build -p nats3-server
 
-run: build-server
+run-server: build-server
     ./target/debug/nats3-server --config examples/config.toml
 
-dev: build-server
+dev-server: build-server
     RUST_LOG=none,nats3_server=TRACE RUST_BACKTRACE=1 ./target/debug/nats3-server --config examples/config.toml
+
+build-cli:
+    cargo build -p nats3-cli
 
 up:
     cd examples && docker compose -f docker-compose-dev.yaml up -d && docker compose logs --follow

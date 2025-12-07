@@ -8,22 +8,20 @@ integration = []
 
 [dependencies]
 nats3-types = { path = "../types" }
-anyhow = "1.0.100"
+anyhow = { workspace = true }
 async-nats = "0.45.0"
-aws-config = "1.8.11"
-aws-sdk-s3 = "1.115.0"
 axum = {version = "0.8.7", features = ["macros"]}
 bincode = { version = "2.0.1", features = ["serde"] }
 bytes = "1.11.0"
-clap = { version = "4.5.53", features = ["derive"] }
+clap = { workspace = true, features = ["derive"] }
 hyper = "1.8.1"
 futures = "0.3.31"
 lazy_static = "1.5.0"
 rust-s3 = { version = "0.37.0" }
 serde = { workspace = true }
-serde_json = { version = "1.0" }
+serde_json = { workspace = true }
 sha2 = "0.10.9"
-tokio = { version = "1", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
 tower = { version = "0.5", features = ["util", "timeout"] }
 tower-http = { version = "0.6.7", features = ["full"] }
 tracing = "0.1"
@@ -31,8 +29,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 hyper-util = "0.1.18"
 figment = { version = "0.10.19", features = ["env", "toml", "yaml"]}
 async-trait = "0.1.89"
-thiserror = "2.0.17"
-ulid = "1.2.1"
+thiserror = { workspace = true }
+ulid = { workspace = true }
 prometheus-client = "0.24.0"
 tokio-postgres = { version = "0.7.15", features = ["with-chrono-0_4"] }
 refinery = { version = "0.9.0", features = ["tokio-postgres"] }
