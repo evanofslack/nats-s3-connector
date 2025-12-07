@@ -3,7 +3,7 @@ use tokio_postgres::Row;
 
 use nats3_types::{Batch, Codec, Encoding, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
 
-use super::JobStoreError;
+use crate::db::JobStoreError;
 
 #[derive(Debug, Clone, ToSql, FromSql)]
 #[postgres(name = "load_job_status")]
