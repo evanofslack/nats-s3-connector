@@ -17,7 +17,7 @@ impl Client {
     }
 
     pub async fn get_load_jobs(&self) -> Result<Vec<LoadJob>> {
-        let url = format!("{}/load", self.base_url);
+        let url = format!("{}/load/jobs", self.base_url);
         let response = self.http.get(&url).send().await?;
 
         if !response.status().is_success() {
@@ -34,7 +34,7 @@ impl Client {
     }
 
     pub async fn create_load_job(&self, job: CreateLoadJob) -> Result<LoadJob> {
-        let url = format!("{}/load", self.base_url);
+        let url = format!("{}/load/jobs", self.base_url);
         let response = self.http.post(&url).json(&job).send().await?;
 
         if !response.status().is_success() {
@@ -51,7 +51,7 @@ impl Client {
     }
 
     pub async fn get_store_jobs(&self) -> Result<Vec<StoreJob>> {
-        let url = format!("{}/store", self.base_url);
+        let url = format!("{}/store/jobs", self.base_url);
         let response = self.http.get(&url).send().await?;
 
         if !response.status().is_success() {
@@ -68,7 +68,7 @@ impl Client {
     }
 
     pub async fn create_store_job(&self, job: CreateStoreJob) -> Result<StoreJob> {
-        let url = format!("{}/store", self.base_url);
+        let url = format!("{}/store/jobs", self.base_url);
         let response = self.http.post(&url).json(&job).send().await?;
 
         if !response.status().is_success() {
