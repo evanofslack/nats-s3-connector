@@ -1,3 +1,4 @@
+mod chunks;
 mod jobs;
 mod models;
 mod postgres;
@@ -5,4 +6,4 @@ mod postgres;
 #[cfg(test)]
 mod tests;
 
-pub use postgres::PostgresStore;
+pub use postgres::{PostgresError, PostgresStore};

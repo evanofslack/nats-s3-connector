@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use async_trait::async_trait;
 use std::{fmt::Debug, sync::Arc};
@@ -10,6 +9,9 @@ use nats3_types::{LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
 pub enum JobStoreError {
     #[error("job not found, id: {id}")]
     NotFound { id: String },
+
+    #[error("database error: {0}")]
+    Postgres(#[from] crate::db::postgres::PostgresError),
 
     #[error("database error: {0}")]
     Database(#[from] tokio_postgres::Error),
