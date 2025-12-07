@@ -42,6 +42,7 @@ impl FromStr for Codec {
         match s {
             "json" => Ok(Self::Json),
             "bin" => Ok(Self::Binary),
+            "binary" => Ok(Self::Binary),
             _ => Err(CodecParseError(format!(
                 "Invalid codec '{}'. Valid options: json, bin",
                 s
@@ -50,7 +51,7 @@ impl FromStr for Codec {
     }
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreateStoreJob {
     pub name: String,
     pub stream: String,
@@ -151,7 +152,7 @@ fn codec_default() -> Codec {
     DEFAULT_CODEC
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreateLoadJob {
     pub bucket: String,
     pub prefix: Option<String>,
@@ -164,7 +165,7 @@ pub struct CreateLoadJob {
     pub end: Option<usize>,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LoadJob {
     pub id: String,
     pub status: LoadJobStatus,
@@ -210,7 +211,7 @@ impl LoadJob {
     }
 }
 
-#[derive(Serialize, Clone, Debug, Display, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Display, Eq, PartialEq)]
 pub enum LoadJobStatus {
     Created,
     Running,

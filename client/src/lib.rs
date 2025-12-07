@@ -1,0 +1,89 @@
+mod error;
+
+pub use error::{ClientError, Result};
+use nats3_types::{CreateLoadJob, CreateStoreJob, LoadJob, StoreJob};
+
+pub struct Client {
+    http: reqwest::Client,
+    base_url: String,
+}
+
+impl Client {
+    pub fn new(base_url: String) -> Self {
+        Self {
+            http: reqwest::Client::new(),
+            base_url,
+        }
+    }
+
+    pub async fn get_load_jobs(&self) -> Result<Vec<LoadJob>> {
+        let url = format!("{}/load", self.base_url);
+        let response = self.http.get(&url).send().await?;
+
+        if !response.status().is_success() {
+            return Err(ClientError::Http {
+                status: response.status().as_u16(),
+                message: response.text().await.unwrap_or_default(),
+            });
+        }
+
+        response
+            .json()
+            .await
+            .map_err(|e| ClientError::Deserialization(e.to_string()))
+    }
+
+    pub async fn create_load_job(&self, job: CreateLoadJob) -> Result<LoadJob> {
+        let url = format!("{}/load", self.base_url);
+        let response = self.http.post(&url).json(&job).send().await?;
+
+        if !response.status().is_success() {
+            return Err(ClientError::Http {
+                status: response.status().as_u16(),
+                message: response.text().await.unwrap_or_default(),
+            });
+        }
+
+        response
+            .json()
+            .await
+            .map_err(|e| ClientError::Deserialization(e.to_string()))
+    }
+
+    pub async fn get_store_jobs(&self) -> Result<Vec<StoreJob>> {
+        let url = format!("{}/store", self.base_url);
+        let response = self.http.get(&url).send().await?;
+
+        if !response.status().is_success() {
+            return Err(ClientError::Http {
+                status: response.status().as_u16(),
+                message: response.text().await.unwrap_or_default(),
+            });
+        }
+
+        response
+            .json()
+            .await
+            .map_err(|e| ClientError::Deserialization(e.to_string()))
+    }
+
+    pub async fn create_store_job(&self, job: CreateStoreJob) -> Result<StoreJob> {
+        let url = format!("{}/store", self.base_url);
+        let response = self.http.post(&url).json(&job).send().await?;
+
+        if !response.status().is_success() {
+            return Err(ClientError::Http {
+                status: response.status().as_u16(),
+                message: response.text().await.unwrap_or_default(),
+            });
+        }
+
+        response
+            .json()
+            .await
+            .map_err(|e| ClientError::Deserialization(e.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests;
