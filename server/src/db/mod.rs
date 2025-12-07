@@ -1,3 +1,4 @@
+pub mod chunks;
 pub mod inmem;
 pub mod jobs;
 pub mod postgres;
