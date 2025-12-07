@@ -63,7 +63,7 @@ threads to monitor each job.
 
 Messages stored in S3 can be loaded and submitted back into NATS.
 These load jobs are started by sending a PUT request to the HTTP server
-on the endpoint `/load`:
+on the endpoint `/load/job`:
 
 ```bash
 curl --header "Content-Type: application/json" \
@@ -76,7 +76,7 @@ curl --header "Content-Type: application/json" \
             "write_subject":"destination",
             "delete_chunks":true
         }' \
-  http://localhost:8080/load
+  http://localhost:8080/load/job
 ```
 
 This will start loading messages from S3 and publishing them to specified stream.
