@@ -1,0 +1,54 @@
+use anyhow::Result;
+use async_trait::async_trait;
+use std::{fmt::Debug, sync::Arc};
+use thiserror::Error;
+
+use nats3_types::{LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
+
+#[derive(Error, Debug)]
+pub enum JobStoreError {
+    #[error("job not found, id: {id}")]
+    NotFound { id: String },
+
+    #[error("database error: {0}")]
+    Postgres(#[from] crate::db::postgres::PostgresError),
+
+    #[error("database error: {0}")]
+    Database(#[from] tokio_postgres::Error),
+
+    #[error("connection pool error: {0}")]
+    Pool(String),
+}
+
+#[allow(dead_code)]
+#[async_trait]
+pub trait LoadJobStorer: Sync + Debug {
+    async fn get_load_job(&self, id: String) -> Result<LoadJob, JobStoreError>;
+    async fn get_load_jobs(&self) -> Result<Vec<LoadJob>, JobStoreError>;
+    async fn create_load_job(&self, job: LoadJob) -> Result<(), JobStoreError>;
+    async fn update_load_job(
+        &self,
+        id: String,
+        status: LoadJobStatus,
+    ) -> Result<LoadJob, JobStoreError>;
+    async fn delete_load_job(&self, id: String) -> Result<(), JobStoreError>;
+}
+
+#[allow(dead_code)]
+#[async_trait]
+pub trait StoreJobStorer: Sync + Debug {
+    async fn get_store_job(&self, id: String) -> Result<StoreJob, JobStoreError>;
+    async fn get_store_jobs(&self) -> Result<Vec<StoreJob>, JobStoreError>;
+    async fn create_store_job(&self, job: StoreJob) -> Result<(), JobStoreError>;
+    async fn update_store_job(
+        &self,
+        id: String,
+        status: StoreJobStatus,
+    ) -> Result<StoreJob, JobStoreError>;
+    async fn delete_store_job(&self, id: String) -> Result<(), JobStoreError>;
+}
+
+#[async_trait]
+pub trait JobStorer: LoadJobStorer + StoreJobStorer {}
+
+pub type DynJobStorer = Arc<dyn JobStorer + Send + Sync>;
