@@ -5,10 +5,12 @@ edition = "2021"
 
 [dependencies]
 nats3-types = { path = "../types" }
-reqwest = { version = "0.12.24", features = ["json"] }
+
 serde = { workspace = true, features = ["derive"]  }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+
+reqwest = { version = "0.12.24", features = ["json"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
