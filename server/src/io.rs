@@ -1,16 +1,16 @@
+use anyhow::Result;
 use async_nats::jetstream;
 use futures::StreamExt;
 use nats3_types::Codec;
 use std::sync::Arc;
 use tokio::{sync::RwLock, time};
+use tracing::{debug, trace, warn};
 
 use crate::db;
 use crate::encoding;
 use crate::metrics;
 use crate::nats;
 use crate::s3;
-use anyhow::Result;
-use tracing::{debug, trace, warn};
 
 const KEEP_ALIVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
 const DEFAULT_BATCH_WAIT: time::Duration = time::Duration::from_secs(10);
@@ -229,7 +229,7 @@ impl IO {
         let chunks = self.chunk_db.list_chunks(query).await?;
 
         for chunk_md in chunks {
-            let path = if chunk_md.prefix != "" {
+            let path = if !chunk_md.prefix.is_empty() {
                 format!("{}/{}", chunk_md.prefix, chunk_md.key)
             } else {
                 chunk_md.key
