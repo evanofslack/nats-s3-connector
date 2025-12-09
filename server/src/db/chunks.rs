@@ -24,9 +24,6 @@ pub enum ChunkMetadataError {
 
     #[error("database error: {0}")]
     Database(#[from] tokio_postgres::Error),
-
-    #[error("connection pool error: {0}")]
-    Pool(String),
 }
 
 #[derive(Clone, Debug)]
