@@ -42,13 +42,18 @@ impl Client {
             .context("put object")?;
         let code = response_data.status_code();
         if code != 200 {
-            warn!(code = code, "unexpected status code")
+            warn!(
+                code = code,
+                bucket = bucket_name,
+                path = path,
+                "upload chunk, unexpected status code"
+            )
         }
         info!(
             bucket = bucket_name,
             path = path,
             codec = codec.to_string(),
-            "uploaded block to s3"
+            "finish upload block to s3"
         );
         Ok(())
     }
@@ -63,14 +68,20 @@ impl Client {
         let response_data = bucket.get_object(path).await?;
         let code = response_data.status_code();
         if code != 200 {
-            warn!(code = code, "unexpected status code")
+            warn!(
+                code = code,
+                bucket = bucket_name,
+                path = path,
+                "download chunk, unexpected status code"
+            )
         }
-        let chunk = encoding::Chunk::deserialize(response_data.as_slice().into(), codec)?;
+        let chunk = encoding::Chunk::deserialize(response_data.as_slice().into(), codec.clone())?;
 
         debug!(
             bucket = bucket_name,
             path = path,
-            "downloaded block from s3"
+            codec = codec.to_string(),
+            "finish download block from s3"
         );
         Ok(chunk)
     }
@@ -80,9 +91,18 @@ impl Client {
         let response_data = bucket.delete_object(path).await?;
         let code = response_data.status_code();
         if code != 200 {
-            warn!(code = code, "unexpected status code")
+            warn!(
+                code = code,
+                bucket = bucket_name,
+                path = path,
+                "delete chunk, unexpected status code"
+            )
         }
-        debug!(bucket = bucket_name, path = path, "deleted block from s3");
+        debug!(
+            bucket = bucket_name,
+            path = path,
+            "finish delete block from s3"
+        );
         Ok(())
     }
 

@@ -16,6 +16,7 @@ impl ChunkMetadataStorer for PostgresStore {
         debug!(
             bucket = chunk.bucket,
             key = chunk.key,
+            prefix = chunk.prefix,
             stream = chunk.stream,
             subject = chunk.stream,
             message_count = chunk.message_count,
