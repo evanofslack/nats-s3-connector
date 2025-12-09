@@ -24,12 +24,10 @@ pub enum ChunkMetadataError {
 
     #[error("database error: {0}")]
     Database(#[from] tokio_postgres::Error),
-
-    #[error("connection pool error: {0}")]
-    Pool(String),
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct ChunkMetadata {
     pub sequence_number: i64,
     pub bucket: String,
@@ -77,6 +75,7 @@ pub struct ListChunksQuery {
 }
 
 #[async_trait]
+#[allow(dead_code)]
 pub trait ChunkMetadataStorer: Sync + Send + Debug {
     async fn create_chunk(
         &self,

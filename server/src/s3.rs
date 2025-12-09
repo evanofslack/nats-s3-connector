@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use nats3_types::Codec;
-use s3::{creds::Credentials, serde_types::Object, Bucket, BucketConfiguration, Region};
-use tracing::{debug, info, trace, warn};
+use s3::{creds::Credentials, Bucket, BucketConfiguration, Region};
+use tracing::{debug, info, warn};
 
 use crate::encoding;
 
@@ -42,13 +42,18 @@ impl Client {
             .context("put object")?;
         let code = response_data.status_code();
         if code != 200 {
-            warn!(code = code, "unexpected status code")
+            warn!(
+                code = code,
+                bucket = bucket_name,
+                path = path,
+                "upload chunk, unexpected status code"
+            )
         }
         info!(
             bucket = bucket_name,
             path = path,
             codec = codec.to_string(),
-            "uploaded block to s3"
+            "finish upload block to s3"
         );
         Ok(())
     }
@@ -63,14 +68,20 @@ impl Client {
         let response_data = bucket.get_object(path).await?;
         let code = response_data.status_code();
         if code != 200 {
-            warn!(code = code, "unexpected status code")
+            warn!(
+                code = code,
+                bucket = bucket_name,
+                path = path,
+                "download chunk, unexpected status code"
+            )
         }
-        let chunk = encoding::Chunk::deserialize(response_data.as_slice().into(), codec)?;
+        let chunk = encoding::Chunk::deserialize(response_data.as_slice().into(), codec.clone())?;
 
         debug!(
             bucket = bucket_name,
             path = path,
-            "downloaded block from s3"
+            codec = codec.to_string(),
+            "finish download block from s3"
         );
         Ok(chunk)
     }
@@ -80,29 +91,19 @@ impl Client {
         let response_data = bucket.delete_object(path).await?;
         let code = response_data.status_code();
         if code != 200 {
-            warn!(code = code, "unexpected status code")
+            warn!(
+                code = code,
+                bucket = bucket_name,
+                path = path,
+                "delete chunk, unexpected status code"
+            )
         }
-        debug!(bucket = bucket_name, path = path, "deleted block from s3");
-        Ok(())
-    }
-
-    pub async fn list_paths(&self, bucket_name: &str, prefix: &str) -> Result<Vec<String>> {
-        let bucket = self.bucket(bucket_name, false).await?;
-        let results = bucket.list(prefix.to_string().clone(), None).await?;
-
-        let mut objects: Vec<Object> = Vec::new();
-        for mut result in results {
-            objects.append(&mut result.contents)
-        }
-
-        let paths: Vec<String> = objects.into_iter().map(|obj| obj.key).collect();
-        trace!(
+        debug!(
             bucket = bucket_name,
-            prefix = prefix,
-            count = paths.len(),
-            "listed objects from s3"
+            path = path,
+            "finish delete block from s3"
         );
-        Ok(paths)
+        Ok(())
     }
 
     async fn bucket(&self, bucket_name: &str, try_create: bool) -> Result<s3::Bucket> {

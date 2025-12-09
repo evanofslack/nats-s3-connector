@@ -16,12 +16,20 @@ impl ChunkMetadataStorer for PostgresStore {
         debug!(
             bucket = chunk.bucket,
             key = chunk.key,
+            prefix = chunk.prefix,
             stream = chunk.stream,
             subject = chunk.stream,
             message_count = chunk.message_count,
             bytes = chunk.size_bytes,
             "start create chunk"
         );
+        if chunk.timestamp_start > chunk.timestamp_end {
+            return Err(ChunkMetadataError::InvalidTimestampRange {
+                start: chunk.timestamp_start,
+                end: chunk.timestamp_end,
+            });
+        }
+
         let client = self.get_client().await?;
         let row: CreateChunkMetadataRow = chunk.into();
 

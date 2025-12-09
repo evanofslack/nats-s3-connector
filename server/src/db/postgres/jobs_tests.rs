@@ -203,7 +203,7 @@ async fn test_create_and_get_load_job() {
     assert_eq!(retrieved.id, "test-job-1");
     assert_eq!(retrieved.bucket, "my-bucket");
     assert_eq!(retrieved.status, LoadJobStatus::Created);
-    assert_eq!(retrieved.delete_chunks, false);
+    assert!(!retrieved.delete_chunks);
 }
 
 #[tokio::test]
