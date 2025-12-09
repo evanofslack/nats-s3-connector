@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fmt;
-use thiserror::Error;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
@@ -14,18 +13,6 @@ use crate::{db::CreateChunkMetadata, io::ConsumeConfig};
 
 const MAGIC_NUMBER: &str = "NATS3";
 const VERSION: &str = "1.0";
-
-#[derive(Error, Debug)]
-pub enum ChunkKeyError {
-    #[error("invalid key: {key}")]
-    InvalidKey { key: String },
-    #[error("invalid extension: {ext}, error: {source}")]
-    InvalidExt {
-        ext: String,
-        #[source]
-        source: Box<dyn std::error::Error + Send + Sync>,
-    },
-}
 
 // our repr of a NATS message.
 #[derive(Clone, Debug, Serialize, Deserialize)]
