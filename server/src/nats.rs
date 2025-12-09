@@ -39,11 +39,11 @@ impl Client {
             .replace(">", "_")
             .replace("*", "_");
 
-        let filter_subject = format!("{}.{}", stream_name, subject.clone());
+        let filter_subject = subject.clone();
 
         debug!(
             name = name,
-            filter_subject = filter_subject,
+            filter_subject = subject.clone(),
             "created consumer"
         );
 
