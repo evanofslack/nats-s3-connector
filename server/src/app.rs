@@ -14,7 +14,7 @@ use tracing::{debug, info, warn};
 #[derive(Debug, Clone)]
 pub struct App {
     pub config: Arc<Config>,
-    pub db: db::DynStorer,
+    pub db: db::DynJobStorer,
     pub io: io::IO,
     pub server: server::Server,
 }
@@ -25,22 +25,14 @@ pub async fn new(config: Config) -> Result<App> {
 
     let metrics = metrics::Metrics::new().await;
 
-    let db: db::DynStorer = match &config.postgres {
-        Some(postgres) => {
-            info!(url = postgres.url, "using postgres store");
-            let pg_store = db::PostgresStore::new(&postgres.url)
-                .await
-                .context("fail create postgres store")?;
-            if postgres.migrate {
-                pg_store.migrate().await.context("fail run migrations")?;
-            }
-            Arc::new(pg_store)
-        }
-        None => {
-            info!("using in-memory store");
-            Arc::new(db::inmem::InMemory::new(metrics.clone()))
-        }
-    };
+    let pg_store = db::PostgresStore::new(&config.postgres.url)
+        .await
+        .context("fail create postgres store")?;
+    if config.postgres.migrate {
+        pg_store.migrate().await.context("fail run migrations")?;
+    }
+    let job_db: db::DynJobStorer = Arc::new(pg_store.clone());
+    let chunk_db: db::DynChunkStorer = Arc::new(pg_store);
 
     let s3_client = s3::Client::new(
         config.s3.region.clone(),
@@ -53,20 +45,20 @@ pub async fn new(config: Config) -> Result<App> {
         .await
         .context("failed to connect to nats server")?;
 
-    let io = io::IO::new(metrics.clone(), s3_client, nats_client);
+    let io = io::IO::new(metrics.clone(), s3_client, nats_client, chunk_db);
 
     let server = server::Server::new(
         config.clone().server.addr,
         metrics.clone(),
         io.clone(),
-        db.clone(),
+        job_db.clone(),
     );
 
     let app = App {
         config: Arc::new(config),
         io,
         server,
-        db,
+        db: job_db,
     };
 
     Ok(app)

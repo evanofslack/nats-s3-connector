@@ -17,7 +17,7 @@ const DEFAULT_SERVER_ADDR: &str = "0.0.0.0:8080";
 pub struct Config {
     pub log: Option<String>,
     pub server: Server,
-    pub postgres: Option<Postgres>,
+    pub postgres: Postgres,
     pub nats: Nats,
     pub s3: S3,
     pub store_jobs: Option<Vec<StoreJob>>,

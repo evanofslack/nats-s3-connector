@@ -1,9 +1,11 @@
+use bytes::Bytes;
 use postgres_types::{FromSql, ToSql};
 use tokio_postgres::Row;
 
 use nats3_types::{Batch, Codec, Encoding, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
 
-use super::JobStoreError;
+use crate::db::JobStoreError;
+use crate::db::{ChunkMetadata, ChunkMetadataError, CreateChunkMetadata};
 
 #[derive(Debug, Clone, ToSql, FromSql)]
 #[postgres(name = "load_job_status")]
@@ -258,6 +260,104 @@ impl From<StoreJob> for StoreJobRowCreate {
             batch_max_bytes: job.batch.max_bytes,
             batch_max_count: job.batch.max_count,
             encoding_codec: job.encoding.codec.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ChunkMetadataRow {
+    pub sequence_number: i64,
+    pub bucket: String,
+    pub prefix: String,
+    pub key: String,
+    pub stream: String,
+    pub subject: String,
+    pub timestamp_start: chrono::DateTime<chrono::Utc>,
+    pub timestamp_end: chrono::DateTime<chrono::Utc>,
+    pub message_count: i64,
+    pub size_bytes: i64,
+    pub codec: EncodingCodec,
+    pub hash: Vec<u8>,
+    pub version: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+impl ChunkMetadataRow {
+    pub fn from_row(row: &Row) -> Result<Self, ChunkMetadataError> {
+        Ok(Self {
+            sequence_number: row.try_get("sequence_number")?,
+            bucket: row.try_get("bucket")?,
+            prefix: row.try_get("prefix")?,
+            key: row.try_get("key")?,
+            stream: row.try_get("stream")?,
+            subject: row.try_get("subject")?,
+            timestamp_start: row.try_get("timestamp_start")?,
+            timestamp_end: row.try_get("timestamp_end")?,
+            message_count: row.try_get("message_count")?,
+            size_bytes: row.try_get("size_bytes")?,
+            codec: row.try_get("codec")?,
+            hash: row.try_get("hash")?,
+            version: row.try_get("version")?,
+            created_at: row.try_get("created_at")?,
+            deleted_at: row.try_get("deleted_at")?,
+        })
+    }
+}
+
+impl From<ChunkMetadataRow> for ChunkMetadata {
+    fn from(row: ChunkMetadataRow) -> Self {
+        Self {
+            sequence_number: row.sequence_number,
+            bucket: row.bucket,
+            prefix: row.prefix,
+            key: row.key,
+            stream: row.stream,
+            subject: row.subject,
+            timestamp_start: row.timestamp_start,
+            timestamp_end: row.timestamp_end,
+            message_count: row.message_count,
+            size_bytes: row.size_bytes,
+            codec: row.codec.into(),
+            hash: Bytes::from(row.hash),
+            version: row.version,
+            created_at: row.created_at,
+            deleted_at: row.deleted_at,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CreateChunkMetadataRow {
+    pub bucket: String,
+    pub prefix: String,
+    pub key: String,
+    pub stream: String,
+    pub subject: String,
+    pub timestamp_start: chrono::DateTime<chrono::Utc>,
+    pub timestamp_end: chrono::DateTime<chrono::Utc>,
+    pub message_count: i64,
+    pub size_bytes: i64,
+    pub codec: EncodingCodec,
+    pub hash: Vec<u8>,
+    pub version: String,
+}
+
+impl From<CreateChunkMetadata> for CreateChunkMetadataRow {
+    fn from(chunk: CreateChunkMetadata) -> Self {
+        Self {
+            bucket: chunk.bucket,
+            prefix: chunk.prefix,
+            key: chunk.key,
+            stream: chunk.stream,
+            subject: chunk.subject,
+            timestamp_start: chunk.timestamp_start,
+            timestamp_end: chunk.timestamp_end,
+            message_count: chunk.message_count,
+            size_bytes: chunk.size_bytes,
+            codec: chunk.codec.into(),
+            hash: chunk.hash.to_vec(),
+            version: chunk.version,
         }
     }
 }

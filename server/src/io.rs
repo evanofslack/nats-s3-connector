@@ -5,6 +5,7 @@ use std::str::from_utf8;
 use std::sync::Arc;
 use tokio::{sync::RwLock, time};
 
+use crate::db;
 use crate::encoding;
 use crate::metrics;
 use crate::nats;
@@ -42,16 +43,23 @@ pub struct IO {
     pub metrics: metrics::Metrics,
     pub s3_client: s3::Client,
     pub nats_client: nats::Client,
+    pub chunk_db: db::DynChunkStorer,
 }
 
 impl IO {
-    pub fn new(metrics: metrics::Metrics, s3_client: s3::Client, nats_client: nats::Client) -> IO {
+    pub fn new(
+        metrics: metrics::Metrics,
+        s3_client: s3::Client,
+        nats_client: nats::Client,
+        chunk_db: db::DynChunkStorer,
+    ) -> IO {
         debug!("creating new IO instance");
 
         IO {
             metrics,
             s3_client,
             nats_client,
+            chunk_db,
         }
     }
     pub async fn consume_stream(&self, config: ConsumeConfig) -> Result<()> {
@@ -157,92 +165,108 @@ impl IO {
             delete_chunks = config.delete_chunks,
             start = config.start,
             end = config.end,
-            "starting to download from bucket and publish to stream "
+            "starting to download from bucket and publish to stream"
         );
 
         let write_stream = config.write_stream.clone();
         let write_subject = config.write_subject.clone();
-
-        // build up the prefix
         let read_stream = config.read_stream.clone();
         let read_subject = config.read_subject.clone();
-        let mut prefix = format!("{read_stream}/{read_subject}");
-        // append optional provided bucket prefix
-        if let Some(pre) = config.key_prefix {
-            prefix = format!("{pre}/{prefix}")
-        }
 
-        let paths = self.s3_client.list_paths(&config.bucket, &prefix).await?;
-        for path in paths {
-            // check if block falls within allowed timespan.
-            // since each block's key is the unix timestamp at
-            // upload time, we can parse and compare.
-            let prefix = format!("{prefix}/");
-            if let Some(key) = path.strip_prefix(&prefix) {
-                let chunk_key = encoding::ChunkKey::from_string(key.to_string())?;
-                if let Some(start) = config.start {
-                    if chunk_key.timestamp < start as u128 {
-                        trace!(
-                            start = start,
-                            key = chunk_key.timestamp,
-                            "message block falls before time window, skipping"
-                        );
-                        continue;
-                    }
-                }
-                if let Some(end) = config.end {
-                    if chunk_key.timestamp > end as u128 {
-                        trace!(
-                            start = config.start,
-                            key = chunk_key.timestamp,
-                            "message block falls after time window, skipping"
-                        );
-                        // TODO: potentially skip rest of keys if ensured
-                        // they are sorted such that all remaining are too old.
-                        continue;
-                    }
-                }
+        let query = db::ListChunksQuery {
+            stream: read_stream.clone(),
+            subject: read_subject.clone(),
+            bucket: config.bucket.clone(),
+            prefix: config.key_prefix.unwrap_or_default(),
+            timestamp_start: config.start.map(|ts| {
+                chrono::DateTime::from_timestamp(ts.try_into().expect("usize to int64"), 0)
+                    .expect("invalid start timestamp")
+            }),
+            timestamp_end: config.end.map(|ts| {
+                chrono::DateTime::from_timestamp(ts.try_into().expect("usize to int64"), 0)
+                    .expect("invalid end timestamp")
+            }),
+            limit: None,
+            include_deleted: false,
+        };
 
-                // download from s3
-                let chunk = self
-                    .s3_client
-                    .download_chunk(&config.bucket, &path, chunk_key.codec)
+        let chunks = self.chunk_db.list_chunks(query).await?;
+
+        for chunk_metadata in chunks {
+            let object_key = format!("{}/{}", chunk_metadata.prefix, chunk_metadata.key);
+
+            let chunk = match self
+                .s3_client
+                .download_chunk(&chunk_metadata.bucket, &object_key, chunk_metadata.codec)
+                .await
+            {
+                Ok(chunk) => chunk,
+                Err(e) => {
+                    warn!(
+                        bucket = chunk_metadata.bucket,
+                        key = object_key,
+                        error = ?e,
+                        "metadata exists but s3 object is missing, skipping"
+                    );
+                    continue;
+                }
+            };
+
+            let mut bytes_total = 0;
+            let messages_total = chunk.block.messages.len();
+            let subject = format!("{write_stream}.{write_subject}");
+
+            for message in chunk.block.messages {
+                bytes_total += message.payload.len();
+                self.nats_client
+                    .publish(subject.clone(), message.payload)
                     .await?;
+            }
 
-                let mut bytes_total = 0;
-                let messages_total = chunk.block.messages.len();
-                let subject = format!("{write_stream}.{write_subject}");
+            let nats_metrics = self.metrics.nats.write().await;
+            let labels = metrics::NatsLabels {
+                subject: write_subject.clone(),
+                stream: write_stream.clone(),
+            };
+            nats_metrics
+                .load_messages
+                .get_or_create(&labels)
+                .inc_by(messages_total as u64);
+            nats_metrics
+                .load_bytes
+                .get_or_create(&labels)
+                .inc_by(bytes_total as u64);
+            drop(nats_metrics);
 
-                // publish each message to nats
-                for message in chunk.block.messages {
-                    bytes_total += message.payload.len();
-                    self.nats_client
-                        .publish(subject.clone(), message.payload)
-                        .await?;
+            if config.delete_chunks {
+                if let Err(e) = self
+                    .s3_client
+                    .delete_chunk(&chunk_metadata.bucket, &object_key)
+                    .await
+                {
+                    warn!(
+                        bucket = chunk_metadata.bucket,
+                        key = object_key,
+                        error = ?e,
+                        "fail delete chunk from s3, skip soft delete"
+                    );
+                    continue;
                 }
 
-                // increment metrics
-                let nats_metrics = self.metrics.nats.write().await;
-                let labels = metrics::NatsLabels {
-                    subject: write_subject.clone(),
-                    stream: write_stream.clone(),
-                };
-                nats_metrics
-                    .load_messages
-                    .get_or_create(&labels)
-                    .inc_by(messages_total as u64);
-                nats_metrics
-                    .load_bytes
-                    .get_or_create(&labels)
-                    .inc_by(bytes_total as u64);
-                drop(nats_metrics);
-
-                // if enabled, delete published chunk from s3
-                if config.delete_chunks {
-                    self.s3_client.delete_chunk(&config.bucket, &path).await?;
+                if let Err(e) = self
+                    .chunk_db
+                    .soft_delete_chunk(chunk_metadata.sequence_number)
+                    .await
+                {
+                    warn!(
+                        sequence_number = chunk_metadata.sequence_number,
+                        error = ?e,
+                        "fail soft delete chunk metadata after s3 deletion"
+                    );
                 }
             }
         }
+
         debug!(
             read_subject = read_subject,
             write_subject = write_subject,
