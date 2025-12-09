@@ -1,14 +1,16 @@
 use anyhow::{Context, Result};
-use async_nats::jetstream;
-use nats3_types::Codec;
-use sha2::{Digest, Sha256};
-use std::fmt;
-use std::time::SystemTime;
-
+use async_nats::{header, jetstream};
 use bytes::Bytes;
+use nats3_types::Codec;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::fmt;
 use thiserror::Error;
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
+
+use crate::{db::CreateChunkMetadata, io::ConsumeConfig};
 
 const MAGIC_NUMBER: &str = "NATS3";
 const VERSION: &str = "1.0";
@@ -35,15 +37,36 @@ pub struct Message {
     // optional headers.
     pub headers: Option<HashMap<String, String>>,
     pub length: usize,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub sequence: u64,
 }
 
 impl From<jetstream::Message> for Message {
     fn from(source: jetstream::Message) -> Message {
+        let headers_ref = source.headers.as_ref();
+        let timestamp = headers_ref
+            .and_then(|h| h.get_last(header::NATS_TIME_STAMP))
+            .and_then(|ts| OffsetDateTime::parse(ts.as_str(), &Rfc3339).ok())
+            .and_then(|odt| {
+                chrono::DateTime::<chrono::Utc>::from_timestamp(
+                    odt.unix_timestamp(),
+                    odt.nanosecond(),
+                )
+            })
+            .unwrap_or_else(chrono::Utc::now);
+
+        let sequence = headers_ref
+            .and_then(|h| h.get_last(header::NATS_SEQUENCE))
+            .and_then(|seq| seq.as_str().parse::<u64>().ok())
+            .unwrap_or(0);
+
         Message {
             subject: source.subject.clone().to_string(),
             payload: source.payload.clone(),
             headers: None,
             length: source.length,
+            timestamp,
+            sequence,
         }
     }
 }
@@ -51,15 +74,35 @@ impl From<jetstream::Message> for Message {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MessageBlock {
     pub messages: Vec<Message>,
+    pub timestamp_min: chrono::DateTime<chrono::Utc>,
+    pub timestamp_max: chrono::DateTime<chrono::Utc>,
+    pub bytes_total: usize,
 }
 
 impl From<Vec<jetstream::Message>> for MessageBlock {
     fn from(js_messages: Vec<jetstream::Message>) -> MessageBlock {
-        let mut messages = Vec::new();
-        for m in js_messages {
-            messages.push(Message::from(m))
+        let messages: Vec<Message> = js_messages.into_iter().map(Message::from).collect();
+
+        let timestamp_min = messages
+            .iter()
+            .min_by_key(|m| m.timestamp)
+            .map(|m| m.timestamp)
+            .unwrap_or_else(chrono::Utc::now);
+
+        let timestamp_max = messages
+            .iter()
+            .max_by_key(|m| m.timestamp)
+            .map(|m| m.timestamp)
+            .unwrap_or_else(chrono::Utc::now);
+
+        let bytes_total = messages.iter().map(|m| m.length).sum();
+
+        MessageBlock {
+            messages,
+            timestamp_min,
+            timestamp_max,
+            bytes_total,
         }
-        MessageBlock { messages }
     }
 }
 
@@ -69,14 +112,12 @@ pub struct Chunk {
     magic_number: String,
     version: String,
     hash: Vec<u8>,
-    timestamp: u128,
 }
 
 impl Chunk {
     pub fn from_block(block: MessageBlock) -> Self {
         let config = bincode::config::legacy();
         let payload: Vec<u8> = bincode::serde::encode_to_vec(&block, config).unwrap();
-        // let payload: Vec<u8> = serialize(&block).unwrap();
         let hash = Sha256::digest(&payload);
 
         Chunk {
@@ -84,7 +125,6 @@ impl Chunk {
             version: VERSION.to_string(),
             block,
             hash: hash.to_vec(),
-            timestamp: timestamp(),
         }
     }
     pub fn serialize(&self, codec: Codec) -> Result<Vec<u8>> {
@@ -107,6 +147,27 @@ impl Chunk {
             }
         }
     }
+    pub fn to_chunk_metadata(
+        &self,
+        config: &ConsumeConfig,
+        key: &str,
+        serialized_size: usize,
+    ) -> CreateChunkMetadata {
+        CreateChunkMetadata {
+            bucket: config.bucket.clone(),
+            prefix: config.prefix.clone().unwrap_or_default(),
+            key: key.to_string(),
+            stream: config.stream.clone(),
+            subject: config.subject.clone(),
+            timestamp_start: self.block.timestamp_min,
+            timestamp_end: self.block.timestamp_max,
+            message_count: self.block.messages.len() as i64,
+            size_bytes: serialized_size as i64,
+            codec: config.codec.clone(),
+            hash: Bytes::from(self.hash.clone()),
+            version: self.version.clone(),
+        }
+    }
 
     pub fn key(&self, codec: Codec) -> ChunkKey {
         // let mime_type = match codec {
@@ -114,7 +175,7 @@ impl Chunk {
         //     Codec::Json => "json",
         // };
         ChunkKey {
-            timestamp: self.timestamp,
+            timestamp: self.block.timestamp_min.timestamp(),
             message_count: self.block.messages.len(),
             codec,
         }
@@ -122,33 +183,9 @@ impl Chunk {
 }
 
 pub struct ChunkKey {
-    pub timestamp: u128,
+    pub timestamp: i64,
     pub message_count: usize,
     pub codec: Codec,
-}
-
-impl ChunkKey {
-    pub fn from_string(input: String) -> Result<Self> {
-        let input_field = input.clone();
-        let (timestamp, rest) = input.split_once("-").ok_or(ChunkKeyError::InvalidKey {
-            key: input_field.clone(),
-        })?;
-        let (count, ext) = rest
-            .split_once(".")
-            .ok_or(ChunkKeyError::InvalidKey { key: input_field })?;
-
-        let key = Self {
-            timestamp: timestamp.parse::<u128>()?,
-            message_count: count.parse::<usize>()?,
-            codec: ext
-                .parse::<Codec>()
-                .map_err(|e| ChunkKeyError::InvalidExt {
-                    ext: ext.into(),
-                    source: Box::new(e),
-                })?,
-        };
-        Ok(key)
-    }
 }
 
 impl fmt::Display for ChunkKey {
@@ -160,12 +197,5 @@ impl fmt::Display for ChunkKey {
             self.message_count,
             self.codec.to_extension()
         )
-    }
-}
-
-fn timestamp() -> u128 {
-    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_micros(),
-        Err(_) => panic!("SystemTime before UNIX EPOCH!"),
     }
 }

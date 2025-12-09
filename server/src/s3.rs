@@ -30,15 +30,14 @@ impl Client {
 
     pub async fn upload_chunk(
         &self,
-        chunk: encoding::Chunk,
+        chunk: Vec<u8>,
         bucket_name: &str,
         path: &str,
         codec: Codec,
     ) -> Result<()> {
         let bucket = self.bucket(bucket_name, true).await?;
-        let data = chunk.serialize(codec.clone())?;
         let response_data = bucket
-            .put_object(&path, &data)
+            .put_object(&path, &chunk)
             .await
             .context("put object")?;
         let code = response_data.status_code();
