@@ -25,6 +25,9 @@ build-cli:
 install-cli:
     cargo install --path cli --force
 
+install-test-cli:
+    cargo install --path test --force
+
 up:
     cd examples && docker compose -f docker-compose-dev.yaml up -d && docker compose logs --follow
 
