@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use nats3_types::Codec;
-use s3::{creds::Credentials, serde_types::Object, Bucket, BucketConfiguration, Region};
-use tracing::{debug, info, trace, warn};
+use s3::{creds::Credentials, Bucket, BucketConfiguration, Region};
+use tracing::{debug, info, warn};
 
 use crate::encoding;
 
@@ -104,25 +104,6 @@ impl Client {
             "finish delete block from s3"
         );
         Ok(())
-    }
-
-    pub async fn list_paths(&self, bucket_name: &str, prefix: &str) -> Result<Vec<String>> {
-        let bucket = self.bucket(bucket_name, false).await?;
-        let results = bucket.list(prefix.to_string().clone(), None).await?;
-
-        let mut objects: Vec<Object> = Vec::new();
-        for mut result in results {
-            objects.append(&mut result.contents)
-        }
-
-        let paths: Vec<String> = objects.into_iter().map(|obj| obj.key).collect();
-        trace!(
-            bucket = bucket_name,
-            prefix = prefix,
-            count = paths.len(),
-            "listed objects from s3"
-        );
-        Ok(paths)
     }
 
     async fn bucket(&self, bucket_name: &str, try_create: bool) -> Result<s3::Bucket> {
