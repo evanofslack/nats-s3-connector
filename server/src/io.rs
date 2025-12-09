@@ -228,19 +228,23 @@ impl IO {
 
         let chunks = self.chunk_db.list_chunks(query).await?;
 
-        for chunk_metadata in chunks {
-            let object_key = format!("{}/{}", chunk_metadata.prefix, chunk_metadata.key);
+        for chunk_md in chunks {
+            let path = if chunk_md.prefix != "" {
+                format!("{}/{}", chunk_md.prefix, chunk_md.key)
+            } else {
+                chunk_md.key
+            };
 
             let chunk = match self
                 .s3_client
-                .download_chunk(&chunk_metadata.bucket, &object_key, chunk_metadata.codec)
+                .download_chunk(&chunk_md.bucket, &path, chunk_md.codec)
                 .await
             {
                 Ok(chunk) => chunk,
                 Err(e) => {
                     warn!(
-                        bucket = chunk_metadata.bucket,
-                        key = object_key,
+                        bucket = chunk_md.bucket,
+                        key = path,
                         error = ?e,
                         "metadata exists but s3 object is missing, skipping"
                     );
@@ -274,14 +278,10 @@ impl IO {
             drop(nats_metrics);
 
             if config.delete_chunks {
-                if let Err(e) = self
-                    .s3_client
-                    .delete_chunk(&chunk_metadata.bucket, &object_key)
-                    .await
-                {
+                if let Err(e) = self.s3_client.delete_chunk(&chunk_md.bucket, &path).await {
                     warn!(
-                        bucket = chunk_metadata.bucket,
-                        key = object_key,
+                        bucket = chunk_md.bucket,
+                        path = path,
                         error = ?e,
                         "fail delete chunk from s3, skip soft delete"
                     );
@@ -290,13 +290,13 @@ impl IO {
 
                 if let Err(e) = self
                     .chunk_db
-                    .soft_delete_chunk(chunk_metadata.sequence_number)
+                    .soft_delete_chunk(chunk_md.sequence_number)
                     .await
                 {
                     warn!(
-                        sequence_number = chunk_metadata.sequence_number,
+                        sequence_number = chunk_md.sequence_number,
                         error = ?e,
-                        "fail soft delete chunk metadata after s3 deletion"
+                        "fail soft delete chunk metadata after s3 delete"
                     );
                 }
             }
