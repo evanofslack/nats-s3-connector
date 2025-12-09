@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use tracing::debug;
 
 use super::models::{ChunkMetadataRow, CreateChunkMetadataRow};
 use super::postgres::PostgresStore;
@@ -12,6 +13,15 @@ impl ChunkMetadataStorer for PostgresStore {
         &self,
         chunk: CreateChunkMetadata,
     ) -> Result<ChunkMetadata, ChunkMetadataError> {
+        debug!(
+            bucket = chunk.bucket,
+            key = chunk.key,
+            stream = chunk.stream,
+            subject = chunk.stream,
+            message_count = chunk.message_count,
+            bytes = chunk.size_bytes,
+            "start create chunk"
+        );
         let client = self.get_client().await?;
         let row: CreateChunkMetadataRow = chunk.into();
 
@@ -57,6 +67,7 @@ impl ChunkMetadataStorer for PostgresStore {
     }
 
     async fn get_chunk(&self, sequence_number: i64) -> Result<ChunkMetadata, ChunkMetadataError> {
+        debug!(sequence_number = sequence_number, "start get chunk");
         let client = self.get_client().await?;
 
         let row = client
@@ -82,6 +93,14 @@ impl ChunkMetadataStorer for PostgresStore {
         &self,
         query: ListChunksQuery,
     ) -> Result<Vec<ChunkMetadata>, ChunkMetadataError> {
+        debug!(
+            bucket = query.bucket,
+            stream = query.stream,
+            subject = query.subject,
+            prefix = query.prefix,
+            limit = query.limit,
+            "start list chunks"
+        );
         let client = self.get_client().await?;
 
         let mut sql = String::from(
@@ -130,6 +149,7 @@ impl ChunkMetadataStorer for PostgresStore {
         &self,
         sequence_number: i64,
     ) -> Result<ChunkMetadata, ChunkMetadataError> {
+        debug!(sequence_number = sequence_number, "start soft delete chunk");
         let client = self.get_client().await?;
 
         let row = client
@@ -153,6 +173,7 @@ impl ChunkMetadataStorer for PostgresStore {
     }
 
     async fn hard_delete_chunk(&self, sequence_number: i64) -> Result<(), ChunkMetadataError> {
+        debug!(sequence_number = sequence_number, "start hard delete chunk");
         let client = self.get_client().await?;
 
         let rows_affected = client
