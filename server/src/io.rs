@@ -1,7 +1,6 @@
 use async_nats::jetstream;
 use futures::StreamExt;
 use nats3_types::Codec;
-use std::str::from_utf8;
 use std::sync::Arc;
 use tokio::{sync::RwLock, time};
 
@@ -14,6 +13,7 @@ use anyhow::Result;
 use tracing::{debug, trace, warn};
 
 const KEEP_ALIVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
+const DEFAULT_BATCH_WAIT: time::Duration = time::Duration::from_secs(10);
 
 pub struct ConsumeConfig {
     pub stream: String,
@@ -69,15 +69,14 @@ impl IO {
             bucket = config.bucket,
             prefix = config.prefix,
             codec = config.codec.to_string(),
-            "starting to consume from stream and upload to bucket"
+            "start consume stream and upload to bucket"
         );
 
-        // create new buffer and start thread to
-        // let nats know all messages are in progress.
         let buffer = MessageBuffer::new();
         buffer.keep_alive(KEEP_ALIVE_INTERVAL);
 
         let mut bytes_total = 0;
+        let mut buffer_start = std::time::Instant::now();
         let mut messages = self
             .nats_client
             .consume(
@@ -88,69 +87,106 @@ impl IO {
             .await?;
         let prefix = &config.prefix;
 
-        while let Some(message) = messages.next().await {
-            let message = message?;
-            trace!(
-                subject = message.subject.to_string(),
-                "got message with payload {:?}",
-                from_utf8(&message.payload)
-            );
-            bytes_total += &message.payload.len();
-            buffer.push(message).await;
+        let mut interval = tokio::time::interval(DEFAULT_BATCH_WAIT);
+        interval.tick().await;
 
-            // upload to S3 if thresholds reached
-            let messages_total = buffer.len().await;
-            if messages_total >= config.messages_max as usize
-                || bytes_total >= config.bytes_max as usize
-            {
-                debug!(
-                    messages = messages_total,
-                    bytes = bytes_total,
-                    "reached buffer threshold"
-                );
-                let block = encoding::MessageBlock::from(buffer.to_vec().await);
-                let chunk = encoding::Chunk::from_block(block);
-                let key = chunk.key(config.codec.clone()).to_string();
+        loop {
+            tokio::select! {
+                maybe_message = messages.next() => {
+                    match maybe_message {
+                        Some(Ok(message)) => {
+                            trace!(
+                                subject = message.subject.to_string(),
+                                "consumer got message"
+                            );
+                            bytes_total += &message.payload.len();
+                            buffer.push(message).await;
 
-                // stream and consumer/subject are part of path
-                let stream = config.stream.clone();
-                let subject = config.subject.clone();
-                let key = format!("{stream}/{subject}/{key}");
+                            let messages_total = buffer.len().await;
 
-                // append the prefix if provided
-                let path = if let Some(prefix) = prefix {
-                    format!("{}/{}", prefix, key)
-                } else {
-                    key
-                };
-
-                // do upload
-                self.s3_client
-                    .upload_chunk(chunk, &config.bucket, &path, config.codec.clone())
-                    .await?;
-
-                // increment metrics
-                let nats_metrics = self.metrics.nats.write().await;
-                let labels = metrics::NatsLabels {
-                    subject: subject.clone(),
-                    stream: stream.clone(),
-                };
-                nats_metrics
-                    .store_messages
-                    .get_or_create(&labels)
-                    .inc_by(messages_total as u64);
-                nats_metrics
-                    .store_bytes
-                    .get_or_create(&labels)
-                    .inc_by(bytes_total as u64);
-                drop(nats_metrics);
-
-                // ack all messages, clear buffer and counter
-                buffer.ack_all().await;
-                buffer.clear().await;
-                bytes_total = 0;
+                            if messages_total >= config.messages_max as usize
+                                || bytes_total >= config.bytes_max as usize
+                            {
+                                self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
+                            }
+                        }
+                        Some(Err(e)) => return Err(e.into()),
+                        None => break,
+                    }
+                }
+                _ = interval.tick() => {
+                    let messages_total = buffer.len().await;
+                    if messages_total > 0 {
+                        debug!(messages = messages_total, "timer triggered upload");
+                        self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
+                    }
+                }
             }
         }
+        Ok(())
+    }
+
+    async fn upload_buffer(
+        &self,
+        buffer: &MessageBuffer,
+        bytes_total: &mut usize,
+        buffer_start: &mut std::time::Instant,
+        config: &ConsumeConfig,
+        prefix: &Option<String>,
+    ) -> Result<()> {
+        let messages_total = buffer.len().await;
+        let elapsed = buffer_start.elapsed();
+
+        debug!(
+            messages = messages_total,
+            bytes = *bytes_total,
+            elapsed_secs = elapsed.as_secs(),
+            "reached buffer threshold"
+        );
+
+        let block = encoding::MessageBlock::from(buffer.to_vec().await);
+        let chunk = encoding::Chunk::from_block(block);
+        let key = chunk.key(config.codec.clone()).to_string();
+
+        let stream = config.stream.clone();
+        let subject = config.subject.clone();
+        let key = format!("{stream}/{subject}/{key}");
+
+        let path = if let Some(prefix) = prefix {
+            format!("{}/{}", prefix, key)
+        } else {
+            key
+        };
+
+        let serialized = chunk.serialize(config.codec.clone())?;
+        let serialized_size = serialized.len();
+        self.s3_client
+            .upload_chunk(serialized, &config.bucket, &path, config.codec.clone())
+            .await?;
+
+        let chunk_md = chunk.to_chunk_metadata(config, &path, serialized_size);
+        self.chunk_db.create_chunk(chunk_md).await?;
+
+        let nats_metrics = self.metrics.nats.write().await;
+        let labels = metrics::NatsLabels {
+            subject: subject.clone(),
+            stream: stream.clone(),
+        };
+        nats_metrics
+            .store_messages
+            .get_or_create(&labels)
+            .inc_by(messages_total as u64);
+        nats_metrics
+            .store_bytes
+            .get_or_create(&labels)
+            .inc_by(*bytes_total as u64);
+        drop(nats_metrics);
+
+        buffer.ack_all().await;
+        buffer.clear().await;
+        *bytes_total = 0;
+        *buffer_start = std::time::Instant::now();
+
         Ok(())
     }
 
