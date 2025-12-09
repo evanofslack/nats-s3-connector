@@ -12,15 +12,15 @@ clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
+async-nats = { workspace = true }
+rust-s3 = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+chrono = { workspace = true}
+uuid = { workspace = true, features = ["v4", "serde"] }
 
-futures = "0.3.31"
-async-nats = "0.45"
-rust-s3 = "0.37.0"
-uuid = { version = "1.11", features = ["v4", "serde"] }
-chrono = "0.4"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 rand = "0.9.2"
+futures = "0.3.31"
 
 [[bin]]
 name = "nats3-test"
