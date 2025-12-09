@@ -250,12 +250,11 @@ impl IO {
 
             let mut bytes_total = 0;
             let messages_total = chunk.block.messages.len();
-            let subject = format!("{write_stream}.{write_subject}");
 
             for message in chunk.block.messages {
                 bytes_total += message.payload.len();
                 self.nats_client
-                    .publish(subject.clone(), message.payload)
+                    .publish(write_subject.clone(), message.payload)
                     .await?;
             }
 
