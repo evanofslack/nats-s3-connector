@@ -154,10 +154,6 @@ impl Chunk {
     }
 
     pub fn key(&self, codec: Codec) -> ChunkKey {
-        // let mime_type = match codec {
-        //     Codec::Binary => "bin",
-        //     Codec::Json => "json",
-        // };
         ChunkKey {
             timestamp: self.block.timestamp_min.timestamp(),
             message_count: self.block.messages.len(),

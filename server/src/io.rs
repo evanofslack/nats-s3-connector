@@ -142,7 +142,7 @@ impl IO {
             messages = messages_total,
             bytes = *bytes_total,
             elapsed_secs = elapsed.as_secs(),
-            "reached buffer threshold"
+            "buffer threshold reached"
         );
 
         let block = encoding::MessageBlock::from(buffer.to_vec().await);
@@ -202,7 +202,7 @@ impl IO {
             delete_chunks = config.delete_chunks,
             start = config.start,
             end = config.end,
-            "starting to download from bucket and publish to stream"
+            "start download from bucket and publish to stream"
         );
 
         let write_subject = config.write_subject.clone();
@@ -322,7 +322,7 @@ impl IO {
             read_subject = read_subject,
             write_subject = write_subject,
             bucket = config.bucket,
-            "finished download from s3 and publish to nats"
+            "finish download from s3 and publish to nats"
         );
         Ok(())
     }

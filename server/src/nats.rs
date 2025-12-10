@@ -11,10 +11,10 @@ pub struct Client {
 
 impl Client {
     pub async fn new(url: String) -> Result<Self, Error> {
-        debug!(url = url, "creating new nats client");
+        debug!(url = url, "create new nats client");
         let client = async_nats::connect(url.clone())
             .await
-            .context("failed to connect to nats server")?;
+            .context("fail connect to nats server")?;
         let client = Client { client };
         Ok(client)
     }
@@ -25,7 +25,7 @@ impl Client {
         subject: String,
         max_ack_pending: i64,
     ) -> Result<Stream, Error> {
-        debug!(stream = stream_name, subject = subject, "consuming stream");
+        debug!(stream = stream_name, subject = subject, "consume stream");
         let jetstream = jetstream::new(self.client.clone());
 
         let stream = jetstream.get_stream(stream_name.clone()).await?;
@@ -44,7 +44,7 @@ impl Client {
         debug!(
             name = name,
             filter_subject = subject.clone(),
-            "created consumer"
+            "create consumer"
         );
 
         let consumer: PullConsumer = stream
@@ -64,11 +64,7 @@ impl Client {
     }
 
     pub async fn publish(&self, subject: String, payload: Bytes) -> Result<(), Error> {
-        trace!(
-            bytes = payload.len(),
-            subject = subject,
-            "publishing message"
-        );
+        trace!(bytes = payload.len(), subject = subject, "publish message");
         let jetstream = jetstream::new(self.client.clone());
         jetstream.publish(subject, payload).await?.await?;
         Ok(())

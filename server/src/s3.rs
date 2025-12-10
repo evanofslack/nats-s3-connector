@@ -15,11 +15,7 @@ pub struct Client {
 
 impl Client {
     pub fn new(region: String, endpoint: String, access_key: String, secret_key: String) -> Self {
-        debug!(
-            endpoint = endpoint,
-            region = region,
-            "creating new s3 client"
-        );
+        debug!(endpoint = endpoint, region = region, "create new s3 client");
         Client {
             region,
             endpoint,
@@ -135,7 +131,7 @@ impl Client {
             info!(
                 bucket = bucket_name,
                 endpoint = region.endpoint(),
-                "created bucket in s3"
+                "create bucket in s3"
             );
         }
         Ok(*bucket)
