@@ -7,6 +7,9 @@ test:
 test-integration:
     cargo test --features integration
 
+check:
+    cargo test --workspace
+
 build:
     cargo build
 

@@ -100,11 +100,6 @@ impl ChunkMetadataBuilder {
         self
     }
 
-    fn consumer(mut self, consumer: impl Into<String>) -> Self {
-        self.consumer = Some(consumer.into());
-        self
-    }
-
     fn subject(mut self, subject: impl Into<String>) -> Self {
         self.subject = subject.into();
         self
@@ -117,16 +112,6 @@ impl ChunkMetadataBuilder {
 
     fn timestamp_end(mut self, ts: chrono::DateTime<chrono::Utc>) -> Self {
         self.timestamp_end = ts;
-        self
-    }
-
-    fn message_count(mut self, count: i64) -> Self {
-        self.message_count = count;
-        self
-    }
-
-    fn size_bytes(mut self, size: i64) -> Self {
-        self.size_bytes = size;
         self
     }
 

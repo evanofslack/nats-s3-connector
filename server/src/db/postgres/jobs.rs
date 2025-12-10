@@ -15,9 +15,9 @@ impl LoadJobStorer for PostgresStore {
 
         let row = client
             .query_one(
-                "SELECT id, status, bucket, prefix, read_stream, read_subject,
-                        write_stream, write_subject, delete_chunks, start_pos, end_pos,
-                        created_at, updated_at
+                "SELECT id, status, bucket, prefix, read_stream, read_consumer,
+                        read_subject, write_subject, delete_chunks, start_pos,
+                        end_pos, created_at, updated_at
                  FROM load_jobs WHERE id = $1",
                 &[&id],
             )
