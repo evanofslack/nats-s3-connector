@@ -49,7 +49,7 @@ impl Client {
                 "upload chunk, unexpected status code"
             )
         }
-        info!(
+        debug!(
             bucket = bucket_name,
             path = path,
             codec = codec.to_string(),
@@ -90,7 +90,7 @@ impl Client {
         let bucket = self.bucket(bucket_name, false).await?;
         let response_data = bucket.delete_object(path).await?;
         let code = response_data.status_code();
-        if code != 200 {
+        if code >= 300 {
             warn!(
                 code = code,
                 bucket = bucket_name,
