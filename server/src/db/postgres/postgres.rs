@@ -4,7 +4,7 @@ use bb8_postgres::PostgresConnectionManager;
 use refinery::embed_migrations;
 use thiserror::Error;
 use tokio_postgres::{Config as PgConfig, NoTls};
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 embed_migrations!("./src/db/postgres/migrations");
 
@@ -49,7 +49,7 @@ impl PostgresStore {
                 PostgresError::Pool(format!("migration failed: {}", e))
             })?;
 
-        info!("finish run migrations");
+        debug!("finish run migrations");
         Ok(())
     }
 
