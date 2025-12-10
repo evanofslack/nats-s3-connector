@@ -93,8 +93,8 @@ async fn start_load_job(
         payload.bucket.clone(),
         payload.prefix.clone(),
         payload.read_stream.clone(),
+        payload.read_consumer.clone(),
         payload.read_subject.clone(),
-        payload.write_stream.clone(),
         payload.write_subject.clone(),
         payload.delete_chunks,
         payload.start,
@@ -121,11 +121,11 @@ async fn start_load_job(
             .io
             .publish_stream(io::PublishConfig {
                 read_stream: payload.read_stream,
+                read_consumer: payload.read_consumer,
                 read_subject: payload.read_subject,
-                write_stream: payload.write_stream,
                 write_subject: payload.write_subject,
                 bucket: payload.bucket,
-                key_prefix: payload.prefix,
+                prefix: payload.prefix,
                 delete_chunks: payload.delete_chunks,
                 start: payload.start,
                 end: payload.end,

@@ -82,6 +82,7 @@ impl App {
                         .io
                         .consume_stream(io::ConsumeConfig {
                             stream: job.stream.clone(),
+                            consumer: job.consumer.clone(),
                             subject: job.subject.clone(),
                             bucket: job.bucket.clone(),
                             prefix: job.prefix,

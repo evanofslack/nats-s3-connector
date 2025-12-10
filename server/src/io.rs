@@ -17,6 +17,7 @@ const DEFAULT_BATCH_WAIT: time::Duration = time::Duration::from_secs(10);
 
 pub struct ConsumeConfig {
     pub stream: String,
+    pub consumer: Option<String>,
     pub subject: String,
     pub bucket: String,
     pub prefix: Option<String>,
@@ -27,11 +28,11 @@ pub struct ConsumeConfig {
 
 pub struct PublishConfig {
     pub read_stream: String,
+    pub read_consumer: Option<String>,
     pub read_subject: String,
-    pub write_stream: String,
     pub write_subject: String,
     pub bucket: String,
-    pub key_prefix: Option<String>,
+    pub prefix: Option<String>,
     pub delete_chunks: bool,
     pub start: Option<usize>,
     pub end: Option<usize>,
@@ -193,27 +194,28 @@ impl IO {
     pub async fn publish_stream(&self, config: PublishConfig) -> Result<()> {
         trace!(
             read_stream = config.read_stream,
+            read_consumer = config.read_consumer,
             read_subject = config.read_subject,
-            write_stream = config.write_stream,
             write_subject = config.write_subject,
             bucket = config.bucket,
-            prefix = config.key_prefix,
+            prefix = config.prefix,
             delete_chunks = config.delete_chunks,
             start = config.start,
             end = config.end,
             "starting to download from bucket and publish to stream"
         );
 
-        let write_stream = config.write_stream.clone();
         let write_subject = config.write_subject.clone();
         let read_stream = config.read_stream.clone();
+        let read_consumer = config.read_consumer.clone();
         let read_subject = config.read_subject.clone();
 
         let query = db::ListChunksQuery {
             stream: read_stream.clone(),
+            consumer: read_consumer.clone(),
             subject: read_subject.clone(),
             bucket: config.bucket.clone(),
-            prefix: config.key_prefix.unwrap_or_default(),
+            prefix: config.prefix,
             timestamp_start: config.start.map(|ts| {
                 chrono::DateTime::from_timestamp(ts.try_into().expect("usize to int64"), 0)
                     .expect("invalid start timestamp")
@@ -229,8 +231,12 @@ impl IO {
         let chunks = self.chunk_db.list_chunks(query).await?;
 
         for chunk_md in chunks {
-            let path = if !chunk_md.prefix.is_empty() {
-                format!("{}/{}", chunk_md.prefix, chunk_md.key)
+            let path = if chunk_md.prefix.clone().is_some_and(|p| !p.is_empty()) {
+                format!(
+                    "{}/{}",
+                    chunk_md.prefix.expect("prefix already checked as not none"),
+                    chunk_md.key
+                )
             } else {
                 chunk_md.key
             };
@@ -265,7 +271,8 @@ impl IO {
             let nats_metrics = self.metrics.nats.write().await;
             let labels = metrics::NatsLabels {
                 subject: write_subject.clone(),
-                stream: write_stream.clone(),
+                // TODO: change metrics labels
+                stream: "".to_string(),
             };
             nats_metrics
                 .load_messages

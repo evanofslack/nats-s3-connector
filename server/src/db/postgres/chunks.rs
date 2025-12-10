@@ -18,6 +18,7 @@ impl ChunkMetadataStorer for PostgresStore {
             key = chunk.key,
             prefix = chunk.prefix,
             stream = chunk.stream,
+            consumer = chunk.consumer,
             subject = chunk.stream,
             message_count = chunk.message_count,
             bytes = chunk.size_bytes,
@@ -36,7 +37,7 @@ impl ChunkMetadataStorer for PostgresStore {
         let result = client
             .query_one(
                 "INSERT INTO chunks 
-                 (bucket, prefix, key, stream, subject, timestamp_start, timestamp_end,
+                 (bucket, prefix, key, stream, consumer, subject, timestamp_start, timestamp_end,
                   message_count, size_bytes, codec, hash, version)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                  RETURNING sequence_number, bucket, prefix, key, stream, subject,
@@ -47,6 +48,7 @@ impl ChunkMetadataStorer for PostgresStore {
                     &row.prefix,
                     &row.key,
                     &row.stream,
+                    &row.consumer,
                     &row.subject,
                     &row.timestamp_start,
                     &row.timestamp_end,
@@ -80,7 +82,7 @@ impl ChunkMetadataStorer for PostgresStore {
 
         let row = client
             .query_one(
-                "SELECT sequence_number, bucket, prefix, key, stream, subject,
+                "SELECT sequence_number, bucket, prefix, key, stream, consumer, subject,
                         timestamp_start, timestamp_end, message_count, size_bytes,
                         codec, hash, version, created_at, deleted_at
                  FROM chunks
@@ -112,16 +114,28 @@ impl ChunkMetadataStorer for PostgresStore {
         let client = self.get_client().await?;
 
         let mut sql = String::from(
-            "SELECT sequence_number, bucket, prefix, key, stream, subject,
+            "SELECT sequence_number, bucket, prefix, key, stream, consumer, subject,
                     timestamp_start, timestamp_end, message_count, size_bytes,
                     codec, hash, version, created_at, deleted_at
              FROM chunks
-             WHERE stream = $1 AND subject = $2 AND bucket = $3 AND prefix = $4",
+             WHERE stream = $1 AND subject = $2 AND bucket = $3",
         );
 
         let mut params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> =
             vec![&query.stream, &query.subject, &query.bucket, &query.prefix];
-        let mut param_idx = 5;
+        let mut param_idx = 4;
+
+        if let Some(ref prefix) = query.prefix {
+            sql.push_str(&format!(" AND prefix = ${}", param_idx));
+            params.push(prefix);
+            param_idx += 1;
+        }
+
+        if let Some(ref consumer) = query.consumer {
+            sql.push_str(&format!(" AND consumer = ${}", param_idx));
+            params.push(consumer);
+            param_idx += 1;
+        }
 
         if let Some(ref ts_start) = query.timestamp_start {
             sql.push_str(&format!(" AND timestamp_start >= ${}", param_idx));
@@ -165,9 +179,9 @@ impl ChunkMetadataStorer for PostgresStore {
                 "UPDATE chunks
                  SET deleted_at = NOW()
                  WHERE sequence_number = $1
-                 RETURNING sequence_number, bucket, prefix, key, stream, subject,
-                           timestamp_start, timestamp_end, message_count, size_bytes,
-                           codec, hash, version, created_at, deleted_at",
+                 RETURNING sequence_number, bucket, prefix, key, stream, consumer,
+                        subject, timestamp_start, timestamp_end, message_count,
+                        size_bytes, codec, hash, version, created_at, deleted_at",
                 &[&sequence_number],
             )
             .await

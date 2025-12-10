@@ -142,9 +142,10 @@ impl Chunk {
     ) -> CreateChunkMetadata {
         CreateChunkMetadata {
             bucket: config.bucket.clone(),
-            prefix: config.prefix.clone().unwrap_or_default(),
+            prefix: config.prefix.clone(),
             key: key.to_string(),
             stream: config.stream.clone(),
+            consumer: config.consumer.clone(),
             subject: config.subject.clone(),
             timestamp_start: self.block.timestamp_min,
             timestamp_end: self.block.timestamp_max,

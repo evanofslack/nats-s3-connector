@@ -4,6 +4,7 @@ CREATE TABLE chunks (
     prefix TEXT NOT NULL,
     key TEXT NOT NULL,
     stream TEXT NOT NULL,
+    consumer TEXT,
     subject TEXT NOT NULL,
     timestamp_start TIMESTAMPTZ NOT NULL,
     timestamp_end TIMESTAMPTZ NOT NULL,
@@ -22,7 +23,7 @@ CREATE TABLE chunks (
 );
 
 -- Primary query: load jobs finding chunks to download
-CREATE INDEX idx_chunks_load_query ON chunks(stream, subject, bucket, prefix, timestamp_start, timestamp_end) 
+CREATE INDEX idx_chunks_load_query ON chunks(stream, consumer, subject, bucket, prefix, timestamp_start, timestamp_end) 
 WHERE deleted_at IS NULL;
 
 -- Maintenance: cleanup soft-deleted chunks

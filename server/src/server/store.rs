@@ -91,6 +91,7 @@ async fn start_store_job(
     let job = StoreJob::new(
         payload.name.clone(),
         payload.stream.clone(),
+        payload.consumer.clone(),
         payload.subject.clone(),
         payload.bucket.clone(),
         payload.prefix.clone(),
@@ -127,6 +128,7 @@ async fn start_store_job(
             .io
             .consume_stream(io::ConsumeConfig {
                 stream: job_clone.stream.clone(),
+                consumer: job_clone.consumer.clone(),
                 subject: job_clone.subject.clone(),
                 bucket: job_clone.bucket.clone(),
                 prefix: job_clone.prefix.clone(),
