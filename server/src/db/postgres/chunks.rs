@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use super::models::{ChunkMetadataRow, CreateChunkMetadataRow};
 use super::postgres::PostgresStore;
@@ -19,7 +19,7 @@ impl ChunkMetadataStorer for PostgresStore {
             prefix = chunk.prefix,
             stream = chunk.stream,
             consumer = chunk.consumer,
-            subject = chunk.stream,
+            subject = chunk.subject,
             message_count = chunk.message_count,
             bytes = chunk.size_bytes,
             "start create chunk"
@@ -37,10 +37,10 @@ impl ChunkMetadataStorer for PostgresStore {
         let result = client
             .query_one(
                 "INSERT INTO chunks 
-                 (bucket, prefix, key, stream, consumer, subject, timestamp_start, timestamp_end,
-                  message_count, size_bytes, codec, hash, version)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-                 RETURNING sequence_number, bucket, prefix, key, stream, subject,
+                 (bucket, prefix, key, stream, consumer, subject, timestamp_start,
+                 timestamp_end, message_count, size_bytes, codec, hash, version)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                 RETURNING sequence_number, bucket, prefix, key, stream, consumer, subject,
                            timestamp_start, timestamp_end, message_count, size_bytes,
                            codec, hash, version, created_at, deleted_at",
                 &[
@@ -122,7 +122,7 @@ impl ChunkMetadataStorer for PostgresStore {
         );
 
         let mut params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> =
-            vec![&query.stream, &query.subject, &query.bucket, &query.prefix];
+            vec![&query.stream, &query.subject, &query.bucket];
         let mut param_idx = 4;
 
         if let Some(ref prefix) = query.prefix {
