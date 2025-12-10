@@ -157,7 +157,7 @@ impl StoreJobStorer for PostgresStore {
                 "INSERT INTO store_jobs 
                 (id, name, status, stream, consumer, subject, bucket,
                 prefix, batch_max_bytes, batch_max_count, encoding_codec)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
                 &[
                     &row.id,
                     &row.name,
