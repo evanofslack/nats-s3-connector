@@ -10,8 +10,10 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
         .prompt_skippable()?;
 
     let read_stream = Text::new("Read stream:").prompt()?;
+    let read_consumer = Text::new("Read stream (optional):")
+        .with_help_message("Press Enter to skip")
+        .prompt_skippable()?;
     let read_subject = Text::new("Read subject:").prompt()?;
-    let write_stream = Text::new("Write stream:").prompt()?;
     let write_subject = Text::new("Write subject:").prompt()?;
 
     let delete_chunks = Confirm::new("Delete chunks after load?")
@@ -32,8 +34,8 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
         bucket,
         prefix,
         read_stream,
+        read_consumer,
         read_subject,
-        write_stream,
         write_subject,
         delete_chunks,
         start,
@@ -44,6 +46,9 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
 pub fn prompt_create_store_job() -> Result<CreateStoreJob> {
     let name = Text::new("Job name:").prompt()?;
     let stream = Text::new("Stream:").prompt()?;
+    let consumer = Text::new("Consumer (optional):")
+        .with_help_message("Press Enter to skip")
+        .prompt_skippable()?;
     let subject = Text::new("Subject:").prompt()?;
     let bucket = Text::new("Bucket:").prompt()?;
 
@@ -93,6 +98,7 @@ pub fn prompt_create_store_job() -> Result<CreateStoreJob> {
     Ok(CreateStoreJob {
         name,
         stream,
+        consumer,
         subject,
         bucket,
         prefix,
