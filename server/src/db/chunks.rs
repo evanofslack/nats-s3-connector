@@ -22,7 +22,7 @@ pub enum ChunkMetadataError {
     #[error("database error: {0}")]
     Postgres(#[from] crate::db::postgres::PostgresError),
 
-    #[error("database error: {0}")]
+    #[error(transparent)]
     Database(#[from] tokio_postgres::Error),
 }
 
