@@ -1,7 +1,7 @@
 CREATE TABLE chunks (
     sequence_number BIGSERIAL PRIMARY KEY,
     bucket TEXT NOT NULL,
-    prefix TEXT NOT NULL,
+    prefix TEXT,
     key TEXT NOT NULL,
     stream TEXT NOT NULL,
     consumer TEXT,
