@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use tracing::{debug, warn};
+use tracing::debug;
 
 use super::models::{ChunkMetadataRow, CreateChunkMetadataRow};
 use super::postgres::PostgresStore;

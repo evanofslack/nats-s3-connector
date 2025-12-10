@@ -77,18 +77,8 @@ impl LoadJobBuilder {
         self
     }
 
-    fn status(mut self, status: LoadJobStatus) -> Self {
-        self.status = status;
-        self
-    }
-
     fn bucket(mut self, bucket: impl Into<String>) -> Self {
         self.bucket = bucket.into();
-        self
-    }
-
-    fn delete_chunks(mut self, delete: bool) -> Self {
-        self.delete_chunks = delete;
         self
     }
 
@@ -153,11 +143,6 @@ impl StoreJobBuilder {
 
     fn name(mut self, name: impl Into<String>) -> Self {
         self.name = name.into();
-        self
-    }
-
-    fn status(mut self, status: StoreJobStatus) -> Self {
-        self.status = status;
         self
     }
 
