@@ -44,9 +44,10 @@ fn chunk_builder() -> ChunkMetadataBuilder {
 
 struct ChunkMetadataBuilder {
     bucket: String,
-    prefix: String,
+    prefix: Option<String>,
     key: String,
     stream: String,
+    consumer: Option<String>,
     subject: String,
     timestamp_start: chrono::DateTime<chrono::Utc>,
     timestamp_end: chrono::DateTime<chrono::Utc>,
@@ -62,9 +63,10 @@ impl Default for ChunkMetadataBuilder {
         let now = Utc::now();
         Self {
             bucket: "test-bucket".to_string(),
-            prefix: "test-prefix".to_string(),
+            prefix: Some("test-prefix".to_string()),
             key: format!("chunk-{}.dat", uuid::Uuid::new_v4()),
             stream: "test-stream".to_string(),
+            consumer: None,
             subject: "test.subject".to_string(),
             timestamp_start: now,
             timestamp_end: now + Duration::minutes(5),
@@ -84,7 +86,7 @@ impl ChunkMetadataBuilder {
     }
 
     fn prefix(mut self, prefix: impl Into<String>) -> Self {
-        self.prefix = prefix.into();
+        self.prefix = Some(prefix.into());
         self
     }
 
@@ -95,6 +97,11 @@ impl ChunkMetadataBuilder {
 
     fn stream(mut self, stream: impl Into<String>) -> Self {
         self.stream = stream.into();
+        self
+    }
+
+    fn consumer(mut self, consumer: impl Into<String>) -> Self {
+        self.consumer = Some(consumer.into());
         self
     }
 
@@ -134,6 +141,7 @@ impl ChunkMetadataBuilder {
             prefix: self.prefix,
             key: self.key,
             stream: self.stream,
+            consumer: self.consumer,
             subject: self.subject,
             timestamp_start: self.timestamp_start,
             timestamp_end: self.timestamp_end,
@@ -247,9 +255,10 @@ async fn test_list_chunks_basic() {
 
     let query = ListChunksQuery {
         stream: "stream-1".to_string(),
+        consumer: None,
         subject: "subject.a".to_string(),
         bucket: "bucket-1".to_string(),
-        prefix: "prefix-1".to_string(),
+        prefix: Some("prefix-1".to_string()),
         timestamp_start: None,
         timestamp_end: None,
         limit: None,
@@ -300,9 +309,10 @@ async fn test_list_chunks_with_time_range() {
 
     let query = ListChunksQuery {
         stream: "stream-1".to_string(),
+        consumer: None,
         subject: "subject.a".to_string(),
         bucket: "test-bucket".to_string(),
-        prefix: "test-prefix".to_string(),
+        prefix: Some("test-prefix".to_string()),
         timestamp_start: Some(base_time + Duration::minutes(30)),
         timestamp_end: Some(base_time + Duration::hours(1) + Duration::minutes(30)),
         limit: None,
@@ -346,9 +356,10 @@ async fn test_list_chunks_ordering() {
 
     let query = ListChunksQuery {
         stream: "test-stream".to_string(),
+        consumer: None,
         subject: "test.subject".to_string(),
         bucket: "test-bucket".to_string(),
-        prefix: "test-prefix".to_string(),
+        prefix: Some("test-prefix".to_string()),
         timestamp_start: None,
         timestamp_end: None,
         limit: None,
@@ -375,9 +386,10 @@ async fn test_list_chunks_with_limit() {
 
     let query = ListChunksQuery {
         stream: "test-stream".to_string(),
+        consumer: None,
         subject: "test.subject".to_string(),
         bucket: "test-bucket".to_string(),
-        prefix: "test-prefix".to_string(),
+        prefix: Some("test-prefix".to_string()),
         timestamp_start: None,
         timestamp_end: None,
         limit: Some(3),
@@ -396,9 +408,10 @@ async fn test_list_chunks_empty() {
 
     let query = ListChunksQuery {
         stream: "nonexistent-stream".to_string(),
+        consumer: None,
         subject: "nonexistent.subject".to_string(),
         bucket: "nonexistent-bucket".to_string(),
-        prefix: "nonexistent-prefix".to_string(),
+        prefix: Some("nonexistent-prefix".to_string()),
         timestamp_start: None,
         timestamp_end: None,
         limit: None,
@@ -463,9 +476,10 @@ async fn test_list_chunks_exclude_deleted() {
 
     let query = ListChunksQuery {
         stream: "test-stream".to_string(),
+        consumer: None,
         subject: "test.subject".to_string(),
         bucket: "test-bucket".to_string(),
-        prefix: "test-prefix".to_string(),
+        prefix: Some("test-prefix".to_string()),
         timestamp_start: None,
         timestamp_end: None,
         limit: None,
@@ -497,9 +511,10 @@ async fn test_list_chunks_include_deleted() {
 
     let query = ListChunksQuery {
         stream: "test-stream".to_string(),
+        consumer: None,
         subject: "test.subject".to_string(),
         bucket: "test-bucket".to_string(),
-        prefix: "test-prefix".to_string(),
+        prefix: Some("test-prefix".to_string()),
         timestamp_start: None,
         timestamp_end: None,
         limit: None,
@@ -588,9 +603,10 @@ async fn test_chunk_different_prefixes() {
 
     let query1 = ListChunksQuery {
         stream: "test-stream".to_string(),
+        consumer: None,
         subject: "test.subject".to_string(),
         bucket: "test-bucket".to_string(),
-        prefix: "prefix-a".to_string(),
+        prefix: Some("prefix-a".to_string()),
         timestamp_start: None,
         timestamp_end: None,
         limit: None,
@@ -599,13 +615,14 @@ async fn test_chunk_different_prefixes() {
 
     let chunks1 = ctx.store.list_chunks(query1).await.unwrap();
     assert_eq!(chunks1.len(), 1);
-    assert_eq!(chunks1[0].prefix, "prefix-a");
+    assert_eq!(chunks1[0].prefix, Some("prefix-a".to_string()));
 
     let query2 = ListChunksQuery {
         stream: "test-stream".to_string(),
+        consumer: None,
         subject: "test.subject".to_string(),
         bucket: "test-bucket".to_string(),
-        prefix: "prefix-b".to_string(),
+        prefix: Some("prefix-b".to_string()),
         timestamp_start: None,
         timestamp_end: None,
         limit: None,
@@ -614,5 +631,5 @@ async fn test_chunk_different_prefixes() {
 
     let chunks2 = ctx.store.list_chunks(query2).await.unwrap();
     assert_eq!(chunks2.len(), 1);
-    assert_eq!(chunks2[0].prefix, "prefix-b");
+    assert_eq!(chunks2[0].prefix, Some("prefix-b".to_string()));
 }

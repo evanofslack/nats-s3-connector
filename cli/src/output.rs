@@ -69,8 +69,11 @@ fn print_load_jobs_table(jobs: Vec<LoadJob>) -> Result<()> {
             Cell::new(&job.id),
             status_cell,
             Cell::new(&job.bucket),
+            Cell::new(job.prefix.unwrap_or("".to_string())),
             Cell::new(&job.read_stream),
-            Cell::new(&job.write_stream),
+            Cell::new(job.read_consumer.unwrap_or("".to_string())),
+            Cell::new(&job.read_subject),
+            Cell::new(&job.write_subject),
         ]);
     }
 
@@ -106,7 +109,9 @@ fn print_store_jobs_table(jobs: Vec<StoreJob>) -> Result<()> {
             Cell::new(&job.name),
             status_cell,
             Cell::new(&job.bucket),
+            Cell::new(job.prefix.unwrap_or("".to_string())),
             Cell::new(&job.stream),
+            Cell::new(job.consumer.unwrap_or("".to_string())),
             Cell::new(&job.subject),
         ]);
     }

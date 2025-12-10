@@ -27,11 +27,11 @@ pub enum LoadCommand {
         #[arg(long, required_unless_present_any = ["interactive", "from_json"])]
         read_stream: Option<String>,
 
-        #[arg(long, required_unless_present_any = ["interactive", "from_json"])]
-        read_subject: Option<String>,
+        #[arg(long)]
+        read_consumer: Option<String>,
 
         #[arg(long, required_unless_present_any = ["interactive", "from_json"])]
-        write_stream: Option<String>,
+        read_subject: Option<String>,
 
         #[arg(long, required_unless_present_any = ["interactive", "from_json"])]
         write_subject: Option<String>,
@@ -63,8 +63,8 @@ impl LoadCommand {
                 bucket,
                 prefix,
                 read_stream,
+                read_consumer,
                 read_subject,
-                write_stream,
                 write_subject,
                 delete_chunks,
                 start,
@@ -79,8 +79,8 @@ impl LoadCommand {
                         bucket: bucket.unwrap(),
                         prefix,
                         read_stream: read_stream.unwrap(),
+                        read_consumer,
                         read_subject: read_subject.unwrap(),
-                        write_stream: write_stream.unwrap(),
                         write_subject: write_subject.unwrap(),
                         delete_chunks,
                         start,

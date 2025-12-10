@@ -22,7 +22,7 @@ pub enum ChunkMetadataError {
     #[error("database error: {0}")]
     Postgres(#[from] crate::db::postgres::PostgresError),
 
-    #[error("database error: {0}")]
+    #[error(transparent)]
     Database(#[from] tokio_postgres::Error),
 }
 
@@ -31,9 +31,10 @@ pub enum ChunkMetadataError {
 pub struct ChunkMetadata {
     pub sequence_number: i64,
     pub bucket: String,
-    pub prefix: String,
+    pub prefix: Option<String>,
     pub key: String,
     pub stream: String,
+    pub consumer: Option<String>,
     pub subject: String,
     pub timestamp_start: chrono::DateTime<chrono::Utc>,
     pub timestamp_end: chrono::DateTime<chrono::Utc>,
@@ -49,9 +50,10 @@ pub struct ChunkMetadata {
 #[derive(Clone, Debug)]
 pub struct CreateChunkMetadata {
     pub bucket: String,
-    pub prefix: String,
+    pub prefix: Option<String>,
     pub key: String,
     pub stream: String,
+    pub consumer: Option<String>,
     pub subject: String,
     pub timestamp_start: chrono::DateTime<chrono::Utc>,
     pub timestamp_end: chrono::DateTime<chrono::Utc>,
@@ -65,9 +67,10 @@ pub struct CreateChunkMetadata {
 #[derive(Clone, Debug)]
 pub struct ListChunksQuery {
     pub stream: String,
+    pub consumer: Option<String>,
     pub subject: String,
     pub bucket: String,
-    pub prefix: String,
+    pub prefix: Option<String>,
     pub timestamp_start: Option<chrono::DateTime<chrono::Utc>>,
     pub timestamp_end: Option<chrono::DateTime<chrono::Utc>>,
     pub limit: Option<i64>,

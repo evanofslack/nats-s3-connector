@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use crate::{config::OutputFormat, interactive, output};
 
 #[derive(Subcommand, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum StoreCommand {
     List,
     Create {
@@ -22,6 +23,9 @@ pub enum StoreCommand {
 
         #[arg(long, required_unless_present_any = ["interactive", "from_json"])]
         stream: Option<String>,
+
+        #[arg(long)]
+        consumer: Option<String>,
 
         #[arg(long, required_unless_present_any = ["interactive", "from_json"])]
         subject: Option<String>,
@@ -58,6 +62,7 @@ impl StoreCommand {
                 from_json,
                 name,
                 stream,
+                consumer,
                 subject,
                 bucket,
                 prefix,
@@ -84,6 +89,7 @@ impl StoreCommand {
                     CreateStoreJob {
                         name: name.unwrap(),
                         stream: stream.unwrap(),
+                        consumer,
                         subject: subject.unwrap(),
                         bucket: bucket.unwrap(),
                         prefix,

@@ -50,8 +50,8 @@ impl LoadJobStorer for PostgresStore {
         client
             .execute(
                 "INSERT INTO load_jobs 
-             (id, status, bucket, prefix, read_stream, read_subject,
-              write_stream, write_subject, delete_chunks, start_pos, end_pos)
+             (id, status, bucket, prefix, read_stream, read_consumer,
+              read_subject, write_subject, delete_chunks, start_pos, end_pos)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
                 &[
                     &row.id,
@@ -59,8 +59,8 @@ impl LoadJobStorer for PostgresStore {
                     &row.bucket,
                     &row.prefix,
                     &row.read_stream,
+                    &row.read_consumer,
                     &row.read_subject,
-                    &row.write_stream,
                     &row.write_subject,
                     &row.delete_chunks,
                     &row.start_pos,
@@ -120,9 +120,9 @@ impl StoreJobStorer for PostgresStore {
 
         let row = client
             .query_one(
-                "SELECT id, name, status, stream, subject, bucket, prefix,
-                 batch_max_bytes, batch_max_count, encoding_codec,
-                 created_at, updated_at
+                "SELECT id, name, status, stream, consumer, subject,
+                 bucket, prefix, batch_max_bytes, batch_max_count,
+                 encoding_codec, created_at, updated_at
                  FROM store_jobs WHERE id = $1",
                 &[&id],
             )
@@ -155,14 +155,15 @@ impl StoreJobStorer for PostgresStore {
         client
             .execute(
                 "INSERT INTO store_jobs 
-                (id, name, status, stream, subject, bucket, prefix,
-                batch_max_bytes, batch_max_count, encoding_codec)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+                (id, name, status, stream, consumer, subject, bucket,
+                prefix, batch_max_bytes, batch_max_count, encoding_codec)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
                 &[
                     &row.id,
                     &row.name,
                     &row.status,
                     &row.stream,
+                    &row.consumer,
                     &row.subject,
                     &row.bucket,
                     &row.prefix,

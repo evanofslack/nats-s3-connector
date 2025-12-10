@@ -10,10 +10,10 @@ pub enum JobStoreError {
     #[error("job not found, id: {id}")]
     NotFound { id: String },
 
-    #[error("database error: {0}")]
+    #[error(transparent)]
     Postgres(#[from] crate::db::postgres::PostgresError),
 
-    #[error("database error: {0}")]
+    #[error(transparent)]
     Database(#[from] tokio_postgres::Error),
 
     #[error("connection pool error: {0}")]

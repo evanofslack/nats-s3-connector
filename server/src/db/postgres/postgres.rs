@@ -10,7 +10,7 @@ embed_migrations!("./src/db/postgres/migrations");
 
 #[derive(Error, Debug)]
 pub enum PostgresError {
-    #[error("database error: {0}")]
+    #[error(transparent)]
     Database(#[from] tokio_postgres::Error),
 
     #[error("connection pool error: {0}")]
