@@ -66,6 +66,14 @@ pub struct MessageBlock {
     pub bytes_total: usize,
 }
 
+impl MessageBlock {
+    pub fn hash(&self) -> Bytes {
+        let config = bincode::config::legacy();
+        let payload: Vec<u8> = bincode::serde::encode_to_vec(self, config).unwrap();
+        Bytes::from(Sha256::digest(&payload).to_vec())
+    }
+}
+
 impl From<Vec<jetstream::Message>> for MessageBlock {
     fn from(js_messages: Vec<jetstream::Message>) -> MessageBlock {
         let messages: Vec<Message> = js_messages.into_iter().map(Message::from).collect();
@@ -98,22 +106,10 @@ pub struct Chunk {
     pub block: MessageBlock,
     magic_number: String,
     version: String,
-    hash: Vec<u8>,
+    pub hash: Bytes,
 }
 
 impl Chunk {
-    pub fn from_block(block: MessageBlock) -> Self {
-        let config = bincode::config::legacy();
-        let payload: Vec<u8> = bincode::serde::encode_to_vec(&block, config).unwrap();
-        let hash = Sha256::digest(&payload);
-
-        Chunk {
-            magic_number: MAGIC_NUMBER.to_string(),
-            version: VERSION.to_string(),
-            block,
-            hash: hash.to_vec(),
-        }
-    }
     pub fn serialize(&self, codec: Codec) -> Result<Vec<u8>> {
         match codec {
             Codec::Json => serde_json::to_vec(&self).context("json serialization"),
@@ -152,7 +148,7 @@ impl Chunk {
             message_count: self.block.messages.len() as i64,
             size_bytes: serialized_size as i64,
             codec: config.codec.clone(),
-            hash: Bytes::from(self.hash.clone()),
+            hash: self.hash.clone(),
             version: self.version.clone(),
         }
     }
@@ -166,6 +162,18 @@ impl Chunk {
             timestamp: self.block.timestamp_min.timestamp(),
             message_count: self.block.messages.len(),
             codec,
+        }
+    }
+}
+
+impl From<MessageBlock> for Chunk {
+    fn from(block: MessageBlock) -> Self {
+        let hash = block.hash();
+        Chunk {
+            magic_number: MAGIC_NUMBER.to_string(),
+            version: VERSION.to_string(),
+            block,
+            hash,
         }
     }
 }

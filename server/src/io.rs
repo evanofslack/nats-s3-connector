@@ -146,7 +146,7 @@ impl IO {
         );
 
         let block = encoding::MessageBlock::from(buffer.to_vec().await);
-        let chunk = encoding::Chunk::from_block(block);
+        let chunk = encoding::Chunk::from(block);
         let key = chunk.key(config.codec.clone()).to_string();
 
         let stream = config.stream.clone();
@@ -257,6 +257,15 @@ impl IO {
                     continue;
                 }
             };
+            // Recalculate block hash and compare it to the stored hash
+            if chunk.block.hash() != chunk_md.hash {
+                warn!(
+                    key = path,
+                    bucket = config.bucket,
+                    "download chunk hash mismatch, skip publish"
+                );
+                continue;
+            }
 
             let mut bytes_total = 0;
             let messages_total = chunk.block.messages.len();
