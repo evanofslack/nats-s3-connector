@@ -79,6 +79,6 @@ fn generate_random_string(length: usize) -> String {
 pub fn extract_sequence(headers: &async_nats::HeaderMap) -> Option<usize> {
     headers
         .get("msg-sequence")
-        .and_then(|v| Some(v.as_str()))
+        .map(|v| v.as_str())
         .and_then(|s| s.parse().ok())
 }

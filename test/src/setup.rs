@@ -121,6 +121,7 @@ async fn create_store_job(config: &Config) -> anyhow::Result<()> {
     let create_job = CreateStoreJob {
         name: job_name.clone(),
         stream: config.input_stream.clone(),
+        consumer: None,
         subject: config.input_subject.clone(),
         bucket: config.bucket_name(),
         prefix: None,
@@ -155,8 +156,8 @@ async fn create_load_job(config: &Config) -> anyhow::Result<()> {
         bucket: config.bucket_name(),
         prefix: None,
         read_stream: config.input_stream.clone(),
+        read_consumer: None,
         read_subject: config.input_subject.clone(),
-        write_stream: config.output_stream.clone(),
         write_subject: config.output_subject.clone(),
         delete_chunks: false,
         start: None,
