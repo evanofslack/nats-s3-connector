@@ -15,7 +15,7 @@ use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server;
 use tokio::net::TcpListener;
 use tower::{Service, ServiceExt};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::db;
 use crate::io;
@@ -49,7 +49,7 @@ pub struct Server {
 
 impl Server {
     pub fn new(addr: String, metrics: counter::Metrics, io: io::IO, db: db::DynJobStorer) -> Self {
-        info!("creating new server on addr {:?}", addr);
+        debug!(address = addr, "creating new server");
         Self {
             addr,
             metrics,
@@ -63,7 +63,7 @@ impl Server {
         let router = create_router(state.clone());
         let mut make_service = router.into_make_service_with_connect_info::<SocketAddr>();
         let listener = TcpListener::bind(self.addr.clone()).await.unwrap();
-        info!("serving on addr {:?}", self.addr);
+        info!(address = self.addr, "serving on address");
 
         loop {
             let (socket, remote_addr) = listener.accept().await.unwrap();
@@ -81,7 +81,7 @@ impl Server {
                     .serve_connection(socket, hyper_service)
                     .await
                 {
-                    warn!(err = err, "failed to serve connection")
+                    warn!(err = err, "fail serve connection")
                 }
             });
         }

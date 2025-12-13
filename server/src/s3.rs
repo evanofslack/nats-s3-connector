@@ -15,11 +15,7 @@ pub struct Client {
 
 impl Client {
     pub fn new(region: String, endpoint: String, access_key: String, secret_key: String) -> Self {
-        debug!(
-            endpoint = endpoint,
-            region = region,
-            "creating new s3 client"
-        );
+        debug!(endpoint = endpoint, region = region, "create new s3 client");
         Client {
             region,
             endpoint,
@@ -49,7 +45,7 @@ impl Client {
                 "upload chunk, unexpected status code"
             )
         }
-        info!(
+        debug!(
             bucket = bucket_name,
             path = path,
             codec = codec.to_string(),
@@ -90,7 +86,7 @@ impl Client {
         let bucket = self.bucket(bucket_name, false).await?;
         let response_data = bucket.delete_object(path).await?;
         let code = response_data.status_code();
-        if code != 200 {
+        if code >= 300 {
             warn!(
                 code = code,
                 bucket = bucket_name,
@@ -135,7 +131,7 @@ impl Client {
             info!(
                 bucket = bucket_name,
                 endpoint = region.endpoint(),
-                "created bucket in s3"
+                "create bucket in s3"
             );
         }
         Ok(*bucket)

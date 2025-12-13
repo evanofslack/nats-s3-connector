@@ -10,7 +10,6 @@ use crate::server;
 use anyhow::{Context, Result};
 use tracing::{debug, info, warn};
 
-// nats3 application
 #[derive(Debug, Clone)]
 pub struct App {
     pub config: Arc<Config>,
@@ -21,7 +20,7 @@ pub struct App {
 
 // construct a new instance of nats3 application
 pub async fn new(config: Config) -> Result<App> {
-    debug!("creating new application from config");
+    debug!("create new application from config");
 
     let metrics = metrics::Metrics::new().await;
 
@@ -43,7 +42,7 @@ pub async fn new(config: Config) -> Result<App> {
 
     let nats_client = nats::Client::new(config.nats.url.clone())
         .await
-        .context("failed to connect to nats server")?;
+        .context("fail connect to nats server")?;
 
     let io = io::IO::new(metrics.clone(), s3_client, nats_client, chunk_db);
 
@@ -68,14 +67,18 @@ impl App {
     // start all store jobs as defined in config
     pub async fn start_store_jobs(&self) {
         if let Some(store_jobs) = self.config.clone().store_jobs.clone() {
-            info!("starting up {} store jobs", store_jobs.len());
+            info!(job_count = store_jobs.len(), "start store jobs from config");
             for job in store_jobs.iter() {
                 // must clone the instances we pass to the async thread
                 let app = self.clone();
                 let job = job.clone();
                 tokio::spawn(async move {
                     if let Err(err) = app.db.create_store_job(job.clone()).await {
-                        warn!("{err}");
+                        warn!(
+                            id = job.id,
+                            error = err.to_string(),
+                            "fail create store job"
+                        );
                     }
 
                     if let Err(err) = app
@@ -92,8 +95,7 @@ impl App {
                         })
                         .await
                     {
-                        warn!("{}", err);
-                        warn!(id = job.id, "store job terminated with error: {err}");
+                        warn!(id = job.id, error = err.to_string(), "store job terminated");
                         app.io
                             .metrics
                             .jobs
