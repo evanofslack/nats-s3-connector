@@ -5,13 +5,13 @@ use axum::{
     routing::{delete, get, post},
     Json, Router,
 };
-use nats3_types::{CreateStoreJob, StoreJob, StoreJobStatus};
+use nats3_types::{CreateStoreJob, StoreJob};
 use serde::Deserialize;
-use tracing::{debug, warn};
+use tracing::debug;
 
+use crate::error::AppError;
 use crate::io;
-use crate::jobs;
-use crate::server::{Dependencies, ServerError};
+use crate::server::Dependencies;
 
 pub fn create_router(deps: Dependencies) -> Router {
     let router: Router = Router::new()
@@ -32,7 +32,7 @@ struct GetJobParams {
 async fn get_store_job(
     State(state): State<Dependencies>,
     Query(params): Query<GetJobParams>,
-) -> Result<Json<StoreJob>, ServerError> {
+) -> Result<Json<StoreJob>, AppError> {
     debug!(
         route = "/store/job",
         method = "GET",
@@ -48,7 +48,7 @@ async fn get_store_job(
 
 async fn get_store_jobs(
     State(state): State<Dependencies>,
-) -> Result<Json<Vec<StoreJob>>, ServerError> {
+) -> Result<Json<Vec<StoreJob>>, AppError> {
     debug!(route = "/store/jobs", method = "GET", "handle request");
 
     // fetch store jobs from db
@@ -61,7 +61,7 @@ async fn get_store_jobs(
 async fn delete_store_job(
     State(state): State<Dependencies>,
     Query(params): Query<GetJobParams>,
-) -> Result<(), ServerError> {
+) -> Result<(), AppError> {
     debug!(
         route = "/store/job",
         method = "DELETE",
@@ -77,7 +77,7 @@ async fn delete_store_job(
 async fn start_store_job(
     State(state): State<Dependencies>,
     Json(payload): Json<CreateStoreJob>,
-) -> Result<Json<StoreJob>, ServerError> {
+) -> Result<Json<StoreJob>, AppError> {
     debug!(
         route = "/store/job",
         method = "PUT",
@@ -99,63 +99,11 @@ async fn start_store_job(
         payload.batch.unwrap_or_default(),
         payload.encoding.unwrap_or_default(),
     );
-    let job_id = job.clone().id;
-
-    // Ensure job with this id isn't already running
-    if state.registry.is_store_job_running(&job.id).await {
-        warn!(
-            job_id = job.id,
-            "handle start store job, already registered"
-        );
-        return Err(jobs::RegistryError::JobAlreadyRunning { job_id }.into());
-    }
-
-    // store job in db
-    state.db.create_store_job(job.clone()).await?;
-    let config = io::ConsumeConfig {
-        stream: job.stream.clone(),
-        consumer: job.consumer.clone(),
-        subject: job.subject.clone(),
-        bucket: job.bucket.clone(),
-        prefix: job.prefix.clone(),
-        bytes_max: job.batch.max_bytes,
-        messages_max: job.batch.max_count,
-        codec: job.clone().encoding.codec,
-    };
-    let registry_config = config.clone();
-    let handle: tokio::task::JoinHandle<Result<()>> =
-        tokio::spawn(async move { state.io.consume_stream(config).await });
-    let registered = state
-        .registry
-        .try_register_store_job(job_id.clone(), handle, registry_config)
-        .await;
-    let status = match registered {
-        true => StoreJobStatus::Running,
-        false => StoreJobStatus::Failure,
-    };
-
-    if let Err(err) = state
-        .db
-        .update_store_job(job_id.clone(), status.clone())
-        .await
-    {
-        warn!(
-            error = err.to_string(),
-            job_id = job_id,
-            status = status.to_string(),
-            "fail update store job status after register"
-        )
-    }
-
-    // change state to running
+    let config: io::ConsumeConfig = job.clone().into();
     state
-        .db
-        .update_store_job(job_id.clone(), StoreJobStatus::Running)
-        .await
-        .map_err(|err| {
-            warn!(job_id = job_id, "fail update store job status: {err}");
-            ServerError::JobStore(err)
-        })?;
+        .coordinator
+        .start_new_store_job(job.clone(), config)
+        .await?;
 
     // return a 201 resp
     Ok(Json(job))

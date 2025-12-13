@@ -1,0 +1,150 @@
+use anyhow::Result;
+use std::sync::Arc;
+use tracing::debug;
+
+use nats3_types::{LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
+
+use crate::db;
+use crate::error;
+use crate::io;
+use crate::jobs;
+
+#[derive(Debug, Clone)]
+pub struct Coordinator {
+    registry: Arc<jobs::JobRegistry>,
+    io: io::IO,
+    db: db::DynJobStorer,
+}
+
+impl Coordinator {
+    pub fn new(registry: Arc<jobs::JobRegistry>, io: io::IO, db: db::DynJobStorer) -> Self {
+        debug!("creating new coordinator");
+        Self { registry, io, db }
+    }
+
+    pub async fn start_new_load_job(
+        &self,
+        job: LoadJob,
+        config: io::PublishConfig,
+    ) -> Result<LoadJob, error::AppError> {
+        let job_id = job.id.to_string();
+        if self.registry.is_load_job_running(&job_id).await {
+            return Err(jobs::RegistryError::JobAlreadyRunning { job_id }.into());
+        }
+
+        self.db.create_load_job(job.clone()).await?;
+        let io = self.io.clone();
+        let registry_config = config.clone();
+
+        let handle: tokio::task::JoinHandle<Result<()>> =
+            tokio::spawn(async move { io.publish_stream(registry_config).await });
+
+        let registered = self
+            .registry
+            .try_register_load_job(job_id.clone(), handle, config)
+            .await;
+
+        let status = if registered {
+            LoadJobStatus::Running
+        } else {
+            LoadJobStatus::Failure
+        };
+
+        self.db.update_load_job(job_id, status).await?;
+        Ok(job)
+    }
+
+    pub async fn restart_load_job(
+        &self,
+        job: LoadJob,
+        config: io::PublishConfig,
+    ) -> Result<LoadJob, error::AppError> {
+        let job_id = job.id.to_string();
+        if self.registry.is_load_job_running(&job_id).await {
+            return Err(jobs::RegistryError::JobAlreadyRunning { job_id }.into());
+        }
+
+        let io = self.io.clone();
+        let registry_config = config.clone();
+
+        let handle: tokio::task::JoinHandle<Result<()>> =
+            tokio::spawn(async move { io.publish_stream(registry_config).await });
+
+        let registered = self
+            .registry
+            .try_register_load_job(job_id.clone(), handle, config)
+            .await;
+
+        let status = if registered {
+            LoadJobStatus::Running
+        } else {
+            LoadJobStatus::Failure
+        };
+
+        self.db.update_load_job(job_id, status).await?;
+        Ok(job)
+    }
+
+    pub async fn start_new_store_job(
+        &self,
+        job: StoreJob,
+        config: io::ConsumeConfig,
+    ) -> Result<StoreJob, error::AppError> {
+        let job_id = job.id.to_string();
+        if self.registry.is_store_job_running(&job_id).await {
+            return Err(jobs::RegistryError::JobAlreadyRunning { job_id }.into());
+        }
+
+        self.db.create_store_job(job.clone()).await?;
+        let io = self.io.clone();
+        let registry_config = config.clone();
+
+        let handle: tokio::task::JoinHandle<Result<()>> =
+            tokio::spawn(async move { io.consume_stream(registry_config).await });
+
+        let registered = self
+            .registry
+            .try_register_store_job(job_id.clone(), handle, config)
+            .await;
+
+        let status = if registered {
+            StoreJobStatus::Running
+        } else {
+            StoreJobStatus::Failure
+        };
+
+        self.db.update_store_job(job_id, status).await?;
+        Ok(job)
+    }
+
+    pub async fn restart_store_job(
+        &self,
+        job: StoreJob,
+        config: io::ConsumeConfig,
+    ) -> Result<StoreJob, error::AppError> {
+        let job_id = job.id.to_string();
+        if self.registry.is_store_job_running(&job_id).await {
+            return Err(jobs::RegistryError::JobAlreadyRunning { job_id }.into());
+        }
+
+        let io = self.io.clone();
+        let registry_config = config.clone();
+
+        let handle: tokio::task::JoinHandle<Result<()>> =
+            tokio::spawn(async move { io.consume_stream(registry_config).await });
+
+        let registered = self
+            .registry
+            .try_register_store_job(job_id.clone(), handle, config)
+            .await;
+
+        let status = if registered {
+            StoreJobStatus::Running
+        } else {
+            StoreJobStatus::Failure
+        };
+
+        self.db.update_store_job(job_id, status).await?;
+        Ok(job)
+    }
+}
