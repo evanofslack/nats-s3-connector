@@ -13,6 +13,11 @@ check:
 build:
     cargo build
 
+fmt:
+    cargo +nightly fmt
+
+precommit: fmt check test-integration
+
 build-server:
     cargo build -p nats3-server
 
