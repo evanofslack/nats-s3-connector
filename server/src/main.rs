@@ -1,7 +1,6 @@
 use anyhow::{Error, Result};
-use std::path::PathBuf;
-
 use clap::Parser;
+use std::path::PathBuf;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 mod app;

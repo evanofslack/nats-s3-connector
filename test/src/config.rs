@@ -80,20 +80,20 @@ impl Config {
     }
 
     pub fn bucket_name(&self) -> String {
-        self.bucket.clone().unwrap_or_else(|| {
-            format!("test-bucket-{}", chrono::Utc::now().timestamp())
-        })
+        self.bucket
+            .clone()
+            .unwrap_or_else(|| format!("test-bucket-{}", chrono::Utc::now().timestamp()))
     }
 
     pub fn store_job_name(&self) -> String {
-        self.store_job_name.clone().unwrap_or_else(|| {
-            format!("test-store-{}", chrono::Utc::now().timestamp())
-        })
+        self.store_job_name
+            .clone()
+            .unwrap_or_else(|| format!("test-store-{}", chrono::Utc::now().timestamp()))
     }
 
     pub fn load_job_name(&self) -> String {
-        self.load_job_name.clone().unwrap_or_else(|| {
-            format!("test-load-{}", chrono::Utc::now().timestamp())
-        })
+        self.load_job_name
+            .clone()
+            .unwrap_or_else(|| format!("test-load-{}", chrono::Utc::now().timestamp()))
     }
 }
