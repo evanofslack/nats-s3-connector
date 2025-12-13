@@ -1,24 +1,25 @@
+use anyhow::Result;
 use axum::{
     extract::Request,
     http::StatusCode,
     response::{IntoResponse, Response},
     Json, Router,
 };
-use serde_json::json;
-
-use anyhow::Result;
-use std::convert::Infallible;
-use std::net::SocketAddr;
-
 use hyper::body::Incoming;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server;
+use serde_json::json;
+use std::convert::Infallible;
+use std::net::SocketAddr;
+use std::sync::Arc;
+use thiserror::Error;
 use tokio::net::TcpListener;
 use tower::{Service, ServiceExt};
 use tracing::{debug, info, warn};
 
 use crate::db;
 use crate::io;
+use crate::jobs;
 use crate::metrics as counter;
 
 pub mod load;
@@ -31,11 +32,22 @@ pub struct Dependencies {
     metrics: counter::Metrics,
     io: io::IO,
     db: db::DynJobStorer,
+    registry: Arc<jobs::JobRegistry>,
 }
 
 impl Dependencies {
-    pub fn new(metrics: counter::Metrics, io: io::IO, db: db::DynJobStorer) -> Self {
-        Self { metrics, io, db }
+    pub fn new(
+        metrics: counter::Metrics,
+        io: io::IO,
+        db: db::DynJobStorer,
+        registry: Arc<jobs::JobRegistry>,
+    ) -> Self {
+        Self {
+            metrics,
+            io,
+            db,
+            registry,
+        }
     }
 }
 
@@ -45,21 +57,34 @@ pub struct Server {
     metrics: counter::Metrics,
     io: io::IO,
     db: db::DynJobStorer,
+    registry: Arc<jobs::JobRegistry>,
 }
 
 impl Server {
-    pub fn new(addr: String, metrics: counter::Metrics, io: io::IO, db: db::DynJobStorer) -> Self {
+    pub fn new(
+        addr: String,
+        metrics: counter::Metrics,
+        io: io::IO,
+        db: db::DynJobStorer,
+        registry: Arc<jobs::JobRegistry>,
+    ) -> Self {
         debug!(address = addr, "creating new server");
         Self {
             addr,
             metrics,
             io,
             db,
+            registry,
         }
     }
 
     pub async fn serve(&self) {
-        let state = Dependencies::new(self.metrics.clone(), self.io.clone(), self.db.clone());
+        let state = Dependencies::new(
+            self.metrics.clone(),
+            self.io.clone(),
+            self.db.clone(),
+            self.registry.clone(),
+        );
         let router = create_router(state.clone());
         let mut make_service = router.into_make_service_with_connect_info::<SocketAddr>();
         let listener = TcpListener::bind(self.addr.clone()).await.unwrap();
@@ -102,16 +127,12 @@ fn create_router(deps: Dependencies) -> Router {
         .merge(store::create_router(deps))
 }
 
+#[derive(Error, Debug)]
 enum ServerError {
-    // something went wrong when calling the job store
-    JobStore(db::JobStoreError),
-}
-
-// enable conversion of `db::JobStoreError` -> `ServerError` with `?` operator
-impl From<db::JobStoreError> for ServerError {
-    fn from(inner: db::JobStoreError) -> Self {
-        ServerError::JobStore(inner)
-    }
+    #[error("job store error: {0}")]
+    JobStore(#[from] db::JobStoreError),
+    #[error("job registry error: {0}")]
+    JobRegistry(#[from] jobs::RegistryError),
 }
 
 impl IntoResponse for ServerError {
@@ -126,10 +147,14 @@ impl IntoResponse for ServerError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal server error".to_string(),
             ),
-            // _ => (
-            //     StatusCode::INTERNAL_SERVER_ERROR,
-            //     "unknown error".to_string(),
-            // ),
+            ServerError::JobRegistry(jobs::RegistryError::JobAlreadyRunning { job_id }) => (
+                StatusCode::CONFLICT,
+                format!("job id {} already exists", job_id),
+            ),
+            ServerError::JobRegistry(jobs::RegistryError::JobNotFound { job_id }) => (
+                StatusCode::NOT_FOUND,
+                format!("job id {} not found", job_id),
+            ),
         };
         let body = Json(json!({
             "error": error_message,

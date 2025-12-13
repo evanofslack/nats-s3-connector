@@ -9,6 +9,7 @@ mod config;
 mod db;
 mod encoding;
 mod io;
+mod jobs;
 mod metrics;
 mod nats;
 mod s3;
@@ -41,6 +42,9 @@ async fn main() -> Result<(), Error> {
     // Restart existing jobs
     app.start_store_jobs().await?;
     app.start_load_jobs().await?;
+
+    // Thread periodically cleaning up async threads
+    app.cleanup_completed_job_tasks();
 
     // start server
     app.server.serve().await;
