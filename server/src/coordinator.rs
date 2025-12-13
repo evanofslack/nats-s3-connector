@@ -11,13 +11,13 @@ use crate::jobs;
 
 #[derive(Debug, Clone)]
 pub struct Coordinator {
-    registry: Arc<jobs::JobRegistry>,
+    registry: Arc<jobs::Registry>,
     io: io::IO,
     db: db::DynJobStorer,
 }
 
 impl Coordinator {
-    pub fn new(registry: Arc<jobs::JobRegistry>, io: io::IO, db: db::DynJobStorer) -> Self {
+    pub fn new(registry: Arc<jobs::Registry>, io: io::IO, db: db::DynJobStorer) -> Self {
         debug!("creating new coordinator");
         Self { registry, io, db }
     }

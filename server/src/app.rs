@@ -18,7 +18,7 @@ pub struct App {
     pub db: db::DynJobStorer,
     pub coordinator: coordinator::Coordinator,
     pub server: server::Server,
-    pub registry: Arc<jobs::JobRegistry>,
+    pub registry: Arc<jobs::Registry>,
 }
 
 // construct a new instance of nats3 application
@@ -48,7 +48,7 @@ pub async fn new(config: Config) -> Result<App> {
         .context("fail connect to nats server")?;
 
     let io = io::IO::new(metrics.clone(), s3_client, nats_client, chunk_db);
-    let registry = Arc::new(jobs::JobRegistry::new());
+    let registry = Arc::new(jobs::Registry::new());
 
     let coordinator = coordinator::Coordinator::new(registry.clone(), io.clone(), job_db.clone());
 
