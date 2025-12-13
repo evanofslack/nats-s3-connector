@@ -1,7 +1,6 @@
 use thiserror::Error;
 
-use crate::db;
-use crate::registry;
+use crate::{db, registry};
 
 #[derive(Error, Debug)]
 pub enum AppError {

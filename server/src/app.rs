@@ -2,16 +2,7 @@ use anyhow::{Context, Result};
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
-use crate::config::Config;
-use crate::coordinator;
-use crate::db;
-use crate::error;
-use crate::io;
-use crate::metrics;
-use crate::nats;
-use crate::registry;
-use crate::s3;
-use crate::server;
+use crate::{config::Config, coordinator, db, error, io, metrics, nats, registry, s3, server};
 
 #[derive(Debug, Clone)]
 pub struct App {

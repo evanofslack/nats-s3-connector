@@ -3,8 +3,10 @@ use chrono::{Duration, Utc};
 use testcontainers::{runners::AsyncRunner, ImageExt};
 use testcontainers_modules::postgres::Postgres;
 
-use crate::db::postgres::PostgresStore;
-use crate::db::{ChunkMetadataError, ChunkMetadataStorer, CreateChunkMetadata, ListChunksQuery};
+use crate::db::{
+    postgres::PostgresStore, ChunkMetadataError, ChunkMetadataStorer, CreateChunkMetadata,
+    ListChunksQuery,
+};
 use nats3_types::Codec;
 
 struct TestContext {

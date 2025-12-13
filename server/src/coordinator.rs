@@ -4,10 +4,7 @@ use tracing::debug;
 
 use nats3_types::{LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
 
-use crate::db;
-use crate::error;
-use crate::io;
-use crate::registry;
+use crate::{db, error, io, registry};
 
 #[derive(Debug, Clone)]
 pub struct Coordinator {

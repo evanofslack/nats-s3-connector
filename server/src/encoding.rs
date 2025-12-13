@@ -4,10 +4,8 @@ use bytes::Bytes;
 use nats3_types::Codec;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
-use std::fmt;
-use time::format_description::well_known::Rfc3339;
-use time::OffsetDateTime;
+use std::{collections::HashMap, fmt};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use crate::{db::CreateChunkMetadata, io::ConsumeConfig};
 

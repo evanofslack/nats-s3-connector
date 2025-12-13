@@ -2,8 +2,7 @@ use crate::config::Config;
 use async_nats::jetstream::stream::{Config as StreamConfig, RetentionPolicy, StorageType};
 use nats3_client::Client;
 use nats3_types::{Batch, CreateLoadJob, CreateStoreJob};
-use s3::creds::Credentials;
-use s3::{Bucket, BucketConfiguration, Region};
+use s3::{creds::Credentials, Bucket, BucketConfiguration, Region};
 use tracing::{debug, info};
 
 pub async fn run(config: &Config) -> anyhow::Result<()> {

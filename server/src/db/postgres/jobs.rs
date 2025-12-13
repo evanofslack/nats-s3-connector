@@ -1,10 +1,10 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use super::models::{
-    LoadJobRow, LoadJobStatusEnum, StoreJobRow, StoreJobRowCreate, StoreJobStatusEnum,
+use super::{
+    models::{LoadJobRow, LoadJobStatusEnum, StoreJobRow, StoreJobRowCreate, StoreJobStatusEnum},
+    postgres::PostgresStore,
 };
-use super::postgres::PostgresStore;
 use crate::db::{JobStoreError, JobStorer, LoadJobStorer, StoreJobStorer};
 use nats3_types::{LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
 

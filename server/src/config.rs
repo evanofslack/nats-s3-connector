@@ -4,9 +4,7 @@ use figment::{
     Figment,
 };
 use serde::Deserialize;
-use std::ffi::OsStr;
-use std::path::PathBuf;
-use std::string::ToString;
+use std::{ffi::OsStr, path::PathBuf, string::ToString};
 use tracing_subscriber::filter::LevelFilter;
 
 const DEFAULT_CONFIG_PATH: &str = "/etc/nats3/config.toml";

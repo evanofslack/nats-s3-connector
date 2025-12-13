@@ -6,20 +6,17 @@ use axum::{
     Json, Router,
 };
 use hyper::body::Incoming;
-use hyper_util::rt::{TokioExecutor, TokioIo};
-use hyper_util::server;
+use hyper_util::{
+    rt::{TokioExecutor, TokioIo},
+    server,
+};
 use serde_json::json;
-use std::convert::Infallible;
-use std::net::SocketAddr;
+use std::{convert::Infallible, net::SocketAddr};
 use tokio::net::TcpListener;
 use tower::{Service, ServiceExt};
 use tracing::{debug, info, warn};
 
-use crate::coordinator;
-use crate::db;
-use crate::error;
-use crate::metrics as counter;
-use crate::registry;
+use crate::{coordinator, db, error, metrics as counter, registry};
 
 pub mod load;
 pub mod metrics;

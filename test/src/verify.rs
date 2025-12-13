@@ -1,8 +1,10 @@
 use crate::message::{extract_sequence, TestMessage};
 use async_nats::jetstream::consumer::PullConsumer;
 use futures::StreamExt;
-use std::collections::{HashMap, HashSet};
-use std::time::{Duration, Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    time::{Duration, Instant},
+};
 use tokio::time::timeout;
 use tracing::{debug, info, warn};
 
