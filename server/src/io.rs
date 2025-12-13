@@ -15,6 +15,7 @@ use crate::s3;
 const KEEP_ALIVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
 const DEFAULT_BATCH_WAIT: time::Duration = time::Duration::from_secs(10);
 
+#[derive(Debug, Clone)]
 pub struct ConsumeConfig {
     pub stream: String,
     pub consumer: Option<String>,
@@ -26,6 +27,7 @@ pub struct ConsumeConfig {
     pub codec: Codec,
 }
 
+#[derive(Debug, Clone)]
 pub struct PublishConfig {
     pub read_stream: String,
     pub read_consumer: Option<String>,
