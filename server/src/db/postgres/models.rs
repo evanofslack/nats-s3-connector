@@ -4,8 +4,7 @@ use tokio_postgres::Row;
 
 use nats3_types::{Batch, Codec, Encoding, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
 
-use crate::db::JobStoreError;
-use crate::db::{ChunkMetadata, ChunkMetadataError, CreateChunkMetadata};
+use crate::db::{ChunkMetadata, ChunkMetadataError, CreateChunkMetadata, JobStoreError};
 
 #[derive(Debug, Clone, ToSql, FromSql)]
 #[postgres(name = "load_job_status")]

@@ -2,23 +2,14 @@ use anyhow::{Context, Result};
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
-use crate::config::Config;
-use crate::coordinator;
-use crate::db;
-use crate::error;
-use crate::io;
-use crate::jobs;
-use crate::metrics;
-use crate::nats;
-use crate::s3;
-use crate::server;
+use crate::{config::Config, coordinator, db, error, io, metrics, nats, registry, s3, server};
 
 #[derive(Debug, Clone)]
 pub struct App {
     pub db: db::DynJobStorer,
     pub coordinator: coordinator::Coordinator,
     pub server: server::Server,
-    pub registry: Arc<jobs::JobRegistry>,
+    pub registry: Arc<registry::Registry>,
 }
 
 // construct a new instance of nats3 application
@@ -48,7 +39,7 @@ pub async fn new(config: Config) -> Result<App> {
         .context("fail connect to nats server")?;
 
     let io = io::IO::new(metrics.clone(), s3_client, nats_client, chunk_db);
-    let registry = Arc::new(jobs::JobRegistry::new());
+    let registry = Arc::new(registry::Registry::new());
 
     let coordinator = coordinator::Coordinator::new(registry.clone(), io.clone(), job_db.clone());
 

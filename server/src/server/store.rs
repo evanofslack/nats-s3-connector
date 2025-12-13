@@ -9,9 +9,7 @@ use nats3_types::{CreateStoreJob, StoreJob};
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::AppError;
-use crate::io;
-use crate::server::Dependencies;
+use crate::{error::AppError, io, server::Dependencies};
 
 pub fn create_router(deps: Dependencies) -> Router {
     let router: Router = Router::new()

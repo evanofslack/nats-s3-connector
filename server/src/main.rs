@@ -1,7 +1,6 @@
 use anyhow::{Error, Result};
-use std::path::PathBuf;
-
 use clap::Parser;
+use std::path::PathBuf;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 mod app;
@@ -11,9 +10,9 @@ mod db;
 mod encoding;
 mod error;
 mod io;
-mod jobs;
 mod metrics;
 mod nats;
+mod registry;
 mod s3;
 mod server;
 

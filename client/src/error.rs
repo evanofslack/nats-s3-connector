@@ -4,10 +4,10 @@ use thiserror::Error;
 pub enum ClientError {
     #[error("HTTP request failed: {0}")]
     Request(#[from] reqwest::Error),
-    
+
     #[error("HTTP error {status}: {message}")]
     Http { status: u16, message: String },
-    
+
     #[error("Failed to deserialize response: {0}")]
     Deserialization(String),
 }

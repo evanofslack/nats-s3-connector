@@ -8,11 +8,7 @@ use tracing::{debug, trace, warn};
 
 use nats3_types::{LoadJob, StoreJob};
 
-use crate::db;
-use crate::encoding;
-use crate::metrics;
-use crate::nats;
-use crate::s3;
+use crate::{db, encoding, metrics, nats, s3};
 
 const KEEP_ALIVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
 const DEFAULT_BATCH_WAIT: time::Duration = time::Duration::from_secs(10);

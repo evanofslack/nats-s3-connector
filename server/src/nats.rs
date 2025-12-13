@@ -1,5 +1,8 @@
 use anyhow::{Context, Error, Result};
-use async_nats::jetstream::{self, consumer::pull::Stream, consumer::PullConsumer};
+use async_nats::jetstream::{
+    self,
+    consumer::{pull::Stream, PullConsumer},
+};
 
 use bytes::Bytes;
 use tracing::{debug, trace};

@@ -1,5 +1,4 @@
-use crate::db::postgres::PostgresStore;
-use crate::db::{LoadJobStorer, StoreJobStorer};
+use crate::db::{postgres::PostgresStore, LoadJobStorer, StoreJobStorer};
 use nats3_types::{Batch, Codec, Encoding, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
 use testcontainers::{runners::AsyncRunner, ImageExt};
 use testcontainers_modules::postgres::Postgres;

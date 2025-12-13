@@ -6,20 +6,17 @@ use axum::{
     Json, Router,
 };
 use hyper::body::Incoming;
-use hyper_util::rt::{TokioExecutor, TokioIo};
-use hyper_util::server;
+use hyper_util::{
+    rt::{TokioExecutor, TokioIo},
+    server,
+};
 use serde_json::json;
-use std::convert::Infallible;
-use std::net::SocketAddr;
+use std::{convert::Infallible, net::SocketAddr};
 use tokio::net::TcpListener;
 use tower::{Service, ServiceExt};
 use tracing::{debug, info, warn};
 
-use crate::coordinator;
-use crate::db;
-use crate::error;
-use crate::jobs;
-use crate::metrics as counter;
+use crate::{coordinator, db, error, metrics as counter, registry};
 
 pub mod load;
 pub mod metrics;
@@ -131,11 +128,13 @@ impl IntoResponse for error::AppError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal server error".to_string(),
             ),
-            error::AppError::JobRegistry(jobs::RegistryError::JobAlreadyRunning { job_id }) => (
-                StatusCode::CONFLICT,
-                format!("job id {} already exists", job_id),
-            ),
-            error::AppError::JobRegistry(jobs::RegistryError::JobNotFound { job_id }) => (
+            error::AppError::JobRegistry(registry::RegistryError::JobAlreadyRunning { job_id }) => {
+                (
+                    StatusCode::CONFLICT,
+                    format!("job id {} already exists", job_id),
+                )
+            }
+            error::AppError::JobRegistry(registry::RegistryError::JobNotFound { job_id }) => (
                 StatusCode::NOT_FOUND,
                 format!("job id {} not found", job_id),
             ),

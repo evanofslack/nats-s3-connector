@@ -10,7 +10,7 @@ use tracing::Level;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let config = Config::parse_args();
-    
+
     init_logging(&config.log_level);
 
     if !config.skip_setup {

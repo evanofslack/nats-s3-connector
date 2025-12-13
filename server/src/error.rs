@@ -1,12 +1,11 @@
 use thiserror::Error;
 
-use crate::db;
-use crate::jobs;
+use crate::{db, registry};
 
 #[derive(Error, Debug)]
 pub enum AppError {
     #[error("job store error: {0}")]
     JobStore(#[from] db::JobStoreError),
     #[error("job registry error: {0}")]
-    JobRegistry(#[from] jobs::RegistryError),
+    JobRegistry(#[from] registry::RegistryError),
 }

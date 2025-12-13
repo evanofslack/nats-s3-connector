@@ -1,9 +1,7 @@
 use anyhow::Result;
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
-use tokio::sync::RwLock;
-use tokio::task::JoinHandle;
+use tokio::{sync::RwLock, task::JoinHandle};
 use tracing::{debug, warn};
 
 use crate::io;
@@ -31,12 +29,12 @@ struct LoadJobHandle {
 }
 
 #[derive(Clone, Debug)]
-pub struct JobRegistry {
+pub struct Registry {
     store_handles: Arc<RwLock<HashMap<String, StoreJobHandle>>>,
     load_handles: Arc<RwLock<HashMap<String, LoadJobHandle>>>,
 }
 
-impl JobRegistry {
+impl Registry {
     pub fn new() -> Self {
         debug!("creating new job registry");
         Self {
@@ -190,7 +188,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_and_check_running() {
-        let manager = JobRegistry::new();
+        let manager = Registry::new();
         let job_id = "test-job-1".to_string();
 
         let handle = tokio::spawn(async {
@@ -219,7 +217,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_duplicate_registration_fails() {
-        let manager = JobRegistry::new();
+        let manager = Registry::new();
         let job_id = "test-job-2".to_string();
 
         let handle1 = tokio::spawn(async {
@@ -256,7 +254,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cleanup_removes_completed() {
-        let manager = JobRegistry::new();
+        let manager = Registry::new();
         let job_id = "test-job-3".to_string();
 
         let handle = tokio::spawn(async { Ok(()) });

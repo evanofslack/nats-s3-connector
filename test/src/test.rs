@@ -1,6 +1,8 @@
-use crate::config::Config;
-use crate::message::{generate_messages, TestMessage};
-use crate::verify::{consume_and_verify, TestResults, Verifier};
+use crate::{
+    config::Config,
+    message::{generate_messages, TestMessage},
+    verify::{consume_and_verify, TestResults, Verifier},
+};
 use async_nats::jetstream::consumer::{
     pull::Config as ConsumerConfig, AckPolicy, DeliverPolicy, PullConsumer,
 };
