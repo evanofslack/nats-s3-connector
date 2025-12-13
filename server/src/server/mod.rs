@@ -18,8 +18,8 @@ use tracing::{debug, info, warn};
 use crate::coordinator;
 use crate::db;
 use crate::error;
-use crate::jobs;
 use crate::metrics as counter;
+use crate::registry;
 
 pub mod load;
 pub mod metrics;
@@ -131,11 +131,13 @@ impl IntoResponse for error::AppError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal server error".to_string(),
             ),
-            error::AppError::JobRegistry(jobs::RegistryError::JobAlreadyRunning { job_id }) => (
-                StatusCode::CONFLICT,
-                format!("job id {} already exists", job_id),
-            ),
-            error::AppError::JobRegistry(jobs::RegistryError::JobNotFound { job_id }) => (
+            error::AppError::JobRegistry(registry::RegistryError::JobAlreadyRunning { job_id }) => {
+                (
+                    StatusCode::CONFLICT,
+                    format!("job id {} already exists", job_id),
+                )
+            }
+            error::AppError::JobRegistry(registry::RegistryError::JobNotFound { job_id }) => (
                 StatusCode::NOT_FOUND,
                 format!("job id {} not found", job_id),
             ),

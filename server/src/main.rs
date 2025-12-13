@@ -11,9 +11,9 @@ mod db;
 mod encoding;
 mod error;
 mod io;
-mod jobs;
 mod metrics;
 mod nats;
+mod registry;
 mod s3;
 mod server;
 

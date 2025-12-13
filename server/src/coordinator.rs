@@ -7,17 +7,17 @@ use nats3_types::{LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
 use crate::db;
 use crate::error;
 use crate::io;
-use crate::jobs;
+use crate::registry;
 
 #[derive(Debug, Clone)]
 pub struct Coordinator {
-    registry: Arc<jobs::Registry>,
+    registry: Arc<registry::Registry>,
     io: io::IO,
     db: db::DynJobStorer,
 }
 
 impl Coordinator {
-    pub fn new(registry: Arc<jobs::Registry>, io: io::IO, db: db::DynJobStorer) -> Self {
+    pub fn new(registry: Arc<registry::Registry>, io: io::IO, db: db::DynJobStorer) -> Self {
         debug!("creating new coordinator");
         Self { registry, io, db }
     }
@@ -29,7 +29,7 @@ impl Coordinator {
     ) -> Result<LoadJob, error::AppError> {
         let job_id = job.id.to_string();
         if self.registry.is_load_job_running(&job_id).await {
-            return Err(jobs::RegistryError::JobAlreadyRunning { job_id }.into());
+            return Err(registry::RegistryError::JobAlreadyRunning { job_id }.into());
         }
 
         self.db.create_load_job(job.clone()).await?;
@@ -61,7 +61,7 @@ impl Coordinator {
     ) -> Result<LoadJob, error::AppError> {
         let job_id = job.id.to_string();
         if self.registry.is_load_job_running(&job_id).await {
-            return Err(jobs::RegistryError::JobAlreadyRunning { job_id }.into());
+            return Err(registry::RegistryError::JobAlreadyRunning { job_id }.into());
         }
 
         let io = self.io.clone();
@@ -92,7 +92,7 @@ impl Coordinator {
     ) -> Result<StoreJob, error::AppError> {
         let job_id = job.id.to_string();
         if self.registry.is_store_job_running(&job_id).await {
-            return Err(jobs::RegistryError::JobAlreadyRunning { job_id }.into());
+            return Err(registry::RegistryError::JobAlreadyRunning { job_id }.into());
         }
 
         self.db.create_store_job(job.clone()).await?;
@@ -124,7 +124,7 @@ impl Coordinator {
     ) -> Result<StoreJob, error::AppError> {
         let job_id = job.id.to_string();
         if self.registry.is_store_job_running(&job_id).await {
-            return Err(jobs::RegistryError::JobAlreadyRunning { job_id }.into());
+            return Err(registry::RegistryError::JobAlreadyRunning { job_id }.into());
         }
 
         let io = self.io.clone();
