@@ -38,8 +38,9 @@ async fn main() -> Result<(), Error> {
     // create app
     let app = app::new(config.clone()).await?;
 
-    // start all store jobs
-    app.start_store_jobs().await;
+    // Restart existing jobs
+    app.start_store_jobs().await?;
+    app.start_load_jobs().await?;
 
     // start server
     app.server.serve().await;
