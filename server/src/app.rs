@@ -3,8 +3,9 @@ use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 use crate::config::Config;
+use crate::coordinator;
 use crate::db;
-use crate::db::JobStoreError;
+use crate::error;
 use crate::io;
 use crate::jobs;
 use crate::metrics;
@@ -15,7 +16,7 @@ use crate::server;
 #[derive(Debug, Clone)]
 pub struct App {
     pub db: db::DynJobStorer,
-    pub io: io::IO,
+    pub coordinator: coordinator::Coordinator,
     pub server: server::Server,
     pub registry: Arc<jobs::JobRegistry>,
 }
@@ -49,16 +50,17 @@ pub async fn new(config: Config) -> Result<App> {
     let io = io::IO::new(metrics.clone(), s3_client, nats_client, chunk_db);
     let registry = Arc::new(jobs::JobRegistry::new());
 
+    let coordinator = coordinator::Coordinator::new(registry.clone(), io.clone(), job_db.clone());
+
     let server = server::Server::new(
         config.clone().server.addr,
         metrics.clone(),
-        io.clone(),
         job_db.clone(),
-        registry.clone(),
+        coordinator.clone(),
     );
 
     let app = App {
-        io,
+        coordinator,
         server,
         db: job_db,
         registry,
@@ -69,7 +71,7 @@ pub async fn new(config: Config) -> Result<App> {
 
 impl App {
     // start all store jobs already saved in database
-    pub async fn start_store_jobs(&self) -> Result<(), JobStoreError> {
+    pub async fn start_store_jobs(&self) -> Result<(), error::AppError> {
         let store_jobs = self.db.clone().get_store_jobs().await?;
         if store_jobs.is_empty() {
             return Ok(());
@@ -78,39 +80,16 @@ impl App {
             job_count = store_jobs.len(),
             "start existing store jobs from database"
         );
+
         for job in store_jobs {
-            if self.registry.is_store_job_running(&job.id).await {
-                warn!(
-                    job_id = job.id,
-                    "skip start existing store job, already registered"
-                );
-                continue;
-            }
-            // must clone the instances we pass to the async thread
-            let app = self.clone();
-            let job = job.clone();
-            let config = io::ConsumeConfig {
-                stream: job.stream.clone(),
-                consumer: job.consumer.clone(),
-                subject: job.subject.clone(),
-                bucket: job.bucket.clone(),
-                prefix: job.prefix,
-                bytes_max: job.batch.max_bytes,
-                messages_max: job.batch.max_count,
-                codec: job.encoding.codec,
-            };
-            let registry_config = config.clone();
-            let handle: tokio::task::JoinHandle<Result<()>> =
-                tokio::spawn(async move { app.io.consume_stream(config).await });
-            self.registry
-                .try_register_store_job(job.id, handle, registry_config)
-                .await;
+            let config: io::ConsumeConfig = job.clone().into();
+            self.coordinator.restart_store_job(job, config).await?;
         }
         Ok(())
     }
 
     // start all load jobs already saved in database
-    pub async fn start_load_jobs(&self) -> Result<(), JobStoreError> {
+    pub async fn start_load_jobs(&self) -> Result<(), error::AppError> {
         let load_jobs = self.db.clone().get_load_jobs().await?;
         if load_jobs.is_empty() {
             return Ok(());
@@ -120,34 +99,8 @@ impl App {
             "start existing load jobs from database"
         );
         for job in load_jobs {
-            if self.registry.is_load_job_running(&job.id).await {
-                warn!(
-                    job_id = job.id,
-                    "skip start existing load job, already registered"
-                );
-                continue;
-            }
-
-            // must clone the instances we pass to the async thread
-            let app = self.clone();
-            let job = job.clone();
-            let config = io::PublishConfig {
-                read_stream: job.read_stream,
-                read_consumer: job.read_consumer,
-                read_subject: job.read_subject,
-                write_subject: job.write_subject,
-                bucket: job.bucket.clone(),
-                prefix: job.prefix,
-                delete_chunks: job.delete_chunks,
-                start: job.start,
-                end: job.end,
-            };
-            let registry_config = config.clone();
-            let handle: tokio::task::JoinHandle<Result<()>> =
-                tokio::spawn(async move { app.io.publish_stream(config).await });
-            self.registry
-                .try_register_load_job(job.id, handle, registry_config)
-                .await;
+            let config: io::PublishConfig = job.clone().into();
+            self.coordinator.restart_load_job(job, config).await?;
         }
         Ok(())
     }

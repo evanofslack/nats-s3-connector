@@ -11,14 +11,13 @@ use hyper_util::server;
 use serde_json::json;
 use std::convert::Infallible;
 use std::net::SocketAddr;
-use std::sync::Arc;
-use thiserror::Error;
 use tokio::net::TcpListener;
 use tower::{Service, ServiceExt};
 use tracing::{debug, info, warn};
 
+use crate::coordinator;
 use crate::db;
-use crate::io;
+use crate::error;
 use crate::jobs;
 use crate::metrics as counter;
 
@@ -30,23 +29,20 @@ pub mod store;
 #[derive(Clone)]
 pub struct Dependencies {
     metrics: counter::Metrics,
-    io: io::IO,
     db: db::DynJobStorer,
-    registry: Arc<jobs::JobRegistry>,
+    coordinator: coordinator::Coordinator,
 }
 
 impl Dependencies {
     pub fn new(
         metrics: counter::Metrics,
-        io: io::IO,
         db: db::DynJobStorer,
-        registry: Arc<jobs::JobRegistry>,
+        coordinator: coordinator::Coordinator,
     ) -> Self {
         Self {
             metrics,
-            io,
             db,
-            registry,
+            coordinator,
         }
     }
 }
@@ -55,35 +51,31 @@ impl Dependencies {
 pub struct Server {
     addr: String,
     metrics: counter::Metrics,
-    io: io::IO,
     db: db::DynJobStorer,
-    registry: Arc<jobs::JobRegistry>,
+    coordinator: coordinator::Coordinator,
 }
 
 impl Server {
     pub fn new(
         addr: String,
         metrics: counter::Metrics,
-        io: io::IO,
         db: db::DynJobStorer,
-        registry: Arc<jobs::JobRegistry>,
+        coordinator: coordinator::Coordinator,
     ) -> Self {
         debug!(address = addr, "creating new server");
         Self {
             addr,
             metrics,
-            io,
             db,
-            registry,
+            coordinator,
         }
     }
 
     pub async fn serve(&self) {
         let state = Dependencies::new(
             self.metrics.clone(),
-            self.io.clone(),
             self.db.clone(),
-            self.registry.clone(),
+            self.coordinator.clone(),
         );
         let router = create_router(state.clone());
         let mut make_service = router.into_make_service_with_connect_info::<SocketAddr>();
@@ -127,31 +119,23 @@ fn create_router(deps: Dependencies) -> Router {
         .merge(store::create_router(deps))
 }
 
-#[derive(Error, Debug)]
-enum ServerError {
-    #[error("job store error: {0}")]
-    JobStore(#[from] db::JobStoreError),
-    #[error("job registry error: {0}")]
-    JobRegistry(#[from] jobs::RegistryError),
-}
-
-impl IntoResponse for ServerError {
+impl IntoResponse for error::AppError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
-            ServerError::JobStore(db::JobStoreError::NotFound { id }) => {
+            error::AppError::JobStore(db::JobStoreError::NotFound { id }) => {
                 (StatusCode::NOT_FOUND, format!("job id {} not found", id))
             }
-            ServerError::JobStore(db::JobStoreError::Database(_))
-            | ServerError::JobStore(db::JobStoreError::Pool(_))
-            | ServerError::JobStore(db::JobStoreError::Postgres(_)) => (
+            error::AppError::JobStore(db::JobStoreError::Database(_))
+            | error::AppError::JobStore(db::JobStoreError::Pool(_))
+            | error::AppError::JobStore(db::JobStoreError::Postgres(_)) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal server error".to_string(),
             ),
-            ServerError::JobRegistry(jobs::RegistryError::JobAlreadyRunning { job_id }) => (
+            error::AppError::JobRegistry(jobs::RegistryError::JobAlreadyRunning { job_id }) => (
                 StatusCode::CONFLICT,
                 format!("job id {} already exists", job_id),
             ),
-            ServerError::JobRegistry(jobs::RegistryError::JobNotFound { job_id }) => (
+            error::AppError::JobRegistry(jobs::RegistryError::JobNotFound { job_id }) => (
                 StatusCode::NOT_FOUND,
                 format!("job id {} not found", job_id),
             ),

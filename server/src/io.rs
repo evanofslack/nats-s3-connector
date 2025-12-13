@@ -6,6 +6,8 @@ use std::sync::Arc;
 use tokio::{sync::RwLock, time};
 use tracing::{debug, trace, warn};
 
+use nats3_types::{LoadJob, StoreJob};
+
 use crate::db;
 use crate::encoding;
 use crate::metrics;
@@ -27,6 +29,21 @@ pub struct ConsumeConfig {
     pub codec: Codec,
 }
 
+impl From<StoreJob> for ConsumeConfig {
+    fn from(job: StoreJob) -> Self {
+        Self {
+            stream: job.stream,
+            consumer: job.consumer,
+            subject: job.subject,
+            bucket: job.bucket,
+            prefix: job.prefix,
+            bytes_max: job.batch.max_bytes,
+            messages_max: job.batch.max_count,
+            codec: job.encoding.codec,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct PublishConfig {
     pub read_stream: String,
@@ -38,6 +55,22 @@ pub struct PublishConfig {
     pub delete_chunks: bool,
     pub start: Option<usize>,
     pub end: Option<usize>,
+}
+
+impl From<LoadJob> for PublishConfig {
+    fn from(job: LoadJob) -> Self {
+        Self {
+            read_stream: job.read_stream,
+            read_consumer: job.read_consumer,
+            read_subject: job.read_subject,
+            write_subject: job.write_subject,
+            bucket: job.bucket,
+            prefix: job.prefix,
+            delete_chunks: job.delete_chunks,
+            start: job.start,
+            end: job.end,
+        }
+    }
 }
 
 // IO handles interfacing with NATs and S3
