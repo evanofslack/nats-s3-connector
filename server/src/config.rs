@@ -3,7 +3,6 @@ use figment::{
     providers::{Env, Format, Toml, Yaml},
     Figment,
 };
-use nats3_types::StoreJob;
 use serde::Deserialize;
 use std::ffi::OsStr;
 use std::path::PathBuf;
@@ -20,7 +19,6 @@ pub struct Config {
     pub postgres: Postgres,
     pub nats: Nats,
     pub s3: S3,
-    pub store_jobs: Option<Vec<StoreJob>>,
 }
 
 #[derive(Deserialize, Clone, Debug)]

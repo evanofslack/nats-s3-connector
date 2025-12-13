@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::config::Config;
 use crate::db;
+use crate::db::JobStoreError;
 use crate::io;
 use crate::metrics;
 use crate::nats;
@@ -12,7 +13,6 @@ use tracing::{debug, info, warn};
 
 #[derive(Debug, Clone)]
 pub struct App {
-    pub config: Arc<Config>,
     pub db: db::DynJobStorer,
     pub io: io::IO,
     pub server: server::Server,
@@ -54,7 +54,6 @@ pub async fn new(config: Config) -> Result<App> {
     );
 
     let app = App {
-        config: Arc::new(config),
         io,
         server,
         db: job_db,
@@ -64,53 +63,78 @@ pub async fn new(config: Config) -> Result<App> {
 }
 
 impl App {
-    // start all store jobs as defined in config
-    pub async fn start_store_jobs(&self) {
-        if let Some(store_jobs) = self.config.clone().store_jobs.clone() {
-            info!(job_count = store_jobs.len(), "start store jobs from config");
-            for job in store_jobs.iter() {
-                // must clone the instances we pass to the async thread
-                let app = self.clone();
-                let job = job.clone();
-                tokio::spawn(async move {
-                    if let Err(err) = app.db.create_store_job(job.clone()).await {
-                        warn!(
-                            id = job.id,
-                            error = err.to_string(),
-                            "fail create store job"
-                        );
-                    }
+    // start all store jobs already saved in database
+    pub async fn start_store_jobs(&self) -> Result<(), JobStoreError> {
+        let store_jobs = self.db.clone().get_store_jobs().await?;
 
-                    if let Err(err) = app
-                        .io
-                        .consume_stream(io::ConsumeConfig {
-                            stream: job.stream.clone(),
-                            consumer: job.consumer.clone(),
-                            subject: job.subject.clone(),
-                            bucket: job.bucket.clone(),
-                            prefix: job.prefix,
-                            bytes_max: job.batch.max_bytes,
-                            messages_max: job.batch.max_count,
-                            codec: job.encoding.codec,
-                        })
-                        .await
-                    {
-                        warn!(id = job.id, error = err.to_string(), "store job terminated");
-                        app.io
-                            .metrics
-                            .jobs
-                            .write()
-                            .await
-                            .store_jobs
-                            .get_or_create(&metrics::JobLabels {
-                                stream: job.stream.clone(),
-                                subject: job.subject.clone(),
-                                bucket: job.bucket.clone(),
-                            })
-                            .dec();
-                    }
-                });
-            }
+        if store_jobs.is_empty() {
+            return Ok(());
         }
+        info!(
+            job_count = store_jobs.len(),
+            "start existing store jobs from database"
+        );
+        for job in store_jobs {
+            // must clone the instances we pass to the async thread
+            let app = self.clone();
+            let job = job.clone();
+            tokio::spawn(async move {
+                if let Err(err) = app
+                    .io
+                    .consume_stream(io::ConsumeConfig {
+                        stream: job.stream.clone(),
+                        consumer: job.consumer.clone(),
+                        subject: job.subject.clone(),
+                        bucket: job.bucket.clone(),
+                        prefix: job.prefix,
+                        bytes_max: job.batch.max_bytes,
+                        messages_max: job.batch.max_count,
+                        codec: job.encoding.codec,
+                    })
+                    .await
+                {
+                    warn!(id = job.id, error = err.to_string(), "store job terminated");
+                }
+            });
+        }
+        Ok(())
+    }
+
+    // start all load jobs already saved in database
+    pub async fn start_load_jobs(&self) -> Result<(), JobStoreError> {
+        let load_jobs = self.db.clone().get_load_jobs().await?;
+
+        if load_jobs.is_empty() {
+            return Ok(());
+        }
+        info!(
+            job_count = load_jobs.len(),
+            "start existing load jobs from database"
+        );
+        for job in load_jobs {
+            // must clone the instances we pass to the async thread
+            let app = self.clone();
+            let job = job.clone();
+            tokio::spawn(async move {
+                if let Err(err) = app
+                    .io
+                    .publish_stream(io::PublishConfig {
+                        read_stream: job.read_stream,
+                        read_consumer: job.read_consumer,
+                        read_subject: job.read_subject,
+                        write_subject: job.write_subject,
+                        bucket: job.bucket.clone(),
+                        prefix: job.prefix,
+                        delete_chunks: job.delete_chunks,
+                        start: job.start,
+                        end: job.end,
+                    })
+                    .await
+                {
+                    warn!(id = job.id, error = err.to_string(), "store job terminated");
+                }
+            });
+        }
+        Ok(())
     }
 }
