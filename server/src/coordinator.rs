@@ -83,8 +83,6 @@ impl Coordinator {
         Ok(job)
     }
 
-    pub async fn handle_load_job_completion(&self, job_id: &str, result: registry::JobResult) {}
-
     pub async fn start_new_store_job(
         &self,
         job: StoreJob,
