@@ -140,7 +140,6 @@ impl IO {
                             buffer.push(message).await;
 
                             let messages_total = buffer.len().await;
-
                             if messages_total >= config.messages_max as usize
                                 || bytes_total >= config.bytes_max as usize
                             {
@@ -400,7 +399,6 @@ impl MessageBuffer {
         let cancel_token = self.cancel_token.clone();
 
         // keepalive thread currently runs forever.
-        // TODO: cancel thread on job cancellation.
         tokio::spawn(async move {
             let mut interval = time::interval(interval);
             loop {
