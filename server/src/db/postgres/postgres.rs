@@ -4,7 +4,7 @@ use bb8_postgres::PostgresConnectionManager;
 use refinery::embed_migrations;
 use thiserror::Error;
 use tokio_postgres::{Config as PgConfig, NoTls};
-use tracing::{debug, error};
+use tracing::{debug, error, trace};
 
 embed_migrations!("./src/db/postgres/migrations");
 
@@ -38,7 +38,7 @@ impl PostgresStore {
     }
 
     pub async fn migrate(&self) -> Result<(), PostgresError> {
-        debug!("start run migrations");
+        trace!("start run migrations");
         let mut client = self.get_client().await?;
 
         migrations::runner()

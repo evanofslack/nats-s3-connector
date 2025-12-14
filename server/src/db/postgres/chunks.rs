@@ -24,7 +24,7 @@ impl ChunkMetadataStorer for PostgresStore {
             subject = chunk.subject,
             message_count = chunk.message_count,
             bytes = chunk.size_bytes,
-            "start create chunk"
+            "create chunk"
         );
         if chunk.timestamp_start > chunk.timestamp_end {
             return Err(ChunkMetadataError::InvalidTimestampRange {
@@ -79,7 +79,7 @@ impl ChunkMetadataStorer for PostgresStore {
     }
 
     async fn get_chunk(&self, sequence_number: i64) -> Result<ChunkMetadata, ChunkMetadataError> {
-        debug!(sequence_number = sequence_number, "start get chunk");
+        debug!(sequence_number = sequence_number, "get chunk");
         let client = self.get_client().await?;
 
         let row = client
@@ -111,7 +111,7 @@ impl ChunkMetadataStorer for PostgresStore {
             subject = query.subject,
             prefix = query.prefix,
             limit = query.limit,
-            "start list chunks"
+            "list chunks"
         );
         let client = self.get_client().await?;
 
@@ -173,7 +173,7 @@ impl ChunkMetadataStorer for PostgresStore {
         &self,
         sequence_number: i64,
     ) -> Result<ChunkMetadata, ChunkMetadataError> {
-        debug!(sequence_number = sequence_number, "start soft delete chunk");
+        debug!(sequence_number = sequence_number, "soft delete chunk");
         let client = self.get_client().await?;
 
         let row = client
@@ -197,7 +197,7 @@ impl ChunkMetadataStorer for PostgresStore {
     }
 
     async fn hard_delete_chunk(&self, sequence_number: i64) -> Result<(), ChunkMetadataError> {
-        debug!(sequence_number = sequence_number, "start hard delete chunk");
+        debug!(sequence_number = sequence_number, "hard delete chunk");
         let client = self.get_client().await?;
 
         let rows_affected = client
