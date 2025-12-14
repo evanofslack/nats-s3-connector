@@ -39,7 +39,7 @@ pub async fn new(config: Config) -> Result<App> {
         .context("fail connect to nats server")?;
 
     let io = io::IO::new(metrics.clone(), s3_client, nats_client, chunk_db);
-    let registry = Arc::new(registry::Registry::new());
+    let registry = Arc::new(registry::Registry::new()); // need to pass the callback here
 
     let coordinator = coordinator::Coordinator::new(registry.clone(), io.clone(), job_db.clone());
 
@@ -98,12 +98,16 @@ impl App {
 
     pub fn cleanup_completed_job_tasks(&self) {
         let registry = self.registry.clone();
+        let job_handler = Arc::new(self.coordinator.clone());
 
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
             loop {
                 interval.tick().await;
-                if let Err(e) = registry.cleanup_completed_jobs().await {
+                if let Err(e) = registry
+                    .cleanup_completed_jobs(job_handler.clone(), job_handler.clone())
+                    .await
+                {
                     warn!(error = e.to_string(), "fail cleanup completed jobs");
                 }
             }
