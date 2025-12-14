@@ -101,7 +101,7 @@ impl IO {
             bucket = config.bucket,
             prefix = config.prefix,
             codec = config.codec.to_string(),
-            "start consume stream and upload to bucket"
+            "consume stream and upload to bucket"
         );
 
         let buffer = MessageBuffer::new();
@@ -223,7 +223,7 @@ impl IO {
     }
 
     pub async fn publish_stream(&self, config: PublishConfig) -> Result<()> {
-        trace!(
+        debug!(
             read_stream = config.read_stream,
             read_consumer = config.read_consumer,
             read_subject = config.read_subject,
@@ -233,7 +233,7 @@ impl IO {
             delete_chunks = config.delete_chunks,
             start = config.start,
             end = config.end,
-            "start download from bucket and publish to stream"
+            "download from bucket and publish to stream"
         );
 
         let write_subject = config.write_subject.clone();
