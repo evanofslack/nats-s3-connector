@@ -147,10 +147,6 @@ impl IntoResponse for error::AppError {
                     format!("job id {} already exists", job_id),
                 )
             }
-            error::AppError::JobRegistry(registry::RegistryError::JobNotFound { job_id }) => (
-                StatusCode::NOT_FOUND,
-                format!("job id {} not found", job_id),
-            ),
         };
         let body = Json(json!({
             "error": error_message,

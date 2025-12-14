@@ -7,7 +7,7 @@ use axum::{
 };
 use nats3_types::{CreateStoreJob, StoreJob};
 use serde::Deserialize;
-use tracing::debug;
+use tracing::info;
 
 use crate::{error::AppError, io, server::Dependencies};
 
@@ -31,7 +31,7 @@ async fn get_store_job(
     State(state): State<Dependencies>,
     Query(params): Query<GetJobParams>,
 ) -> Result<Json<StoreJob>, AppError> {
-    debug!(
+    info!(
         route = "/store/job",
         method = "GET",
         job_id = params.job_id,
@@ -47,7 +47,7 @@ async fn get_store_job(
 async fn get_store_jobs(
     State(state): State<Dependencies>,
 ) -> Result<Json<Vec<StoreJob>>, AppError> {
-    debug!(route = "/store/jobs", method = "GET", "handle request");
+    info!(route = "/store/jobs", method = "GET", "handle request");
 
     // fetch store jobs from db
     let jobs = state.db.get_store_jobs(None).await?;
@@ -60,13 +60,17 @@ async fn delete_store_job(
     State(state): State<Dependencies>,
     Query(params): Query<GetJobParams>,
 ) -> Result<(), AppError> {
-    debug!(
+    info!(
         route = "/store/job",
         method = "DELETE",
         job_id = params.job_id,
         "handle request"
     );
 
+    state
+        .coordinator
+        .stop_store_job(params.job_id.clone())
+        .await;
     state.db.delete_store_job(params.job_id).await?;
     Ok(())
 }
@@ -76,7 +80,7 @@ async fn start_store_job(
     State(state): State<Dependencies>,
     Json(payload): Json<CreateStoreJob>,
 ) -> Result<Json<StoreJob>, AppError> {
-    debug!(
+    info!(
         route = "/store/job",
         method = "PUT",
         name = payload.name,
