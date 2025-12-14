@@ -12,8 +12,6 @@ use crate::io;
 pub enum RegistryError {
     #[error("job already running: {job_id}")]
     JobAlreadyRunning { job_id: String },
-    #[error("job not found: {job_id}")]
-    JobNotFound { job_id: String },
 }
 
 #[derive(Debug)]
@@ -212,27 +210,17 @@ impl Registry {
         Ok(())
     }
 
-    pub async fn cancel_store_job(&self, job_id: &str) -> Result<(), RegistryError> {
+    pub async fn cancel_store_job(&self, job_id: &str) {
         let handles = self.store_handles.read().await;
         if let Some(job_handle) = handles.get(job_id) {
             job_handle.cancel_token.cancel();
-            Ok(())
-        } else {
-            Err(RegistryError::JobNotFound {
-                job_id: job_id.to_string(),
-            })
         }
     }
 
-    pub async fn cancel_load_job(&self, job_id: &str) -> Result<(), RegistryError> {
+    pub async fn cancel_load_job(&self, job_id: &str) {
         let handles = self.load_handles.read().await;
         if let Some(job_handle) = handles.get(job_id) {
             job_handle.cancel_token.cancel();
-            Ok(())
-        } else {
-            Err(RegistryError::JobNotFound {
-                job_id: job_id.to_string(),
-            })
         }
     }
 

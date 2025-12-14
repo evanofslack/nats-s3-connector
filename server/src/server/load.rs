@@ -7,7 +7,7 @@ use axum::{
 };
 use nats3_types::{CreateLoadJob, LoadJob};
 use serde::Deserialize;
-use tracing::debug;
+use tracing::info;
 
 use crate::{error::AppError, io, server::Dependencies};
 
@@ -31,7 +31,7 @@ async fn get_load_job(
     State(state): State<Dependencies>,
     Query(params): Query<GetJobParams>,
 ) -> Result<Json<LoadJob>, AppError> {
-    debug!(
+    info!(
         route = "/load/job",
         method = "GET",
         job_id = params.job_id,
@@ -49,20 +49,21 @@ async fn delete_load_job(
     State(state): State<Dependencies>,
     Query(params): Query<GetJobParams>,
 ) -> Result<(), AppError> {
-    debug!(
+    info!(
         route = "/load/job",
         method = "DELETE",
         job_id = params.job_id,
         "handle request"
     );
 
+    state.coordinator.stop_load_job(params.job_id.clone()).await;
     state.db.delete_load_job(params.job_id).await?;
     Ok(())
 }
 
 #[debug_handler]
 async fn get_load_jobs(State(state): State<Dependencies>) -> Result<Json<Vec<LoadJob>>, AppError> {
-    debug!(route = "/load/jobs", method = "GET", "handle request");
+    info!(route = "/load/jobs", method = "GET", "handle request");
 
     // fetch load jobs from db
     let jobs = state.db.get_load_jobs(None).await?;
@@ -75,7 +76,7 @@ async fn start_load_job(
     State(state): State<Dependencies>,
     Json(payload): Json<CreateLoadJob>,
 ) -> Result<Json<LoadJob>, AppError> {
-    debug!(
+    info!(
         route = "/load/job",
         method = "PUT",
         bucket = payload.bucket,

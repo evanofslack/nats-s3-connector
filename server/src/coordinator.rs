@@ -87,6 +87,10 @@ impl Coordinator {
         Ok(job)
     }
 
+    pub async fn stop_load_job(&self, job_id: String) {
+        self.registry.cancel_load_job(&job_id).await
+    }
+
     pub async fn start_new_store_job(
         &self,
         job: StoreJob,
@@ -152,6 +156,10 @@ impl Coordinator {
 
         self.db.update_store_job(job_id, status).await?;
         Ok(job)
+    }
+
+    pub async fn stop_store_job(&self, job_id: String) {
+        self.registry.cancel_store_job(&job_id).await
     }
 }
 

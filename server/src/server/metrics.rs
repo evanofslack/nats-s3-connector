@@ -1,14 +1,7 @@
 use crate::server::Dependencies;
 use axum::{debug_handler, extract::State, http::StatusCode, routing::get, Router};
 use prometheus_client::encoding::text::encode;
-
-#[debug_handler]
-async fn metrics(State(state): State<Dependencies>) -> (StatusCode, String) {
-    let registry = state.metrics.registry.write().await;
-    let mut body = String::new();
-    encode(&mut body, &registry).expect("read metrics registry");
-    (StatusCode::OK, body)
-}
+use tracing::info;
 
 pub fn create_router(deps: Dependencies) -> Router {
     let router: Router = Router::new()
@@ -16,4 +9,14 @@ pub fn create_router(deps: Dependencies) -> Router {
         .with_state(deps);
 
     router
+}
+
+#[debug_handler]
+async fn metrics(State(state): State<Dependencies>) -> (StatusCode, String) {
+    info!(route = "/metrics", method = "GET", "handle request");
+
+    let registry = state.metrics.registry.write().await;
+    let mut body = String::new();
+    encode(&mut body, &registry).expect("read metrics registry");
+    (StatusCode::OK, body)
 }
