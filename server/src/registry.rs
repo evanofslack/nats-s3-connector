@@ -204,8 +204,10 @@ impl Registry {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use tokio::sync::Mutex;
-    use tokio::time::{sleep, Duration};
+    use tokio::{
+        sync::Mutex,
+        time::{sleep, Duration},
+    };
 
     #[derive(Clone, Default, Debug)]
     struct MockJobCompletionHandler {
