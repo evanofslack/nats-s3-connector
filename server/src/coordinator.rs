@@ -33,13 +33,15 @@ impl Coordinator {
         self.db.create_load_job(job.clone()).await?;
         let io = self.io.clone();
         let registry_config = config.clone();
+        let task_token = self.registry.create_cancel_token();
+        let task_token_clone = task_token.clone();
 
         let handle: tokio::task::JoinHandle<Result<()>> =
-            tokio::spawn(async move { io.publish_stream(registry_config).await });
+            tokio::spawn(async move { io.publish_stream(registry_config, task_token_clone).await });
 
         let registered = self
             .registry
-            .try_register_load_job(job_id.clone(), handle, config)
+            .try_register_load_job(job_id.clone(), handle, task_token, config)
             .await;
 
         let status = if registered {
@@ -64,13 +66,15 @@ impl Coordinator {
 
         let io = self.io.clone();
         let registry_config = config.clone();
+        let task_token = self.registry.create_cancel_token();
+        let task_token_clone = task_token.clone();
 
         let handle: tokio::task::JoinHandle<Result<()>> =
-            tokio::spawn(async move { io.publish_stream(registry_config).await });
+            tokio::spawn(async move { io.publish_stream(registry_config, task_token_clone).await });
 
         let registered = self
             .registry
-            .try_register_load_job(job_id.clone(), handle, config)
+            .try_register_load_job(job_id.clone(), handle, task_token, config)
             .await;
 
         let status = if registered {
@@ -96,13 +100,15 @@ impl Coordinator {
         self.db.create_store_job(job.clone()).await?;
         let io = self.io.clone();
         let registry_config = config.clone();
+        let task_token = self.registry.create_cancel_token();
+        let task_token_clone = task_token.clone();
 
         let handle: tokio::task::JoinHandle<Result<()>> =
-            tokio::spawn(async move { io.consume_stream(registry_config).await });
+            tokio::spawn(async move { io.consume_stream(registry_config, task_token_clone).await });
 
         let registered = self
             .registry
-            .try_register_store_job(job_id.clone(), handle, config)
+            .try_register_store_job(job_id.clone(), handle, task_token, config)
             .await;
 
         let status = if registered {
@@ -127,13 +133,15 @@ impl Coordinator {
 
         let io = self.io.clone();
         let registry_config = config.clone();
+        let task_token = self.registry.create_cancel_token();
+        let task_token_clone = task_token.clone();
 
         let handle: tokio::task::JoinHandle<Result<()>> =
-            tokio::spawn(async move { io.consume_stream(registry_config).await });
+            tokio::spawn(async move { io.consume_stream(registry_config, task_token_clone).await });
 
         let registered = self
             .registry
-            .try_register_store_job(job_id.clone(), handle, config)
+            .try_register_store_job(job_id.clone(), handle, task_token, config)
             .await;
 
         let status = if registered {

@@ -25,7 +25,7 @@ run-server: build-server
     ./target/debug/nats3-server --config examples/config.toml
 
 dev-server: build-server
-    RUST_LOG=none,nats3_server=TRACE RUST_BACKTRACE=1 ./target/debug/nats3-server --config examples/config.toml
+    RUST_LOG=none,nats3_server=DEBUG RUST_BACKTRACE=1 ./target/debug/nats3-server --config examples/config.toml
 
 build-cli:
     cargo build -p nats3-cli

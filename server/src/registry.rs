@@ -3,7 +3,8 @@ use async_trait::async_trait;
 use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
 use tokio::{sync::RwLock, task::JoinHandle};
-use tracing::debug;
+use tokio_util::sync::CancellationToken;
+use tracing::{debug, trace};
 
 use crate::io;
 
@@ -18,6 +19,7 @@ pub enum RegistryError {
 #[derive(Debug)]
 struct StoreJobHandle {
     handle: JoinHandle<Result<()>>,
+    cancel_token: CancellationToken,
     started_at: chrono::DateTime<chrono::Utc>,
     config: io::ConsumeConfig,
 }
@@ -25,6 +27,7 @@ struct StoreJobHandle {
 #[derive(Debug)]
 struct LoadJobHandle {
     handle: JoinHandle<Result<()>>,
+    cancel_token: CancellationToken,
     started_at: chrono::DateTime<chrono::Utc>,
     config: io::PublishConfig,
 }
@@ -50,20 +53,27 @@ pub trait StoreJobCompletionHandler: Send + Sync + std::fmt::Debug {
 pub struct Registry {
     store_handles: Arc<RwLock<HashMap<String, StoreJobHandle>>>,
     load_handles: Arc<RwLock<HashMap<String, LoadJobHandle>>>,
+    shutdown_token: CancellationToken,
 }
 
 impl Registry {
-    pub fn new() -> Self {
+    pub fn new(shutdown_token: CancellationToken) -> Self {
         Self {
             store_handles: Arc::new(RwLock::new(HashMap::new())),
             load_handles: Arc::new(RwLock::new(HashMap::new())),
+            shutdown_token,
         }
+    }
+
+    pub fn create_cancel_token(&self) -> CancellationToken {
+        self.shutdown_token.child_token()
     }
 
     pub async fn try_register_store_job(
         &self,
         job_id: String,
         handle: JoinHandle<Result<()>>,
+        cancel_token: CancellationToken,
         config: io::ConsumeConfig,
     ) -> bool {
         debug!(job_id = job_id, "try register store job handle");
@@ -77,6 +87,7 @@ impl Registry {
             job_id,
             StoreJobHandle {
                 handle,
+                cancel_token,
                 started_at: chrono::Utc::now(),
                 config,
             },
@@ -88,6 +99,7 @@ impl Registry {
         &self,
         job_id: String,
         handle: JoinHandle<Result<()>>,
+        cancel_token: CancellationToken,
         config: io::PublishConfig,
     ) -> bool {
         debug!(job_id = job_id, "register load job handle");
@@ -102,6 +114,7 @@ impl Registry {
             job_id,
             LoadJobHandle {
                 handle,
+                cancel_token,
                 started_at: chrono::Utc::now(),
                 config,
             },
@@ -198,6 +211,57 @@ impl Registry {
             .await?;
         Ok(())
     }
+
+    pub async fn cancel_store_job(&self, job_id: &str) -> Result<(), RegistryError> {
+        let handles = self.store_handles.read().await;
+        if let Some(job_handle) = handles.get(job_id) {
+            job_handle.cancel_token.cancel();
+            Ok(())
+        } else {
+            Err(RegistryError::JobNotFound {
+                job_id: job_id.to_string(),
+            })
+        }
+    }
+
+    pub async fn cancel_load_job(&self, job_id: &str) -> Result<(), RegistryError> {
+        let handles = self.load_handles.read().await;
+        if let Some(job_handle) = handles.get(job_id) {
+            job_handle.cancel_token.cancel();
+            Ok(())
+        } else {
+            Err(RegistryError::JobNotFound {
+                job_id: job_id.to_string(),
+            })
+        }
+    }
+
+    pub async fn wait_for_all_jobs(&self) -> Result<()> {
+        debug!("wait for all in progress jobs to complete");
+
+        let store_handles: Vec<_> = {
+            let mut handles = self.store_handles.write().await;
+            handles.drain().collect()
+        };
+
+        let load_handles: Vec<_> = {
+            let mut handles = self.load_handles.write().await;
+            handles.drain().collect()
+        };
+
+        for (job_id, job_handle) in store_handles {
+            trace!(job_id = job_id, "wait for store job to complete");
+            let _ = job_handle.handle.await;
+        }
+
+        for (job_id, job_handle) in load_handles {
+            trace!(job_id = job_id, "wait for load job to complete");
+            let _ = job_handle.handle.await;
+        }
+
+        debug!("all tasks completed");
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -261,7 +325,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_and_check_running() {
-        let registry = Registry::new();
+        let cancel_token = CancellationToken::new();
+        let registry = Registry::new(cancel_token.clone());
         let job_id = "test-job-1".to_string();
 
         let handle = tokio::spawn(async {
@@ -281,7 +346,7 @@ mod tests {
         };
 
         registry
-            .try_register_store_job(job_id.clone(), handle, config)
+            .try_register_store_job(job_id.clone(), handle, cancel_token, config)
             .await;
 
         assert!(registry.is_store_job_running(&job_id).await);
@@ -290,7 +355,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_duplicate_registration_fails() {
-        let registry = Registry::new();
+        let cancel_token = CancellationToken::new();
+        let registry = Registry::new(cancel_token.clone());
         let job_id = "test-job-2".to_string();
 
         let handle1 = tokio::spawn(async {
@@ -315,11 +381,16 @@ mod tests {
         };
 
         registry
-            .try_register_store_job(job_id.clone(), handle1, config.clone())
+            .try_register_store_job(
+                job_id.clone(),
+                handle1,
+                cancel_token.clone(),
+                config.clone(),
+            )
             .await;
 
         let result = registry
-            .try_register_store_job(job_id.clone(), handle2, config)
+            .try_register_store_job(job_id.clone(), handle2, cancel_token, config)
             .await;
 
         assert!(!result);
@@ -327,8 +398,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_cleanup_calls_handler_on_success() {
-        let handler = MockJobCompletionHandler::new();
-        let registry = Registry::new();
+        let cancel_token = CancellationToken::new();
+        let registry = Registry::new(cancel_token.clone());
         let job_id = "test-job-success".to_string();
 
         let handle = tokio::spawn(async { Ok(()) });
@@ -345,10 +416,12 @@ mod tests {
         };
 
         registry
-            .try_register_store_job(job_id.clone(), handle, config)
+            .try_register_store_job(job_id.clone(), handle, cancel_token, config)
             .await;
 
         sleep(Duration::from_millis(50)).await;
+
+        let handler = MockJobCompletionHandler::new();
         registry
             .cleanup_completed_jobs(Arc::new(handler.clone()), Arc::new(handler.clone()))
             .await
@@ -362,8 +435,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_cleanup_calls_handler_on_failure() {
-        let handler = MockJobCompletionHandler::new();
-        let registry = Registry::new();
+        let cancel_token = CancellationToken::new();
+        let registry = Registry::new(cancel_token.clone());
         let job_id = "test-job-fail".to_string();
 
         let handle = tokio::spawn(async { Err(anyhow::anyhow!("test error")) });
@@ -380,10 +453,12 @@ mod tests {
         };
 
         registry
-            .try_register_store_job(job_id.clone(), handle, config)
+            .try_register_store_job(job_id.clone(), handle, cancel_token, config)
             .await;
 
         sleep(Duration::from_millis(50)).await;
+
+        let handler = MockJobCompletionHandler::new();
         registry
             .cleanup_completed_jobs(Arc::new(handler.clone()), Arc::new(handler.clone()))
             .await
@@ -396,8 +471,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_cleanup_calls_handler_on_panic() {
+        let cancel_token = CancellationToken::new();
         let handler = MockJobCompletionHandler::new();
-        let registry = Registry::new();
+        let registry = Registry::new(cancel_token.clone());
         let job_id = "test-job-panic".to_string();
 
         let handle = tokio::spawn(async {
@@ -416,7 +492,7 @@ mod tests {
         };
 
         registry
-            .try_register_store_job(job_id.clone(), handle, config)
+            .try_register_store_job(job_id.clone(), handle, cancel_token, config)
             .await;
 
         sleep(Duration::from_millis(50)).await;

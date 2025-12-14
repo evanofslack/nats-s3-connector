@@ -1,9 +1,13 @@
 use anyhow::{Context, Result};
 use nats3_types::{ListLoadJobsQuery, ListStoreJobsQuery, LoadJobStatus, StoreJobStatus};
 use std::sync::Arc;
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
-use crate::{config::Config, coordinator, db, error, io, metrics, nats, registry, s3, server};
+use crate::{
+    config::Config, coordinator, db, error, io, metrics, nats, registry, s3, server,
+    shutdown::ShutdownCoordinator,
+};
 
 #[derive(Debug, Clone)]
 pub struct App {
@@ -14,7 +18,7 @@ pub struct App {
 }
 
 // construct a new instance of nats3 application
-pub async fn new(config: Config) -> Result<App> {
+pub async fn new(config: Config, shutdown: ShutdownCoordinator) -> Result<App> {
     debug!("create new application from config");
 
     let metrics = metrics::Metrics::new().await;
@@ -40,7 +44,9 @@ pub async fn new(config: Config) -> Result<App> {
         .context("fail connect to nats server")?;
 
     let io = io::IO::new(metrics.clone(), s3_client, nats_client, chunk_db);
-    let registry = Arc::new(registry::Registry::new()); // need to pass the callback here
+
+    let registry_token = shutdown.subscribe();
+    let registry = Arc::new(registry::Registry::new(registry_token));
 
     let coordinator = coordinator::Coordinator::new(registry.clone(), io.clone(), job_db.clone());
 
@@ -101,19 +107,26 @@ impl App {
         Ok(())
     }
 
-    pub fn cleanup_completed_job_tasks(&self) {
+    pub fn cleanup_completed_job_tasks(&self, shutdown_token: CancellationToken) {
         let registry = self.registry.clone();
         let job_handler = Arc::new(self.coordinator.clone());
 
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
             loop {
-                interval.tick().await;
-                if let Err(e) = registry
-                    .cleanup_completed_jobs(job_handler.clone(), job_handler.clone())
-                    .await
-                {
-                    warn!(error = e.to_string(), "fail cleanup completed jobs");
+                tokio::select! {
+                    _ = interval.tick() => {
+                        if let Err(e) = registry
+                            .cleanup_completed_jobs(job_handler.clone(), job_handler.clone())
+                            .await
+                        {
+                            warn!(error = e.to_string(), "fail cleanup completed jobs");
+                        }
+                    }
+                    _ = shutdown_token.cancelled() => {
+                        debug!("cleanup task cancelled");
+                        break;
+                    }
                 }
             }
         });
