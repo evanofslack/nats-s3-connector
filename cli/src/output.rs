@@ -51,11 +51,14 @@ fn print_load_jobs_table(jobs: Vec<LoadJob>) -> Result<()> {
         .apply_modifier(UTF8_ROUND_CORNERS)
         .apply_modifier(UTF8_SOLID_INNER_BORDERS)
         .set_header(vec![
-            Cell::new("ID").fg(Color::Blue),
-            Cell::new("STATUS").fg(Color::Blue),
-            Cell::new("BUCKET").fg(Color::Blue),
-            Cell::new("READ STREAM").fg(Color::Blue),
-            Cell::new("WRITE STREAM").fg(Color::Blue),
+            Cell::new("id").fg(Color::Blue),
+            Cell::new("status").fg(Color::Blue),
+            Cell::new("bucket").fg(Color::Blue),
+            Cell::new("prefix").fg(Color::Blue),
+            Cell::new("read stream").fg(Color::Blue),
+            Cell::new("read consumer").fg(Color::Blue),
+            Cell::new("read subject").fg(Color::Blue),
+            Cell::new("write subject").fg(Color::Blue),
         ]);
 
     for job in jobs {
@@ -89,12 +92,15 @@ fn print_store_jobs_table(jobs: Vec<StoreJob>) -> Result<()> {
         .apply_modifier(UTF8_ROUND_CORNERS)
         .apply_modifier(UTF8_SOLID_INNER_BORDERS)
         .set_header(vec![
-            Cell::new("ID").fg(Color::Blue),
-            Cell::new("NAME").fg(Color::Blue),
-            Cell::new("STATUS").fg(Color::Blue),
-            Cell::new("BUCKET").fg(Color::Blue),
-            Cell::new("STREAM").fg(Color::Blue),
-            Cell::new("SUBJECT").fg(Color::Blue),
+            Cell::new("id").fg(Color::Blue),
+            Cell::new("name").fg(Color::Blue),
+            Cell::new("status").fg(Color::Blue),
+            Cell::new("bucket").fg(Color::Blue),
+            Cell::new("prefix").fg(Color::Blue),
+            Cell::new("stream").fg(Color::Blue),
+            Cell::new("consumer").fg(Color::Blue),
+            Cell::new("consumer").fg(Color::Blue),
+            Cell::new("subject").fg(Color::Blue),
         ]);
 
     for job in jobs {
