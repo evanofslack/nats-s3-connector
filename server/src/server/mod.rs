@@ -59,7 +59,7 @@ impl Server {
         db: db::DynJobStorer,
         coordinator: coordinator::Coordinator,
     ) -> Self {
-        debug!(address = addr, "creating new server");
+        debug!(address = addr, "create new server");
         Self {
             addr,
             metrics,

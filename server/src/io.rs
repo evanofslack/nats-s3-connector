@@ -85,7 +85,7 @@ impl IO {
         nats_client: nats::Client,
         chunk_db: db::DynChunkStorer,
     ) -> IO {
-        debug!("creating new IO instance");
+        debug!("create new IO instance");
 
         IO {
             metrics,

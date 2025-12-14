@@ -16,7 +16,7 @@ pub struct Coordinator {
 
 impl Coordinator {
     pub fn new(registry: Arc<registry::Registry>, io: io::IO, db: db::DynJobStorer) -> Self {
-        debug!("creating new coordinator");
+        debug!("create new coordinator");
         Self { registry, io, db }
     }
 
