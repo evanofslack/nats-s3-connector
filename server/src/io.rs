@@ -4,6 +4,7 @@ use futures::StreamExt;
 use nats3_types::Codec;
 use std::sync::Arc;
 use tokio::{sync::RwLock, time};
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, trace, warn};
 
 use nats3_types::{LoadJob, StoreJob};
@@ -94,7 +95,11 @@ impl IO {
             chunk_db,
         }
     }
-    pub async fn consume_stream(&self, config: ConsumeConfig) -> Result<()> {
+    pub async fn consume_stream(
+        &self,
+        config: ConsumeConfig,
+        cancel_token: CancellationToken,
+    ) -> Result<()> {
         debug!(
             stream = config.stream,
             subject = config.subject,
@@ -104,7 +109,7 @@ impl IO {
             "consume stream and upload to bucket"
         );
 
-        let buffer = MessageBuffer::new();
+        let buffer = MessageBuffer::new(cancel_token.clone());
         buffer.keep_alive(KEEP_ALIVE_INTERVAL);
 
         let mut bytes_total = 0;
@@ -153,6 +158,14 @@ impl IO {
                         self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
                     }
                 }
+                _ = cancel_token.cancelled() => {
+                    debug!("consume stream cancelled, flushing buffer");
+                    let messages_total = buffer.len().await;
+                    if messages_total > 0 {
+                        self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
+                    }
+                    break;
+                    }
             }
         }
         Ok(())
@@ -222,7 +235,11 @@ impl IO {
         Ok(())
     }
 
-    pub async fn publish_stream(&self, config: PublishConfig) -> Result<()> {
+    pub async fn publish_stream(
+        &self,
+        config: PublishConfig,
+        cancel_token: CancellationToken,
+    ) -> Result<()> {
         debug!(
             read_stream = config.read_stream,
             read_consumer = config.read_consumer,
@@ -262,6 +279,10 @@ impl IO {
         let chunks = self.chunk_db.list_chunks(query).await?;
 
         for chunk_md in chunks {
+            if cancel_token.is_cancelled() {
+                debug!("publish stream cancelled");
+                break;
+            }
             let path = if chunk_md.prefix.clone().is_some_and(|p| !p.is_empty()) {
                 format!(
                     "{}/{}",
@@ -362,39 +383,47 @@ impl IO {
 // MessageBuffer is a thread safe Vec<jetstream::Message>
 struct MessageBuffer {
     messages: Arc<RwLock<Vec<jetstream::Message>>>,
+    cancel_token: CancellationToken,
 }
 
 impl MessageBuffer {
-    fn new() -> Self {
+    fn new(cancel_token: CancellationToken) -> Self {
         Self {
             messages: Arc::new(RwLock::new(Vec::new())),
+            cancel_token,
         }
     }
 
     // starts a thread periodically keeping nats messages alive
     fn keep_alive(&self, interval: time::Duration) {
         let messages = self.messages.clone();
+        let cancel_token = self.cancel_token.clone();
+
         // keepalive thread currently runs forever.
         // TODO: cancel thread on job cancellation.
         tokio::spawn(async move {
             let mut interval = time::interval(interval);
             loop {
-                // send ack::progress for all messages
-                let messages = messages.read().await;
-                for i in 0..messages.len() {
-                    let message = &messages[i];
-                    match message
-                        .ack_with(jetstream::message::AckKind::Progress)
-                        .await
-                    {
-                        Ok(()) => {}
-                        Err(err) => warn!(err = err, "message ack::progress"),
+                tokio::select! {
+                    _ = interval.tick() => {
+                        let messages = messages.read().await;
+                        for i in 0..messages.len() {
+                            let message = &messages[i];
+                            match message
+                                .ack_with(jetstream::message::AckKind::Progress)
+                                .await
+                            {
+                                Ok(()) => {}
+                                Err(err) => warn!(err = ?err, "message ack::progress"),
+                            }
+                        }
+                        drop(messages);
+                    }
+                    _ = cancel_token.cancelled() => {
+                        debug!("keepalive thread cancelled");
+                        break;
                     }
                 }
-                // release read lock
-                drop(messages);
-                // sleep for interval
-                interval.tick().await;
             }
         });
     }

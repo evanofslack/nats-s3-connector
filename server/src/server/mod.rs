@@ -13,6 +13,7 @@ use hyper_util::{
 use serde_json::json;
 use std::{convert::Infallible, net::SocketAddr};
 use tokio::net::TcpListener;
+use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
 use tracing::{debug, info, warn};
 
@@ -68,7 +69,7 @@ impl Server {
         }
     }
 
-    pub async fn serve(&self) {
+    pub async fn serve(&self, shutdown_token: CancellationToken) {
         let state = Dependencies::new(
             self.metrics.clone(),
             self.db.clone(),
@@ -80,25 +81,37 @@ impl Server {
         info!(address = self.addr, "serving on address");
 
         loop {
-            let (socket, remote_addr) = listener.accept().await.unwrap();
-            let tower_service = unwrap_infallible(make_service.call(remote_addr).await);
-
-            tokio::spawn(async move {
-                let socket = TokioIo::new(socket);
-
-                let hyper_service =
-                    hyper::service::service_fn(move |request: Request<Incoming>| {
-                        tower_service.clone().oneshot(request)
-                    });
-
-                if let Err(err) = server::conn::auto::Builder::new(TokioExecutor::new())
-                    .serve_connection(socket, hyper_service)
-                    .await
-                {
-                    warn!(err = err, "fail serve connection")
+            tokio::select! {
+                result = listener.accept() => {
+                    match result {
+                        Ok((socket, remote_addr)) => {
+                            let tower_service = unwrap_infallible(make_service.call(remote_addr).await);
+                            tokio::spawn(async move {
+                                let socket = TokioIo::new(socket);
+                                let hyper_service =
+                                    hyper::service::service_fn(move |request: Request<Incoming>| {
+                                        tower_service.clone().oneshot(request)
+                                    });
+                                if let Err(err) = server::conn::auto::Builder::new(TokioExecutor::new())
+                                    .serve_connection(socket, hyper_service)
+                                    .await
+                                {
+                                    warn!(err = ?err, "fail serve connection")
+                                }
+                            });
+                        }
+                        Err(e) => {
+                            warn!(error = ?e, "fail accept connection");
+                        }
+                    }
                 }
-            });
+                _ = shutdown_token.cancelled() => {
+                    debug!("shutdown signal received, stopping server");
+                    break;
+                }
+            }
         }
+        debug!("server stopped accepting connections");
     }
 }
 
