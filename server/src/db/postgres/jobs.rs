@@ -1,5 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
+use tracing::debug;
 
 use super::{
     models::{LoadJobRow, LoadJobStatusEnum, StoreJobRow, StoreJobRowCreate, StoreJobStatusEnum},
@@ -174,6 +175,7 @@ impl LoadJobStorer for PostgresStore {
     }
 
     async fn delete_load_job(&self, id: String) -> Result<(), JobStoreError> {
+        debug!(job_id = id, "delete load job postgres");
         let client = self.get_client().await?;
 
         let rows_affected = client
@@ -348,6 +350,7 @@ impl StoreJobStorer for PostgresStore {
     }
 
     async fn delete_store_job(&self, id: String) -> Result<(), JobStoreError> {
+        debug!(job_id = id, "delete store job postgres");
         let client = self.get_client().await?;
 
         let rows_affected = client

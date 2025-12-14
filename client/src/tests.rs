@@ -340,7 +340,7 @@ async fn test_delete_store_job_success() {
     );
 
     let mock = server
-        .mock("DELETE", "/store/jobs")
+        .mock("DELETE", "/store/job")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             "job-to-delete".into(),
@@ -351,12 +351,11 @@ async fn test_delete_store_job_success() {
         .create();
 
     let client = Client::new(server.url());
-    let result = client
+    client
         .delete_store_job("job-to-delete".to_string())
         .await
         .unwrap();
 
-    assert_eq!(result.name, "deleted-job");
     mock.assert();
 }
 
@@ -364,7 +363,7 @@ async fn test_delete_store_job_success() {
 async fn test_delete_store_job_http_error() {
     let mut server = mockito::Server::new_async().await;
     let mock = server
-        .mock("DELETE", "/store/jobs")
+        .mock("DELETE", "/store/job")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             "job-fail".into(),

@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Subcommand;
+use colored::Colorize;
 use nats3_client::Client;
 use nats3_types::CreateLoadJob;
 use std::path::PathBuf;
@@ -44,6 +45,13 @@ pub enum LoadCommand {
 
         #[arg(long)]
         end: Option<usize>,
+    },
+    Delete {
+        #[arg(short, long)]
+        interactive: bool,
+
+        #[arg(long, required_unless_present_any = ["interactive"])]
+        job_id: Option<String>,
     },
 }
 
@@ -93,6 +101,25 @@ impl LoadCommand {
                     .await
                     .context("Fail create load job")?;
                 output::print_load_job(created, output_format)?;
+            }
+            LoadCommand::Delete {
+                interactive,
+                mut job_id,
+            } => {
+                if interactive {
+                    job_id = Some(interactive::prompt_delete_load_job()?);
+                };
+                if job_id.is_none() {
+                    println!("{}", "Must provide job id to delete load job".red());
+                    return Ok(());
+                }
+
+                client
+                    .delete_load_job(job_id.expect("job id is set"))
+                    .await
+                    .context("Fail delete load job")?;
+
+                println!("{}", "Load job deleted successfully!".green());
             }
         }
         Ok(())

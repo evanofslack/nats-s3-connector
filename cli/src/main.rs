@@ -44,7 +44,7 @@ enum Command {
 #[tokio::main]
 async fn main() {
     if let Err(err) = run().await {
-        eprintln!("{} {}", "Error:".red().bold(), err);
+        eprintln!("{}\n{:#}", "Error:".red().bold(), err);
         std::process::exit(1);
     }
 }

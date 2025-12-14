@@ -65,11 +65,7 @@ impl Client {
                 message: response.text().await.unwrap_or_default(),
             });
         }
-
-        response
-            .json()
-            .await
-            .map_err(|e| ClientError::Deserialization(e.to_string()))
+        Ok(())
     }
 
     pub async fn create_load_job(&self, job: CreateLoadJob) -> Result<LoadJob> {
@@ -123,8 +119,8 @@ impl Client {
             .map_err(|e| ClientError::Deserialization(e.to_string()))
     }
 
-    pub async fn delete_store_job(&self, id: String) -> Result<StoreJob> {
-        let url = format!("{}/store/jobs", self.base_url);
+    pub async fn delete_store_job(&self, id: String) -> Result<()> {
+        let url = format!("{}/store/job", self.base_url);
         let response = self
             .http
             .delete(&url)
@@ -138,11 +134,7 @@ impl Client {
                 message: response.text().await.unwrap_or_default(),
             });
         }
-
-        response
-            .json()
-            .await
-            .map_err(|e| ClientError::Deserialization(e.to_string()))
+        Ok(())
     }
 
     pub async fn create_store_job(&self, job: CreateStoreJob) -> Result<StoreJob> {

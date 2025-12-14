@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Subcommand;
+use colored::Colorize;
 use nats3_client::Client;
 use nats3_types::{Batch, Codec, CreateStoreJob, Encoding};
 use std::path::PathBuf;
@@ -44,6 +45,13 @@ pub enum StoreCommand {
 
         #[arg(long, value_parser = clap::value_parser!(Codec))]
         codec: Option<Codec>,
+    },
+    Delete {
+        #[arg(short, long)]
+        interactive: bool,
+
+        #[arg(long, required_unless_present_any = ["interactive"])]
+        job_id: Option<String>,
     },
 }
 
@@ -103,6 +111,25 @@ impl StoreCommand {
                     .await
                     .context("Fail create store job")?;
                 output::print_store_job(created, output_format)?;
+            }
+            StoreCommand::Delete {
+                interactive,
+                mut job_id,
+            } => {
+                if interactive {
+                    job_id = Some(interactive::prompt_delete_store_job()?);
+                };
+                if job_id.is_none() {
+                    println!("{}", "Must provide job id to delete store job".red());
+                    return Ok(());
+                }
+
+                client
+                    .delete_store_job(job_id.expect("job id is set"))
+                    .await
+                    .context("Fail delete store job")?;
+
+                println!("{}", "Store job deleted successfully!".green());
             }
         }
         Ok(())
