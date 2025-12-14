@@ -3,7 +3,9 @@ use async_trait::async_trait;
 use std::{fmt::Debug, sync::Arc};
 use thiserror::Error;
 
-use nats3_types::{LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
+use nats3_types::{
+    ListLoadJobsQuery, ListStoreJobsQuery, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus,
+};
 
 #[derive(Error, Debug)]
 pub enum JobStoreError {
@@ -24,7 +26,10 @@ pub enum JobStoreError {
 #[async_trait]
 pub trait LoadJobStorer: Sync + Debug {
     async fn get_load_job(&self, id: String) -> Result<LoadJob, JobStoreError>;
-    async fn get_load_jobs(&self) -> Result<Vec<LoadJob>, JobStoreError>;
+    async fn get_load_jobs(
+        &self,
+        query: Option<ListLoadJobsQuery>,
+    ) -> Result<Vec<LoadJob>, JobStoreError>;
     async fn create_load_job(&self, job: LoadJob) -> Result<(), JobStoreError>;
     async fn update_load_job(
         &self,
@@ -38,7 +43,10 @@ pub trait LoadJobStorer: Sync + Debug {
 #[async_trait]
 pub trait StoreJobStorer: Sync + Debug {
     async fn get_store_job(&self, id: String) -> Result<StoreJob, JobStoreError>;
-    async fn get_store_jobs(&self) -> Result<Vec<StoreJob>, JobStoreError>;
+    async fn get_store_jobs(
+        &self,
+        query: Option<ListStoreJobsQuery>,
+    ) -> Result<Vec<StoreJob>, JobStoreError>;
     async fn create_store_job(&self, job: StoreJob) -> Result<(), JobStoreError>;
     async fn update_store_job(
         &self,

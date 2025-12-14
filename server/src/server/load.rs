@@ -65,7 +65,7 @@ async fn get_load_jobs(State(state): State<Dependencies>) -> Result<Json<Vec<Loa
     debug!(route = "/load/jobs", method = "GET", "handle request");
 
     // fetch load jobs from db
-    let jobs = state.db.get_load_jobs().await?;
+    let jobs = state.db.get_load_jobs(None).await?;
 
     Ok(Json(jobs))
 }
