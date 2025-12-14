@@ -6,7 +6,9 @@ use super::{
     postgres::PostgresStore,
 };
 use crate::db::{JobStoreError, JobStorer, LoadJobStorer, StoreJobStorer};
-use nats3_types::{LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
+use nats3_types::{
+    ListLoadJobsQuery, ListStoreJobsQuery, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus,
+};
 
 #[async_trait]
 impl LoadJobStorer for PostgresStore {
@@ -31,12 +33,85 @@ impl LoadJobStorer for PostgresStore {
         Ok(job_row.into())
     }
 
-    async fn get_load_jobs(&self) -> Result<Vec<LoadJob>, JobStoreError> {
+    async fn get_load_jobs(
+        &self,
+        query: Option<ListLoadJobsQuery>,
+    ) -> Result<Vec<LoadJob>, JobStoreError> {
         let client = self.get_client().await?;
 
-        let rows = client
-            .query("SELECT * FROM load_jobs ORDER BY created_at DESC", &[])
-            .await?;
+        let mut sql = String::from("SELECT * FROM load_jobs WHERE 1=1");
+
+        let query = query;
+        let statuses: Option<Vec<LoadJobStatusEnum>> = query.as_ref().and_then(|q| {
+            q.statuses
+                .as_ref()
+                .map(|s| s.iter().map(|st| st.clone().into()).collect())
+        });
+
+        let mut params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = vec![];
+        let mut param_idx = 1;
+
+        if let Some(ref statuses) = statuses {
+            if !statuses.is_empty() {
+                let placeholders: Vec<String> = (0..statuses.len())
+                    .map(|i| format!("${}", param_idx + i))
+                    .collect();
+                sql.push_str(&format!(" AND status IN ({})", placeholders.join(", ")));
+                for status in statuses {
+                    params.push(status);
+                }
+                param_idx += statuses.len();
+            }
+        }
+
+        if let Some(ref q) = query {
+            if let Some(ref bucket) = q.bucket {
+                sql.push_str(&format!(" AND bucket = ${}", param_idx));
+                params.push(bucket);
+                param_idx += 1;
+            }
+
+            if let Some(ref prefix) = q.prefix {
+                sql.push_str(&format!(" AND prefix = ${}", param_idx));
+                params.push(prefix);
+                param_idx += 1;
+            }
+
+            if let Some(ref read_stream) = q.read_stream {
+                sql.push_str(&format!(" AND read_stream = ${}", param_idx));
+                params.push(read_stream);
+                param_idx += 1;
+            }
+
+            if let Some(ref read_consumer) = q.read_consumer {
+                sql.push_str(&format!(" AND read_consumer = ${}", param_idx));
+                params.push(read_consumer);
+                param_idx += 1;
+            }
+
+            if let Some(ref read_subject) = q.read_subject {
+                sql.push_str(&format!(" AND read_subject = ${}", param_idx));
+                params.push(read_subject);
+                param_idx += 1;
+            }
+
+            if let Some(ref write_subject) = q.write_subject {
+                sql.push_str(&format!(" AND write_subject = ${}", param_idx));
+                params.push(write_subject);
+                param_idx += 1;
+            }
+        }
+
+        sql.push_str(" ORDER BY created_at DESC");
+
+        if let Some(ref q) = query {
+            if let Some(ref limit) = q.limit {
+                sql.push_str(&format!(" LIMIT ${}", param_idx));
+                params.push(limit);
+            }
+        }
+
+        let rows = client.query(&sql, &params).await?;
 
         rows.iter()
             .map(|row| LoadJobRow::from_row(row).map(Into::into))
@@ -136,12 +211,81 @@ impl StoreJobStorer for PostgresStore {
         Ok(job_row.into())
     }
 
-    async fn get_store_jobs(&self) -> Result<Vec<StoreJob>, JobStoreError> {
+    async fn get_store_jobs(
+        &self,
+        query: Option<ListStoreJobsQuery>,
+    ) -> Result<Vec<StoreJob>, JobStoreError> {
         let client = self.get_client().await?;
 
-        let rows = client
-            .query("SELECT * FROM store_jobs ORDER BY created_at DESC", &[])
-            .await?;
+        let mut sql = String::from("SELECT * FROM store_jobs WHERE 1=1");
+
+        let query = query;
+
+        let query = query;
+        let statuses: Option<Vec<StoreJobStatusEnum>> = query.as_ref().and_then(|q| {
+            q.statuses
+                .as_ref()
+                .map(|s| s.iter().map(|st| st.clone().into()).collect())
+        });
+
+        let mut params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = vec![];
+        let mut param_idx = 1;
+
+        if let Some(ref statuses) = statuses {
+            if !statuses.is_empty() {
+                let placeholders: Vec<String> = (0..statuses.len())
+                    .map(|i| format!("${}", param_idx + i))
+                    .collect();
+                sql.push_str(&format!(" AND status IN ({})", placeholders.join(", ")));
+                for status in statuses {
+                    params.push(status);
+                }
+                param_idx += statuses.len();
+            }
+        }
+
+        if let Some(ref q) = query {
+            if let Some(ref stream) = q.stream {
+                sql.push_str(&format!(" AND stream = ${}", param_idx));
+                params.push(stream);
+                param_idx += 1;
+            }
+
+            if let Some(ref consumer) = q.consumer {
+                sql.push_str(&format!(" AND consumer = ${}", param_idx));
+                params.push(consumer);
+                param_idx += 1;
+            }
+
+            if let Some(ref subject) = q.subject {
+                sql.push_str(&format!(" AND subject = ${}", param_idx));
+                params.push(subject);
+                param_idx += 1;
+            }
+
+            if let Some(ref bucket) = q.bucket {
+                sql.push_str(&format!(" AND bucket = ${}", param_idx));
+                params.push(bucket);
+                param_idx += 1;
+            }
+
+            if let Some(ref prefix) = q.prefix {
+                sql.push_str(&format!(" AND prefix = ${}", param_idx));
+                params.push(prefix);
+                param_idx += 1;
+            }
+        }
+
+        sql.push_str(" ORDER BY created_at DESC");
+
+        if let Some(ref q) = query {
+            if let Some(ref limit) = q.limit {
+                sql.push_str(&format!(" LIMIT ${}", param_idx));
+                params.push(limit);
+            }
+        }
+
+        let rows = client.query(&sql, &params).await?;
 
         rows.iter()
             .map(|row| StoreJobRow::from_row(row).map(Into::into))

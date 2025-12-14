@@ -50,7 +50,7 @@ async fn get_store_jobs(
     debug!(route = "/store/jobs", method = "GET", "handle request");
 
     // fetch store jobs from db
-    let jobs = state.db.get_store_jobs().await?;
+    let jobs = state.db.get_store_jobs(None).await?;
 
     Ok(Json(jobs))
 }

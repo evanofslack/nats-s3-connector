@@ -1,5 +1,8 @@
 use crate::db::{postgres::PostgresStore, LoadJobStorer, StoreJobStorer};
-use nats3_types::{Batch, Codec, Encoding, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
+use nats3_types::{
+    Batch, Codec, Encoding, ListLoadJobsQuery, ListStoreJobsQuery, LoadJob, LoadJobStatus,
+    StoreJob, StoreJobStatus,
+};
 use testcontainers::{runners::AsyncRunner, ImageExt};
 use testcontainers_modules::postgres::Postgres;
 
@@ -81,6 +84,11 @@ impl LoadJobBuilder {
         self
     }
 
+    fn status(mut self, status: LoadJobStatus) -> Self {
+        self.status = status;
+        self
+    }
+
     fn build(self) -> LoadJob {
         LoadJob {
             id: self.id,
@@ -147,6 +155,11 @@ impl StoreJobBuilder {
 
     fn bucket(mut self, bucket: impl Into<String>) -> Self {
         self.bucket = bucket.into();
+        self
+    }
+
+    fn status(mut self, status: StoreJobStatus) -> Self {
+        self.status = status;
         self
     }
 
@@ -224,12 +237,91 @@ async fn test_get_load_jobs() {
     ctx.store.create_load_job(job2).await.unwrap();
     ctx.store.create_load_job(job3).await.unwrap();
 
-    let jobs = ctx.store.get_load_jobs().await.unwrap();
+    let jobs = ctx.store.get_load_jobs(None).await.unwrap();
 
     assert_eq!(jobs.len(), 3);
     assert_eq!(jobs[0].id, "load-3");
     assert_eq!(jobs[1].id, "load-2");
     assert_eq!(jobs[2].id, "load-1");
+}
+
+#[tokio::test]
+#[cfg_attr(not(feature = "integration"), ignore)]
+async fn test_get_load_jobs_with_filters() {
+    let ctx = setup_postgres().await;
+
+    let job1 = load_job_builder()
+        .id("load-filter-1")
+        .bucket("bucket-x")
+        .status(LoadJobStatus::Running)
+        .build();
+    let job2 = load_job_builder()
+        .id("load-filter-2")
+        .bucket("bucket-y")
+        .status(LoadJobStatus::Running)
+        .build();
+    let job3 = load_job_builder()
+        .id("load-filter-3")
+        .bucket("bucket-x")
+        .status(LoadJobStatus::Success)
+        .build();
+
+    ctx.store.create_load_job(job1).await.unwrap();
+    ctx.store.create_load_job(job2).await.unwrap();
+    ctx.store.create_load_job(job3).await.unwrap();
+
+    let query = ListLoadJobsQuery {
+        bucket: Some("bucket-x".to_string()),
+        ..Default::default()
+    };
+
+    let jobs = ctx.store.get_load_jobs(Some(query)).await.unwrap();
+
+    assert_eq!(jobs.len(), 2);
+    assert!(jobs.iter().all(|j| j.bucket == "bucket-x"));
+
+    let query2 = ListLoadJobsQuery::new().with_statuses(vec![LoadJobStatus::Running]);
+
+    let jobs2 = ctx.store.get_load_jobs(Some(query2)).await.unwrap();
+
+    assert_eq!(jobs2.len(), 2);
+    assert!(jobs2.iter().all(|j| j.status == LoadJobStatus::Running));
+}
+
+#[tokio::test]
+#[cfg_attr(not(feature = "integration"), ignore)]
+async fn test_get_load_jobs_with_limit() {
+    let ctx = setup_postgres().await;
+
+    for i in 1..=5 {
+        let job = load_job_builder().id(format!("load-limit-{}", i)).build();
+        ctx.store.create_load_job(job).await.unwrap();
+    }
+
+    let query = ListLoadJobsQuery {
+        limit: Some(2),
+        ..Default::default()
+    };
+
+    let jobs = ctx.store.get_load_jobs(Some(query)).await.unwrap();
+
+    assert_eq!(jobs.len(), 2);
+}
+
+#[tokio::test]
+#[cfg_attr(not(feature = "integration"), ignore)]
+async fn test_get_load_jobs_no_filter() {
+    let ctx = setup_postgres().await;
+
+    let job1 = load_job_builder().id("load-no-filter-1").build();
+    let job2 = load_job_builder().id("load-no-filter-2").build();
+
+    ctx.store.create_load_job(job1).await.unwrap();
+    ctx.store.create_load_job(job2).await.unwrap();
+
+    let jobs = ctx.store.get_load_jobs(None).await.unwrap();
+
+    assert!(jobs.len() >= 2);
 }
 
 #[tokio::test]
@@ -298,12 +390,91 @@ async fn test_get_store_jobs() {
     ctx.store.create_store_job(job2).await.unwrap();
     ctx.store.create_store_job(job3).await.unwrap();
 
-    let jobs = ctx.store.get_store_jobs().await.unwrap();
+    let jobs = ctx.store.get_store_jobs(None).await.unwrap();
 
     assert_eq!(jobs.len(), 3);
     assert_eq!(jobs[0].id, "store-3");
     assert_eq!(jobs[1].id, "store-2");
     assert_eq!(jobs[2].id, "store-1");
+}
+
+#[tokio::test]
+#[cfg_attr(not(feature = "integration"), ignore)]
+async fn test_get_store_jobs_with_filters() {
+    let ctx = setup_postgres().await;
+
+    let job1 = store_job_builder()
+        .id("store-filter-1")
+        .bucket("bucket-a")
+        .status(StoreJobStatus::Running)
+        .build();
+    let job2 = store_job_builder()
+        .id("store-filter-2")
+        .bucket("bucket-b")
+        .status(StoreJobStatus::Failure)
+        .build();
+    let job3 = store_job_builder()
+        .id("store-filter-3")
+        .bucket("bucket-a")
+        .status(StoreJobStatus::Running)
+        .build();
+
+    ctx.store.create_store_job(job1).await.unwrap();
+    ctx.store.create_store_job(job2).await.unwrap();
+    ctx.store.create_store_job(job3).await.unwrap();
+
+    let query = ListStoreJobsQuery {
+        bucket: Some("bucket-a".to_string()),
+        ..Default::default()
+    };
+
+    let jobs = ctx.store.get_store_jobs(Some(query)).await.unwrap();
+
+    assert_eq!(jobs.len(), 2);
+    assert!(jobs.iter().all(|j| j.bucket == "bucket-a"));
+
+    let query2 = ListStoreJobsQuery::new().with_statuses(vec![StoreJobStatus::Running]);
+
+    let jobs2 = ctx.store.get_store_jobs(Some(query2)).await.unwrap();
+
+    assert_eq!(jobs2.len(), 2);
+    assert!(jobs2.iter().all(|j| j.status == StoreJobStatus::Running));
+}
+
+#[tokio::test]
+#[cfg_attr(not(feature = "integration"), ignore)]
+async fn test_get_store_jobs_with_limit() {
+    let ctx = setup_postgres().await;
+
+    for i in 1..=5 {
+        let job = store_job_builder().id(format!("store-limit-{}", i)).build();
+        ctx.store.create_store_job(job).await.unwrap();
+    }
+
+    let query = ListStoreJobsQuery {
+        limit: Some(3),
+        ..Default::default()
+    };
+
+    let jobs = ctx.store.get_store_jobs(Some(query)).await.unwrap();
+
+    assert_eq!(jobs.len(), 3);
+}
+
+#[tokio::test]
+#[cfg_attr(not(feature = "integration"), ignore)]
+async fn test_get_store_jobs_no_filter() {
+    let ctx = setup_postgres().await;
+
+    let job1 = store_job_builder().id("store-no-filter-1").build();
+    let job2 = store_job_builder().id("store-no-filter-2").build();
+
+    ctx.store.create_store_job(job1).await.unwrap();
+    ctx.store.create_store_job(job2).await.unwrap();
+
+    let jobs = ctx.store.get_store_jobs(None).await.unwrap();
+
+    assert!(jobs.len() >= 2);
 }
 
 #[tokio::test]

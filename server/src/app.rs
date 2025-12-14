@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use nats3_types::{ListLoadJobsQuery, ListStoreJobsQuery, LoadJobStatus, StoreJobStatus};
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
@@ -61,9 +62,11 @@ pub async fn new(config: Config) -> Result<App> {
 }
 
 impl App {
-    // start all store jobs already saved in database
+    // start all store jobs (not in terminal state) already saved in database
     pub async fn start_store_jobs(&self) -> Result<(), error::AppError> {
-        let store_jobs = self.db.clone().get_store_jobs().await?;
+        let query = ListStoreJobsQuery::new()
+            .with_statuses(vec![StoreJobStatus::Running, StoreJobStatus::Created]);
+        let store_jobs = self.db.clone().get_store_jobs(Some(query)).await?;
         if store_jobs.is_empty() {
             return Ok(());
         }
@@ -79,9 +82,11 @@ impl App {
         Ok(())
     }
 
-    // start all load jobs already saved in database
+    // start all load jobs (that are not in terminal state) already saved in database
     pub async fn start_load_jobs(&self) -> Result<(), error::AppError> {
-        let load_jobs = self.db.clone().get_load_jobs().await?;
+        let query = ListLoadJobsQuery::new()
+            .with_statuses(vec![LoadJobStatus::Running, LoadJobStatus::Created]);
+        let load_jobs = self.db.clone().get_load_jobs(Some(query)).await?;
         if load_jobs.is_empty() {
             return Ok(());
         }

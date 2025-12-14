@@ -63,6 +63,33 @@ pub struct CreateStoreJob {
     pub encoding: Option<Encoding>,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct ListStoreJobsQuery {
+    pub statuses: Option<Vec<StoreJobStatus>>,
+    pub stream: Option<String>,
+    pub consumer: Option<String>,
+    pub subject: Option<String>,
+    pub bucket: Option<String>,
+    pub prefix: Option<String>,
+    pub limit: Option<i64>,
+}
+
+impl ListStoreJobsQuery {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_status(mut self, status: StoreJobStatus) -> Self {
+        self.statuses = Some(vec![status]);
+        self
+    }
+
+    pub fn with_statuses(mut self, statuses: Vec<StoreJobStatus>) -> Self {
+        self.statuses = Some(statuses);
+        self
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct StoreJob {
     pub id: String,
@@ -168,6 +195,34 @@ pub struct CreateLoadJob {
     pub delete_chunks: bool,
     pub start: Option<usize>,
     pub end: Option<usize>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ListLoadJobsQuery {
+    pub statuses: Option<Vec<LoadJobStatus>>,
+    pub bucket: Option<String>,
+    pub prefix: Option<String>,
+    pub read_stream: Option<String>,
+    pub read_consumer: Option<String>,
+    pub read_subject: Option<String>,
+    pub write_subject: Option<String>,
+    pub limit: Option<i64>,
+}
+
+impl ListLoadJobsQuery {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_status(mut self, status: LoadJobStatus) -> Self {
+        self.statuses = Some(vec![status]);
+        self
+    }
+
+    pub fn with_statuses(mut self, statuses: Vec<LoadJobStatus>) -> Self {
+        self.statuses = Some(statuses);
+        self
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

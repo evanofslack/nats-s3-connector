@@ -16,7 +16,7 @@ pub struct Coordinator {
 
 impl Coordinator {
     pub fn new(registry: Arc<registry::Registry>, io: io::IO, db: db::DynJobStorer) -> Self {
-        debug!("creating new coordinator");
+        debug!("create new coordinator");
         Self { registry, io, db }
     }
 
@@ -82,8 +82,6 @@ impl Coordinator {
         self.db.update_load_job(job_id, status).await?;
         Ok(job)
     }
-
-    pub async fn handle_load_job_completion(&self, job_id: &str, result: registry::JobResult) {}
 
     pub async fn start_new_store_job(
         &self,
