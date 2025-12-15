@@ -3,7 +3,7 @@ use clap::Subcommand;
 use colored::Colorize;
 use nats3_client::Client;
 use nats3_types::CreateLoadJob;
-use std::path::PathBuf;
+use std::{path::PathBuf, time};
 
 use crate::{config::OutputFormat, interactive, output};
 
@@ -36,6 +36,9 @@ pub enum LoadCommand {
 
         #[arg(long, required_unless_present_any = ["interactive", "from_json"])]
         write_subject: Option<String>,
+
+        #[arg(long, value_parser = humantime::parse_duration)]
+        poll_interval: Option<time::Duration>,
 
         #[arg(long)]
         delete_chunks: bool,
@@ -74,6 +77,7 @@ impl LoadCommand {
                 read_consumer,
                 read_subject,
                 write_subject,
+                poll_interval,
                 delete_chunks,
                 start,
                 end,
@@ -90,6 +94,7 @@ impl LoadCommand {
                         read_consumer,
                         read_subject: read_subject.unwrap(),
                         write_subject: write_subject.unwrap(),
+                        poll_interval,
                         delete_chunks,
                         start,
                         end,

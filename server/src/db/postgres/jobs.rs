@@ -19,7 +19,7 @@ impl LoadJobStorer for PostgresStore {
         let row = client
             .query_one(
                 "SELECT id, status, bucket, prefix, read_stream, read_consumer,
-                        read_subject, write_subject, delete_chunks, start_pos,
+                        read_subject, write_subject, poll_interval, delete_chunks, start_pos,
                         end_pos, created_at, updated_at
                  FROM load_jobs WHERE id = $1",
                 &[&id],
@@ -42,7 +42,6 @@ impl LoadJobStorer for PostgresStore {
 
         let mut sql = String::from("SELECT * FROM load_jobs WHERE 1=1");
 
-        let query = query;
         let statuses: Option<Vec<LoadJobStatusEnum>> = query.as_ref().and_then(|q| {
             q.statuses
                 .as_ref()
@@ -127,8 +126,8 @@ impl LoadJobStorer for PostgresStore {
             .execute(
                 "INSERT INTO load_jobs 
              (id, status, bucket, prefix, read_stream, read_consumer,
-              read_subject, write_subject, delete_chunks, start_pos, end_pos)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+              read_subject, write_subject, poll_interval, delete_chunks, start_pos, end_pos)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
                 &[
                     &row.id,
                     &row.status,
@@ -138,6 +137,7 @@ impl LoadJobStorer for PostgresStore {
                     &row.read_consumer,
                     &row.read_subject,
                     &row.write_subject,
+                    &row.poll_interval,
                     &row.delete_chunks,
                     &row.start_pos,
                     &row.end_pos,
@@ -221,9 +221,6 @@ impl StoreJobStorer for PostgresStore {
 
         let mut sql = String::from("SELECT * FROM store_jobs WHERE 1=1");
 
-        let query = query;
-
-        let query = query;
         let statuses: Option<Vec<StoreJobStatusEnum>> = query.as_ref().and_then(|q| {
             q.statuses
                 .as_ref()

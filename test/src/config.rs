@@ -28,6 +28,9 @@ pub struct Config {
     #[arg(long, default_value = "test.output")]
     pub output_subject: String,
 
+    #[arg(long, default_value = None)]
+    pub poll_interval_sec: Option<u64>,
+
     #[arg(long, default_value = "nats://localhost:4222")]
     pub nats_url: String,
 

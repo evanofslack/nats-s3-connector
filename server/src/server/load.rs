@@ -95,6 +95,7 @@ async fn start_load_job(
         payload.read_consumer.clone(),
         payload.read_subject.clone(),
         payload.write_subject.clone(),
+        payload.poll_interval,
         payload.delete_chunks,
         payload.start,
         payload.end,

@@ -16,6 +16,12 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
     let read_subject = Text::new("Read subject:").prompt()?;
     let write_subject = Text::new("Write subject:").prompt()?;
 
+    let poll_interval = Text::new("Poll interval (optional)?")
+        .with_help_message("Press Enter to skip")
+        .prompt_skippable()?
+        .map(|s| humantime::parse_duration(&s))
+        .transpose()?;
+
     let delete_chunks = Confirm::new("Delete chunks after load?")
         .with_default(false)
         .prompt()?;
@@ -37,6 +43,7 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
         read_consumer,
         read_subject,
         write_subject,
+        poll_interval,
         delete_chunks,
         start,
         end,

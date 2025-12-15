@@ -13,6 +13,7 @@ CREATE TABLE load_jobs (
     read_consumer TEXT,
     read_subject TEXT NOT NULL,
     write_subject TEXT NOT NULL,
+    poll_interval INT,
     delete_chunks BOOLEAN NOT NULL,
     start_pos BIGINT,
     end_pos BIGINT,

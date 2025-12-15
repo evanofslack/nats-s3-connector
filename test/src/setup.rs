@@ -158,6 +158,7 @@ async fn create_load_job(config: &Config) -> anyhow::Result<()> {
         read_consumer: None,
         read_subject: config.input_subject.clone(),
         write_subject: config.output_subject.clone(),
+        poll_interval: config.poll_interval_sec.map(std::time::Duration::from_secs),
         delete_chunks: false,
         start: None,
         end: None,
