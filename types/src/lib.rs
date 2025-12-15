@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
-use std::time;
+use std::{str::FromStr, time};
 use strum_macros::Display;
 use ulid::Ulid;
 
