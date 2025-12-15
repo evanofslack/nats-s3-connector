@@ -144,7 +144,6 @@ impl LoadJobStorer for PostgresStore {
                 ],
             )
             .await?;
-
         Ok(())
     }
 

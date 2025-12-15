@@ -10,7 +10,7 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
         .prompt_skippable()?;
 
     let read_stream = Text::new("Read stream:").prompt()?;
-    let read_consumer = Text::new("Read stream (optional):")
+    let read_consumer = Text::new("Read consumer (optional):")
         .with_help_message("Press Enter to skip")
         .prompt_skippable()?;
     let read_subject = Text::new("Read subject:").prompt()?;

@@ -49,6 +49,7 @@ pub struct PublishConfig {
     pub write_subject: String,
     pub bucket: String,
     pub prefix: Option<String>,
+    pub poll_interval: Option<time::Duration>,
     pub delete_chunks: bool,
     pub start: Option<usize>,
     pub end: Option<usize>,
@@ -63,6 +64,7 @@ impl From<LoadJob> for PublishConfig {
             write_subject: job.write_subject,
             bucket: job.bucket,
             prefix: job.prefix,
+            poll_interval: job.poll_interval,
             delete_chunks: job.delete_chunks,
             start: job.start,
             end: job.end,
@@ -275,96 +277,111 @@ impl IO {
             include_deleted: false,
         };
 
-        let chunks = self.chunk_db.list_chunks(query).await?;
-
-        for chunk_md in chunks {
-            if cancel_token.is_cancelled() {
-                debug!("publish stream cancelled");
-                break;
-            }
-            let path = if chunk_md.prefix.clone().is_some_and(|p| !p.is_empty()) {
-                format!(
-                    "{}/{}",
-                    chunk_md.prefix.expect("prefix already checked as not none"),
+        loop {
+            let chunks = self.chunk_db.list_chunks(query.clone()).await?;
+            for chunk_md in chunks {
+                if cancel_token.is_cancelled() {
+                    debug!("publish stream cancelled");
+                    break;
+                }
+                let path = if chunk_md.prefix.clone().is_some_and(|p| !p.is_empty()) {
+                    format!(
+                        "{}/{}",
+                        chunk_md.prefix.expect("prefix already checked as not none"),
+                        chunk_md.key
+                    )
+                } else {
                     chunk_md.key
-                )
-            } else {
-                chunk_md.key
-            };
+                };
 
-            let chunk = match self
-                .s3_client
-                .download_chunk(&chunk_md.bucket, &path, chunk_md.codec)
-                .await
-            {
-                Ok(chunk) => chunk,
-                Err(e) => {
-                    warn!(
-                        bucket = chunk_md.bucket,
-                        key = path,
-                        error = ?e,
-                        "metadata exists but s3 object is missing, skipping"
-                    );
-                    continue;
-                }
-            };
-            // Recalculate block hash and compare it to the stored hash
-            if chunk.block.hash() != chunk_md.hash {
-                warn!(
-                    key = path,
-                    bucket = config.bucket,
-                    "download chunk hash mismatch, skip publish"
-                );
-                continue;
-            }
-
-            let mut bytes_total = 0;
-            let messages_total = chunk.block.messages.len();
-
-            for message in chunk.block.messages {
-                bytes_total += message.payload.len();
-                self.nats_client
-                    .publish(write_subject.clone(), message.payload)
-                    .await?;
-            }
-
-            let nats_metrics = self.metrics.nats.write().await;
-            let labels = metrics::NatsLabels {
-                subject: write_subject.clone(),
-                // TODO: change metrics labels
-                stream: "".to_string(),
-            };
-            nats_metrics
-                .load_messages
-                .get_or_create(&labels)
-                .inc_by(messages_total as u64);
-            nats_metrics
-                .load_bytes
-                .get_or_create(&labels)
-                .inc_by(bytes_total as u64);
-            drop(nats_metrics);
-
-            if config.delete_chunks {
-                if let Err(e) = self.s3_client.delete_chunk(&chunk_md.bucket, &path).await {
-                    warn!(
-                        bucket = chunk_md.bucket,
-                        path = path,
-                        error = ?e,
-                        "fail delete chunk from s3, skip soft delete"
-                    );
-                    continue;
-                }
-
-                if let Err(e) = self
-                    .chunk_db
-                    .soft_delete_chunk(chunk_md.sequence_number)
+                let chunk = match self
+                    .s3_client
+                    .download_chunk(&chunk_md.bucket, &path, chunk_md.codec)
                     .await
                 {
+                    Ok(chunk) => chunk,
+                    Err(e) => {
+                        warn!(
+                            bucket = chunk_md.bucket,
+                            key = path,
+                            error = ?e,
+                            "metadata exists but s3 object is missing, skipping"
+                        );
+                        continue;
+                    }
+                };
+                // Recalculate block hash and compare it to the stored hash
+                if chunk.block.hash() != chunk_md.hash {
                     warn!(
-                        sequence_number = chunk_md.sequence_number,
-                        error = ?e,
-                        "fail soft delete chunk metadata after s3 delete"
+                        key = path,
+                        bucket = config.bucket,
+                        "download chunk hash mismatch, skip publish"
                     );
+                    continue;
+                }
+
+                let mut bytes_total = 0;
+                let messages_total = chunk.block.messages.len();
+
+                for message in chunk.block.messages {
+                    bytes_total += message.payload.len();
+                    self.nats_client
+                        .publish(write_subject.clone(), message.payload)
+                        .await?;
+                }
+
+                let nats_metrics = self.metrics.nats.write().await;
+                let labels = metrics::NatsLabels {
+                    subject: write_subject.clone(),
+                    // TODO: change metrics labels
+                    stream: "".to_string(),
+                };
+                nats_metrics
+                    .load_messages
+                    .get_or_create(&labels)
+                    .inc_by(messages_total as u64);
+                nats_metrics
+                    .load_bytes
+                    .get_or_create(&labels)
+                    .inc_by(bytes_total as u64);
+                drop(nats_metrics);
+
+                if config.delete_chunks {
+                    if let Err(e) = self.s3_client.delete_chunk(&chunk_md.bucket, &path).await {
+                        warn!(
+                            bucket = chunk_md.bucket,
+                            path = path,
+                            error = ?e,
+                            "fail delete chunk from s3, skip soft delete"
+                        );
+                        continue;
+                    }
+
+                    if let Err(e) = self
+                        .chunk_db
+                        .soft_delete_chunk(chunk_md.sequence_number)
+                        .await
+                    {
+                        warn!(
+                            sequence_number = chunk_md.sequence_number,
+                            error = ?e,
+                            "fail soft delete chunk metadata after s3 delete"
+                        );
+                    }
+                }
+            }
+            // Poll interval handling
+            match config.poll_interval {
+                None => break, // One-shot
+                Some(duration) => {
+                    if cancel_token.is_cancelled() {
+                        break;
+                    }
+                    trace!(
+                        duration_secs = duration.as_secs(),
+                        "sleep for poll interval duration for load job"
+                    );
+                    tokio::time::sleep(duration).await;
                 }
             }
         }
