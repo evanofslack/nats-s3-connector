@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use bytes::Bytes;
+use chrono::{DateTime, Utc};
 use std::{fmt::Debug, sync::Arc};
 use thiserror::Error;
 
@@ -15,8 +16,8 @@ pub enum ChunkMetadataError {
 
     #[error("invalid timestamp range: start={start} end={end}")]
     InvalidTimestampRange {
-        start: chrono::DateTime<chrono::Utc>,
-        end: chrono::DateTime<chrono::Utc>,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
     },
 
     #[error("database error: {0}")]
@@ -36,15 +37,15 @@ pub struct ChunkMetadata {
     pub stream: String,
     pub consumer: Option<String>,
     pub subject: String,
-    pub timestamp_start: chrono::DateTime<chrono::Utc>,
-    pub timestamp_end: chrono::DateTime<chrono::Utc>,
+    pub timestamp_start: DateTime<Utc>,
+    pub timestamp_end: DateTime<Utc>,
     pub message_count: i64,
     pub size_bytes: i64,
     pub codec: Codec,
     pub hash: Bytes,
     pub version: String,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Debug)]
@@ -55,8 +56,8 @@ pub struct CreateChunkMetadata {
     pub stream: String,
     pub consumer: Option<String>,
     pub subject: String,
-    pub timestamp_start: chrono::DateTime<chrono::Utc>,
-    pub timestamp_end: chrono::DateTime<chrono::Utc>,
+    pub timestamp_start: DateTime<Utc>,
+    pub timestamp_end: DateTime<Utc>,
     pub message_count: i64,
     pub size_bytes: i64,
     pub codec: Codec,
@@ -71,8 +72,8 @@ pub struct ListChunksQuery {
     pub subject: String,
     pub bucket: String,
     pub prefix: Option<String>,
-    pub timestamp_start: Option<chrono::DateTime<chrono::Utc>>,
-    pub timestamp_end: Option<chrono::DateTime<chrono::Utc>>,
+    pub timestamp_start: Option<DateTime<Utc>>,
+    pub timestamp_end: Option<DateTime<Utc>>,
     pub limit: Option<i64>,
     pub include_deleted: bool,
 }

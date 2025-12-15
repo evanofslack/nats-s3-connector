@@ -15,8 +15,8 @@ CREATE TABLE load_jobs (
     write_subject TEXT NOT NULL,
     poll_interval BIGINT,
     delete_chunks BOOLEAN NOT NULL,
-    start_pos BIGINT,
-    end_pos BIGINT,
+    from_time TIMESTAMPTZ,
+    to_time TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

@@ -6,5 +6,6 @@ edition = "2021"
 [dependencies]
 ulid = { workspace = true }
 serde = { workspace = true }
+chrono = { workspace = true }
 
 strum_macros = "0.27"

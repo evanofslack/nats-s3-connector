@@ -1,4 +1,5 @@
 use bytes::Bytes;
+use chrono::{DateTime, Utc};
 use postgres_types::{FromSql, ToSql};
 use std::time;
 use tokio_postgres::Row;
@@ -53,10 +54,10 @@ pub struct LoadJobRow {
     pub poll_interval: Option<i64>,
     pub write_subject: String,
     pub delete_chunks: bool,
-    pub start_pos: Option<i64>,
-    pub end_pos: Option<i64>,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub from_time: Option<DateTime<Utc>>,
+    pub to_time: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl LoadJobRow {
@@ -72,8 +73,8 @@ impl LoadJobRow {
             write_subject: row.try_get("write_subject")?,
             poll_interval: row.try_get("poll_interval")?,
             delete_chunks: row.try_get("delete_chunks")?,
-            start_pos: row.try_get("start_pos")?,
-            end_pos: row.try_get("end_pos")?,
+            from_time: row.try_get("from_time")?,
+            to_time: row.try_get("to_time")?,
             created_at: row.try_get("created_at")?,
             updated_at: row.try_get("updated_at")?,
         })
@@ -95,14 +96,15 @@ impl From<LoadJobRow> for LoadJob {
                 .poll_interval
                 .map(|d| time::Duration::from_secs(d as u64)),
             delete_chunks: row.delete_chunks,
-            start: row.start_pos.map(|v| v as usize),
-            end: row.end_pos.map(|v| v as usize),
+            from_time: row.from_time,
+            to_time: row.to_time,
         }
     }
 }
 
 impl From<LoadJob> for LoadJobRow {
     fn from(job: LoadJob) -> Self {
+        let now = Utc::now();
         Self {
             id: job.id,
             status: job.status.into(),
@@ -114,10 +116,10 @@ impl From<LoadJob> for LoadJobRow {
             write_subject: job.write_subject,
             poll_interval: job.poll_interval.map(|d| d.as_secs() as i64),
             delete_chunks: job.delete_chunks,
-            start_pos: job.start.map(|v| v as i64),
-            end_pos: job.end.map(|v| v as i64),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
+            from_time: job.from_time,
+            to_time: job.to_time,
+            created_at: now,
+            updated_at: now,
         }
     }
 }
