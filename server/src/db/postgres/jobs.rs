@@ -19,8 +19,8 @@ impl LoadJobStorer for PostgresStore {
         let row = client
             .query_one(
                 "SELECT id, status, bucket, prefix, read_stream, read_consumer,
-                        read_subject, write_subject, poll_interval, delete_chunks, start_pos,
-                        end_pos, created_at, updated_at
+                        read_subject, write_subject, poll_interval, delete_chunks, from_time,
+                        to_time, created_at, updated_at
                  FROM load_jobs WHERE id = $1",
                 &[&id],
             )
@@ -126,7 +126,7 @@ impl LoadJobStorer for PostgresStore {
             .execute(
                 "INSERT INTO load_jobs 
              (id, status, bucket, prefix, read_stream, read_consumer,
-              read_subject, write_subject, poll_interval, delete_chunks, start_pos, end_pos)
+              read_subject, write_subject, poll_interval, delete_chunks, from_time, to_time)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
                 &[
                     &row.id,
@@ -139,8 +139,8 @@ impl LoadJobStorer for PostgresStore {
                     &row.write_subject,
                     &row.poll_interval,
                     &row.delete_chunks,
-                    &row.start_pos,
-                    &row.end_pos,
+                    &row.from_time,
+                    &row.to_time,
                 ],
             )
             .await?;
@@ -184,7 +184,6 @@ impl LoadJobStorer for PostgresStore {
         if rows_affected == 0 {
             return Err(JobStoreError::NotFound { id });
         }
-
         Ok(())
     }
 }

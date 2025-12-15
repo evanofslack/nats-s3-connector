@@ -72,8 +72,8 @@ async fn test_create_load_job_success() {
         write_subject: "write.subject".to_string(),
         poll_interval: None,
         delete_chunks: false,
-        start: None,
-        end: None,
+        from_time: None,
+        to_time: None,
     };
 
     let result = client.create_load_job(create_job).await.unwrap();

@@ -1966,6 +1966,7 @@ name = "nats3-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "colored",
  "comfy-table",
@@ -2059,6 +2060,7 @@ dependencies = [
 name = "nats3-types"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "serde",
  "strum_macros",
  "ulid",

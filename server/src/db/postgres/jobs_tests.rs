@@ -1,4 +1,5 @@
 use crate::db::{postgres::PostgresStore, LoadJobStorer, StoreJobStorer};
+use chrono::{DateTime, Utc};
 use nats3_types::{
     Batch, Codec, Encoding, ListLoadJobsQuery, ListStoreJobsQuery, LoadJob, LoadJobStatus,
     StoreJob, StoreJobStatus,
@@ -53,8 +54,8 @@ struct LoadJobBuilder {
     write_subject: String,
     poll_interval: Option<time::Duration>,
     delete_chunks: bool,
-    start_pos: Option<usize>,
-    end_pos: Option<usize>,
+    from_time: Option<DateTime<Utc>>,
+    to_time: Option<DateTime<Utc>>,
 }
 
 impl Default for LoadJobBuilder {
@@ -70,8 +71,8 @@ impl Default for LoadJobBuilder {
             write_subject: "write.subject".to_string(),
             poll_interval: None,
             delete_chunks: false,
-            start_pos: Some(0),
-            end_pos: Some(1000),
+            from_time: None,
+            to_time: None,
         }
     }
 }
@@ -104,8 +105,8 @@ impl LoadJobBuilder {
             write_subject: self.write_subject,
             poll_interval: self.poll_interval,
             delete_chunks: self.delete_chunks,
-            start: self.start_pos,
-            end: self.end_pos,
+            from_time: self.from_time,
+            to_time: self.to_time,
         }
     }
 }

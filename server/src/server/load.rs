@@ -65,9 +65,7 @@ async fn delete_load_job(
 async fn get_load_jobs(State(state): State<Dependencies>) -> Result<Json<Vec<LoadJob>>, AppError> {
     info!(route = "/load/jobs", method = "GET", "handle request");
 
-    // fetch load jobs from db
     let jobs = state.db.get_load_jobs(None).await?;
-
     Ok(Json(jobs))
 }
 
@@ -83,8 +81,6 @@ async fn start_load_job(
         read_subject = payload.read_subject,
         write_subject = payload.write_subject,
         delete_chunks = payload.delete_chunks,
-        start = payload.start,
-        end = payload.end,
         "handle request"
     );
 
@@ -97,8 +93,8 @@ async fn start_load_job(
         payload.write_subject.clone(),
         payload.poll_interval,
         payload.delete_chunks,
-        payload.start,
-        payload.end,
+        payload.from_time,
+        payload.to_time,
     );
 
     let config: io::PublishConfig = job.clone().into();

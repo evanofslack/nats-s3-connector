@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use chrono::{DateTime, Utc};
 use clap::Subcommand;
 use colored::Colorize;
 use nats3_client::Client;
@@ -43,11 +44,11 @@ pub enum LoadCommand {
         #[arg(long)]
         delete_chunks: bool,
 
-        #[arg(long)]
-        start: Option<usize>,
+        #[arg(long, value_parser = parse_datetime)]
+        from_time: Option<DateTime<Utc>>,
 
-        #[arg(long)]
-        end: Option<usize>,
+        #[arg(long, value_parser = parse_datetime)]
+        to_time: Option<DateTime<Utc>>,
     },
     Delete {
         #[arg(short, long)]
@@ -79,8 +80,8 @@ impl LoadCommand {
                 write_subject,
                 poll_interval,
                 delete_chunks,
-                start,
-                end,
+                from_time,
+                to_time,
             } => {
                 let job = if interactive {
                     interactive::prompt_create_load_job()?
@@ -96,8 +97,8 @@ impl LoadCommand {
                         write_subject: write_subject.unwrap(),
                         poll_interval,
                         delete_chunks,
-                        start,
-                        end,
+                        from_time,
+                        to_time,
                     }
                 };
 
@@ -138,4 +139,15 @@ fn load_from_json(path: &PathBuf) -> Result<CreateLoadJob> {
         std::fs::read_to_string(path)?
     };
     serde_json::from_str(&content).context("Fail parse json")
+}
+
+fn parse_datetime(s: &str) -> Result<DateTime<Utc>, String> {
+    DateTime::parse_from_rfc3339(s)
+        .map(|dt| dt.with_timezone(&Utc))
+        .map_err(|e| {
+            format!(
+                "Invalid datetime format (use RFC3339, e.g., '2024-12-14T10:30:00Z'): {}",
+                e
+            )
+        })
 }

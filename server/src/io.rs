@@ -1,5 +1,6 @@
 use anyhow::Result;
 use async_nats::jetstream;
+use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use nats3_types::Codec;
 use std::sync::Arc;
@@ -51,8 +52,8 @@ pub struct PublishConfig {
     pub prefix: Option<String>,
     pub poll_interval: Option<time::Duration>,
     pub delete_chunks: bool,
-    pub start: Option<usize>,
-    pub end: Option<usize>,
+    pub from_time: Option<DateTime<Utc>>,
+    pub to_time: Option<DateTime<Utc>>,
 }
 
 impl From<LoadJob> for PublishConfig {
@@ -66,8 +67,8 @@ impl From<LoadJob> for PublishConfig {
             prefix: job.prefix,
             poll_interval: job.poll_interval,
             delete_chunks: job.delete_chunks,
-            start: job.start,
-            end: job.end,
+            from_time: job.from_time,
+            to_time: job.to_time,
         }
     }
 }
@@ -249,8 +250,6 @@ impl IO {
             bucket = config.bucket,
             prefix = config.prefix,
             delete_chunks = config.delete_chunks,
-            start = config.start,
-            end = config.end,
             "download from bucket and publish to stream"
         );
 
@@ -265,14 +264,8 @@ impl IO {
             subject: read_subject.clone(),
             bucket: config.bucket.clone(),
             prefix: config.prefix,
-            timestamp_start: config.start.map(|ts| {
-                chrono::DateTime::from_timestamp(ts.try_into().expect("usize to int64"), 0)
-                    .expect("invalid start timestamp")
-            }),
-            timestamp_end: config.end.map(|ts| {
-                chrono::DateTime::from_timestamp(ts.try_into().expect("usize to int64"), 0)
-                    .expect("invalid end timestamp")
-            }),
+            timestamp_start: config.from_time,
+            timestamp_end: config.to_time,
             limit: None,
             include_deleted: false,
         };

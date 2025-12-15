@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use inquire::{Confirm, Text};
 use nats3_types::{Batch, Codec, CreateLoadJob, CreateStoreJob, Encoding};
 
@@ -17,7 +18,7 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
     let write_subject = Text::new("Write subject:").prompt()?;
 
     let poll_interval = Text::new("Poll interval (optional)?")
-        .with_help_message("Press Enter to skip")
+        .with_help_message("Duration to keep trying load (e.g. 5sec, 1min). Press Enter to skip")
         .prompt_skippable()?
         .map(|s| humantime::parse_duration(&s))
         .transpose()?;
@@ -26,15 +27,17 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
         .with_default(false)
         .prompt()?;
 
-    let start = Text::new("Start index (optional):")
-        .with_help_message("Press Enter to skip")
+    let from_time = Text::new("To time (optional):")
+        .with_help_message("RFC3339 format (e.g. 2024-12-14T18:00:00Z). Press Enter to skip")
         .prompt_skippable()?
-        .and_then(|s| s.parse().ok());
+        .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+        .map(|dt| dt.with_timezone(&Utc));
 
-    let end = Text::new("End index (optional):")
-        .with_help_message("Press Enter to skip")
+    let to_time = Text::new("To time (optional):")
+        .with_help_message("RFC3339 format (e.g. 2024-12-14T18:00:00Z). Press Enter to skip")
         .prompt_skippable()?
-        .and_then(|s| s.parse().ok());
+        .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+        .map(|dt| dt.with_timezone(&Utc));
 
     Ok(CreateLoadJob {
         bucket,
@@ -45,8 +48,8 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
         write_subject,
         poll_interval,
         delete_chunks,
-        start,
-        end,
+        from_time,
+        to_time,
     })
 }
 
