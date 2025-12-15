@@ -1,5 +1,6 @@
 use bytes::Bytes;
 use postgres_types::{FromSql, ToSql};
+use std::time;
 use tokio_postgres::Row;
 
 use nats3_types::{Batch, Codec, Encoding, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
@@ -49,6 +50,7 @@ pub struct LoadJobRow {
     pub read_stream: String,
     pub read_consumer: Option<String>,
     pub read_subject: String,
+    pub poll_interval: Option<i64>,
     pub write_subject: String,
     pub delete_chunks: bool,
     pub start_pos: Option<i64>,
@@ -68,6 +70,7 @@ impl LoadJobRow {
             read_consumer: row.try_get("read_consumer")?,
             read_subject: row.try_get("read_subject")?,
             write_subject: row.try_get("write_subject")?,
+            poll_interval: row.try_get("poll_interval")?,
             delete_chunks: row.try_get("delete_chunks")?,
             start_pos: row.try_get("start_pos")?,
             end_pos: row.try_get("end_pos")?,
@@ -88,6 +91,9 @@ impl From<LoadJobRow> for LoadJob {
             read_consumer: row.read_consumer,
             read_subject: row.read_subject,
             write_subject: row.write_subject,
+            poll_interval: row
+                .poll_interval
+                .map(|d| time::Duration::from_secs(d as u64)),
             delete_chunks: row.delete_chunks,
             start: row.start_pos.map(|v| v as usize),
             end: row.end_pos.map(|v| v as usize),
@@ -106,6 +112,7 @@ impl From<LoadJob> for LoadJobRow {
             read_consumer: job.read_consumer,
             read_subject: job.read_subject,
             write_subject: job.write_subject,
+            poll_interval: job.poll_interval.map(|d| d.as_secs() as i64),
             delete_chunks: job.delete_chunks,
             start_pos: job.start.map(|v| v as i64),
             end_pos: job.end.map(|v| v as i64),

@@ -99,7 +99,6 @@ fn print_store_jobs_table(jobs: Vec<StoreJob>) -> Result<()> {
             Cell::new("prefix").fg(Color::Blue),
             Cell::new("stream").fg(Color::Blue),
             Cell::new("consumer").fg(Color::Blue),
-            Cell::new("consumer").fg(Color::Blue),
             Cell::new("subject").fg(Color::Blue),
         ]);
 

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
+use std::time;
 use strum_macros::Display;
 use ulid::Ulid;
 
@@ -192,6 +193,7 @@ pub struct CreateLoadJob {
     pub read_consumer: Option<String>,
     pub read_subject: String,
     pub write_subject: String,
+    pub poll_interval: Option<time::Duration>,
     pub delete_chunks: bool,
     pub start: Option<usize>,
     pub end: Option<usize>,
@@ -234,6 +236,7 @@ pub struct LoadJob {
     pub read_stream: String,
     pub read_consumer: Option<String>,
     pub read_subject: String,
+    pub poll_interval: Option<time::Duration>,
     pub write_subject: String,
     pub delete_chunks: bool,
     pub start: Option<usize>,
@@ -249,6 +252,7 @@ impl LoadJob {
         read_consumer: Option<String>,
         read_subject: String,
         write_subject: String,
+        poll_interval: Option<time::Duration>,
         delete_chunks: bool,
         start: Option<usize>,
         end: Option<usize>,
@@ -264,6 +268,7 @@ impl LoadJob {
             read_consumer,
             read_subject,
             write_subject,
+            poll_interval,
             delete_chunks,
             start,
             end,

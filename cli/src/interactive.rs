@@ -10,11 +10,17 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
         .prompt_skippable()?;
 
     let read_stream = Text::new("Read stream:").prompt()?;
-    let read_consumer = Text::new("Read stream (optional):")
+    let read_consumer = Text::new("Read consumer (optional):")
         .with_help_message("Press Enter to skip")
         .prompt_skippable()?;
     let read_subject = Text::new("Read subject:").prompt()?;
     let write_subject = Text::new("Write subject:").prompt()?;
+
+    let poll_interval = Text::new("Poll interval (optional)?")
+        .with_help_message("Press Enter to skip")
+        .prompt_skippable()?
+        .map(|s| humantime::parse_duration(&s))
+        .transpose()?;
 
     let delete_chunks = Confirm::new("Delete chunks after load?")
         .with_default(false)
@@ -37,6 +43,7 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
         read_consumer,
         read_subject,
         write_subject,
+        poll_interval,
         delete_chunks,
         start,
         end,

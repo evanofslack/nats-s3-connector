@@ -120,7 +120,16 @@ impl App {
                             .cleanup_completed_jobs(job_handler.clone(), job_handler.clone())
                             .await
                         {
-                            warn!(error = e.to_string(), "fail cleanup completed jobs");
+                            // If we deleted the job, the handler later tried to update the job
+                            // state but the job no longer exists. This is not really an error.
+                            // TODO: there has to be a cleaner way to handle this.
+                            let is_not_found = e
+                                .downcast_ref::<db::JobStoreError>()
+                                .is_some_and(|err| matches!(err, db::JobStoreError::NotFound { .. }));
+
+                            if !is_not_found {
+                                warn!(error = e.to_string(), "fail cleanup completed jobs");
+                            }
                         }
                     }
                     _ = shutdown_token.cancelled() => {

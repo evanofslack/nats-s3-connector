@@ -3,6 +3,7 @@ use nats3_types::{
     Batch, Codec, Encoding, ListLoadJobsQuery, ListStoreJobsQuery, LoadJob, LoadJobStatus,
     StoreJob, StoreJobStatus,
 };
+use std::time;
 use testcontainers::{runners::AsyncRunner, ImageExt};
 use testcontainers_modules::postgres::Postgres;
 
@@ -50,6 +51,7 @@ struct LoadJobBuilder {
     read_consumer: Option<String>,
     read_subject: String,
     write_subject: String,
+    poll_interval: Option<time::Duration>,
     delete_chunks: bool,
     start_pos: Option<usize>,
     end_pos: Option<usize>,
@@ -66,6 +68,7 @@ impl Default for LoadJobBuilder {
             read_consumer: None,
             read_subject: "read.subject".to_string(),
             write_subject: "write.subject".to_string(),
+            poll_interval: None,
             delete_chunks: false,
             start_pos: Some(0),
             end_pos: Some(1000),
@@ -99,6 +102,7 @@ impl LoadJobBuilder {
             read_consumer: self.read_consumer,
             read_subject: self.read_subject,
             write_subject: self.write_subject,
+            poll_interval: self.poll_interval,
             delete_chunks: self.delete_chunks,
             start: self.start_pos,
             end: self.end_pos,
