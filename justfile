@@ -2,9 +2,6 @@ default:
   @just --list
 
 test:
-    cargo test
-
-test-integration:
     cargo test --features integration
 
 check:
@@ -16,7 +13,7 @@ build:
 fmt:
     cargo +nightly fmt
 
-precommit: fmt check test-integration
+precommit: fmt check test
 
 build-server:
     cargo build -p nats3-server
