@@ -5,6 +5,9 @@ FROM chef AS planner
 COPY Cargo.toml ./
 COPY types ./types
 COPY server ./server
+COPY client ./client
+COPY cli ./cli
+COPY test ./test
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
@@ -13,6 +16,9 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY Cargo.toml ./
 COPY types ./types
 COPY server ./server
+COPY client ./client
+COPY cli ./cli
+COPY test ./test
 RUN cargo build --release -p nats3-server
 
 FROM debian:bookworm-slim AS runtime
