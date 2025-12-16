@@ -103,7 +103,7 @@ impl Client {
     }
 
     pub async fn get_store_job(&self, id: String) -> Result<StoreJob> {
-        let url = format!("{}/store/jobs", self.base_url);
+        let url = format!("{}/store/job", self.base_url);
         let response = self.http.get(&url).query(&[("job_id", id)]).send().await?;
 
         if !response.status().is_success() {
