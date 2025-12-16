@@ -27,6 +27,9 @@ dev-server: build-server
 build-cli:
     cargo build -p nats3-cli
 
+build-docker:
+    docker build -f server/Dockerfile -t nats3 .
+
 install-cli:
     cargo install --path cli --force
 
