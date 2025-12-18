@@ -136,7 +136,7 @@ export function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen py-16 px-8">
       <div className="max-w-7xl mx-auto space-y-8">
         <header>
           <h1 className="text-3xl font-bold">nats3</h1>

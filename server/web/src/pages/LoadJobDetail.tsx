@@ -103,13 +103,13 @@ export function LoadJobDetail() {
         </div>
 
         <div className="bg-bg-panel border border-border-subtle rounded-lg p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 pr-12">
             <div>
               <h1 className="text-2xl font-bold">Load Job</h1>
               <p className="text-text-muted text-sm mt-1">ID: {job.id}</p>
             </div>
             <div
-              className={`text-lg font-medium ${getStatusColor(job.status)}`}
+              className={`text-2xl font-medium ${getStatusColor(job.status)}`}
             >
               {job.status}
             </div>

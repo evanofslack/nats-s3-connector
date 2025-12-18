@@ -70,7 +70,7 @@ export function StoreJobDetail() {
   };
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen py-24 px-6">
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <Button onClick={() => navigate("/")} variant="secondary">
@@ -84,19 +84,19 @@ export function StoreJobDetail() {
         </div>
 
         <div className="bg-bg-panel border border-border-subtle rounded-lg p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 pr-12">
             <div>
               <h1 className="text-2xl font-bold">{job.name}</h1>
               <p className="text-text-muted text-sm mt-1">ID: {job.id}</p>
             </div>
             <div
-              className={`text-lg font-medium ${getStatusColor(job.status)}`}
+              className={`text-2xl font-medium ${getStatusColor(job.status)}`}
             >
               {job.status}
             </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 ">
             <div>
               <h2 className="text-lg font-medium mb-4">Configuration</h2>
               <dl className="grid grid-cols-2 gap-4">
@@ -133,7 +133,7 @@ export function StoreJobDetail() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm text-text-muted">Max Count</dt>
+                  <dt className="text-sm text-text-muted">Max Message Count</dt>
                   <dd className="mt-1">
                     {job.batch.max_count.toLocaleString()}
                   </dd>
