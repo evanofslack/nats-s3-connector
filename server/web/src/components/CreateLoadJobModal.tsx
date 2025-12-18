@@ -119,7 +119,7 @@ export function CreateLoadJobModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Create Load Job">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Create load job">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-1">
@@ -146,6 +146,7 @@ export function CreateLoadJobModal({
             onChange={(e) =>
               setFormData({ ...formData, prefix: e.target.value })
             }
+            placeholder="Optional"
             className="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded focus:outline-none focus:border-accent"
           />
         </div>
@@ -177,6 +178,7 @@ export function CreateLoadJobModal({
             onChange={(e) =>
               setFormData({ ...formData, read_consumer: e.target.value })
             }
+            placeholder="Optional"
             className="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded focus:outline-none focus:border-accent"
           />
         </div>
@@ -287,7 +289,7 @@ export function CreateLoadJobModal({
             }
             className="mr-2"
           />
-          <label htmlFor="delete_chunks" className="text-sm">
+          <label htmlFor="delete_chunks" className="text-md">
             Delete chunks after loading
           </label>
         </div>

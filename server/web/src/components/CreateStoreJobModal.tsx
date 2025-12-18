@@ -94,7 +94,7 @@ export function CreateStoreJobModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Create Store Job">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Create store job">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-1">
@@ -136,6 +136,7 @@ export function CreateStoreJobModal({
             onChange={(e) =>
               setFormData({ ...formData, consumer: e.target.value })
             }
+            placeholder="Optional"
             className="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded focus:outline-none focus:border-accent"
           />
         </div>
@@ -182,12 +183,13 @@ export function CreateStoreJobModal({
             onChange={(e) =>
               setFormData({ ...formData, prefix: e.target.value })
             }
+            placeholder="Optional"
             className="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded focus:outline-none focus:border-accent"
           />
         </div>
 
         <div className="border-t border-border-subtle pt-4">
-          <h3 className="text-sm font-medium mb-3">Batch Settings</h3>
+          <h3 className="text-md font-medium mb-3">Batch Settings</h3>
 
           <div className="space-y-4">
             <div>
@@ -209,7 +211,7 @@ export function CreateStoreJobModal({
 
             <div>
               <label className="block text-sm font-medium mb-1">
-                Max Count
+                Max Message Count
               </label>
               <input
                 type="number"
@@ -227,10 +229,9 @@ export function CreateStoreJobModal({
         </div>
 
         <div className="border-t border-border-subtle pt-4">
-          <h3 className="text-sm font-medium mb-3">Encoding</h3>
+          <h3 className="text-md font-medium mb-3">Encoding</h3>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Codec</label>
             <select
               value={formData.codec}
               onChange={(e) =>

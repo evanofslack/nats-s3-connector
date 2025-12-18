@@ -140,57 +140,15 @@ export function Dashboard() {
       <div className="max-w-7xl mx-auto space-y-8">
         <header>
           <h1 className="text-3xl font-bold">nats3</h1>
-          <p className="text-text-muted mt-1">NATS to S3 connector</p>
+          <p className="text-text-muted mt-1">NATS S3 Connector</p>
         </header>
-
-        <section className="bg-bg-panel border border-border-subtle rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-medium">Load Jobs</h2>
-            <Button onClick={() => setShowCreateLoadModal(true)}>
-              <Plus size={16} className="inline mr-2" />
-              Create Load Job
-            </Button>
-          </div>
-
-          {loadJobsLoading && (
-            <div className="flex justify-center py-8">
-              <Spinner size={32} />
-            </div>
-          )}
-
-          {loadJobsError && (
-            <div className="text-error py-4">
-              Error loading jobs: {(loadJobsError as Error).message}
-            </div>
-          )}
-
-          {loadJobs && loadJobs.length === 0 && (
-            <EmptyState
-              title="No load jobs"
-              description="Create a load job to start publishing messages from S3 to NATS"
-              action={
-                <Button onClick={() => setShowCreateLoadModal(true)}>
-                  Create Load Job
-                </Button>
-              }
-            />
-          )}
-
-          {loadJobs && loadJobs.length > 0 && (
-            <Table
-              columns={loadColumns}
-              data={loadJobs}
-              onRowClick={(job) => navigate(`/load/${job.id}`)}
-            />
-          )}
-        </section>
 
         <section className="bg-bg-panel border border-border-subtle rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-medium">Store Jobs</h2>
             <Button onClick={() => setShowCreateStoreModal(true)}>
               <Plus size={16} className="inline mr-2" />
-              Create Store Job
+              Create store job
             </Button>
           </div>
 
@@ -210,11 +168,6 @@ export function Dashboard() {
             <EmptyState
               title="No store jobs"
               description="Create a store job to start consuming messages from NATS and storing to S3"
-              action={
-                <Button onClick={() => setShowCreateStoreModal(true)}>
-                  Create Store Job
-                </Button>
-              }
             />
           )}
 
@@ -223,6 +176,43 @@ export function Dashboard() {
               columns={storeColumns}
               data={storeJobs}
               onRowClick={(job) => navigate(`/store/${job.id}`)}
+            />
+          )}
+        </section>
+
+        <section className="bg-bg-panel border border-border-subtle rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-medium">Load Jobs</h2>
+            <Button onClick={() => setShowCreateLoadModal(true)}>
+              <Plus size={16} className="inline mr-2" />
+              Create load job
+            </Button>
+          </div>
+
+          {loadJobsLoading && (
+            <div className="flex justify-center py-8">
+              <Spinner size={32} />
+            </div>
+          )}
+
+          {loadJobsError && (
+            <div className="text-error py-4">
+              Error loading jobs: {(loadJobsError as Error).message}
+            </div>
+          )}
+
+          {loadJobs && loadJobs.length === 0 && (
+            <EmptyState
+              title="No load jobs"
+              description="Create a load job to start publishing messages from S3 to NATS"
+            />
+          )}
+
+          {loadJobs && loadJobs.length > 0 && (
+            <Table
+              columns={loadColumns}
+              data={loadJobs}
+              onRowClick={(job) => navigate(`/load/${job.id}`)}
             />
           )}
         </section>
