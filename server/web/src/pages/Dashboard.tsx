@@ -42,14 +42,24 @@ export function Dashboard() {
 
   const handleDeleteLoad = async () => {
     if (!deleteLoadConfirm) return;
-    await deleteLoadJob.mutateAsync(deleteLoadConfirm);
-    setDeleteLoadConfirm(null);
+    try {
+      await deleteLoadJob.mutateAsync(deleteLoadConfirm);
+      console.log("Delete completed");
+      setDeleteLoadConfirm(null);
+    } catch (err) {
+      console.error("Delete failed:", err);
+    }
   };
 
   const handleDeleteStore = async () => {
     if (!deleteStoreConfirm) return;
-    await deleteStoreJob.mutateAsync(deleteStoreConfirm);
-    setDeleteStoreConfirm(null);
+    try {
+      await deleteStoreJob.mutateAsync(deleteStoreConfirm);
+      console.log("Delete completed");
+      setDeleteStoreConfirm(null);
+    } catch (err) {
+      console.error("Delete failed:", err);
+    }
   };
 
   const getStatusColor = (status: string) => {

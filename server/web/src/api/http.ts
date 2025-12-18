@@ -18,7 +18,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
     return undefined as T;
   }
 
-  return response.json();
+  const text = await response.text();
+  return text ? JSON.parse(text) : (undefined as T);
 }
 
 export async function get<T>(
