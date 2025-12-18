@@ -128,12 +128,9 @@ fn create_router(deps: Dependencies) -> Router {
         .merge(load::create_router(deps.clone()))
         .merge(store::create_router(deps));
 
-    let serve_dir = ServeDir::new("web/dist")
-        .fallback(ServeFile::new("web/dist/index.html"));
-
-    Router::new()
-        .nest("/", api_router)
-        .fallback_service(serve_dir)
+    let serve_dir =
+        ServeDir::new("server/web/dist").fallback(ServeFile::new("server/web/dist/index.html"));
+    Router::new().merge(api_router).fallback_service(serve_dir)
 }
 
 impl IntoResponse for error::AppError {
