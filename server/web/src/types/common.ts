@@ -1,4 +1,4 @@
-export type Codec = "Json" | "Binary";
+export type Codec = "json" | "binary";
 
 export interface Batch {
   max_bytes: number;

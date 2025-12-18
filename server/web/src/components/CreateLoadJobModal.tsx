@@ -39,7 +39,7 @@ export function CreateLoadJobModal({
     );
     if (!match) return null;
 
-    const value = parseInt(match[1]);
+    const value = match?.[1] ? parseInt(match[1]) : 0;
     const unit = (match[2] || "s").toLowerCase();
 
     let seconds = 0;

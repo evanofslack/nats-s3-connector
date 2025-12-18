@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Modal } from "./Modal";
 import { Button } from "./Button";
 import { useCreateStoreJob } from "../hooks/useCreateStoreJob";
-import type { CreateStoreJob, Codec } from "../types/store";
+import type { CreateStoreJob } from "../types/store";
+import type { Codec } from "../types/common";
 
 interface CreateStoreJobModalProps {
   isOpen: boolean;
@@ -26,7 +27,7 @@ export function CreateStoreJobModal({
     prefix: "",
     max_bytes: DEFAULT_MAX_BYTES.toString(),
     max_count: DEFAULT_MAX_COUNT.toString(),
-    codec: "Binary" as Codec,
+    codec: "binary" as Codec,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -84,7 +85,7 @@ export function CreateStoreJobModal({
       prefix: "",
       max_bytes: DEFAULT_MAX_BYTES.toString(),
       max_count: DEFAULT_MAX_COUNT.toString(),
-      codec: "Binary",
+      codec: "binary",
     });
   };
 
@@ -239,8 +240,8 @@ export function CreateStoreJobModal({
               }
               className="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded focus:outline-none focus:border-accent"
             >
-              <option value="Binary">Binary</option>
-              <option value="Json">JSON</option>
+              <option value="binary">binary</option>
+              <option value="json">json</option>
             </select>
           </div>
         </div>
