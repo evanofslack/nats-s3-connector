@@ -24,6 +24,12 @@ run-server: build-server
 dev-server: build-server
     RUST_LOG=none,nats3_server=DEBUG RUST_BACKTRACE=1 ./target/debug/nats3-server --config examples/config.local.toml
 
+dev-web:
+    cd server/web && npm run dev
+
+build-web:
+    cd server/web && npm run build
+
 build-cli:
     cargo build -p nats3-cli
 
