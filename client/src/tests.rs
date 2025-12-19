@@ -283,7 +283,7 @@ async fn test_get_store_job_success() {
     );
 
     let mock = server
-        .mock("GET", "/store/jobs")
+        .mock("GET", "/store/job")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             "test-job-789".into(),
@@ -307,7 +307,7 @@ async fn test_get_store_job_success() {
 async fn test_get_store_job_not_found() {
     let mut server = mockito::Server::new_async().await;
     let mock = server
-        .mock("GET", "/store/jobs")
+        .mock("GET", "/store/job")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             "nonexistent".into(),
