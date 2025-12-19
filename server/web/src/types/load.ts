@@ -1,0 +1,29 @@
+export type LoadJobStatus = "Created" | "Running" | "Success" | "Failure";
+
+export interface LoadJob {
+  id: string;
+  status: LoadJobStatus;
+  bucket: string;
+  prefix?: string;
+  read_stream: string;
+  read_consumer?: string;
+  read_subject: string;
+  write_subject: string;
+  poll_interval?: { secs: number; nanos: number };
+  delete_chunks: boolean;
+  from_time?: string;
+  to_time?: string;
+}
+
+export interface CreateLoadJob {
+  bucket: string;
+  prefix?: string;
+  read_stream: string;
+  read_consumer?: string;
+  read_subject: string;
+  write_subject: string;
+  poll_interval?: { secs: number; nanos: number };
+  delete_chunks: boolean;
+  from_time?: string;
+  to_time?: string;
+}

@@ -17,7 +17,7 @@ services:
       NATS3_S3_SECRET: "test-password"
       NATS3_POSTGRES_URL: "postgresql://nats3user:nats3pass@postgres:5432/nats3db"
       NATS3_POSTGRES_MIGRATE: "true"
-      RUST_LOG: "none,nats3=TRACE"
+      RUST_LOG: "none,nats3=DEBUG"
     depends_on:
       - "postgres"
       - "nats"

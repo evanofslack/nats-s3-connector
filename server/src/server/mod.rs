@@ -15,6 +15,7 @@ use std::{convert::Infallible, net::SocketAddr};
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
+use tower_http::services::{ServeDir, ServeFile};
 use tracing::{debug, info, warn};
 
 use crate::{coordinator, db, error, metrics as counter, registry};
@@ -79,7 +80,6 @@ impl Server {
         let mut make_service = router.into_make_service_with_connect_info::<SocketAddr>();
         let listener = TcpListener::bind(self.addr.clone()).await.unwrap();
         info!(address = self.addr, "serving on address");
-
         loop {
             tokio::select! {
                 result = listener.accept() => {
@@ -123,10 +123,14 @@ fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
 }
 
 fn create_router(deps: Dependencies) -> Router {
-    status::create_router()
+    let api_router = status::create_router()
         .merge(metrics::create_router(deps.clone()))
         .merge(load::create_router(deps.clone()))
-        .merge(store::create_router(deps))
+        .merge(store::create_router(deps));
+
+    let serve_dir =
+        ServeDir::new("server/web/dist").fallback(ServeFile::new("server/web/dist/index.html"));
+    Router::new().merge(api_router).fallback_service(serve_dir)
 }
 
 impl IntoResponse for error::AppError {

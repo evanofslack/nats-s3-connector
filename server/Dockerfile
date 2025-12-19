@@ -21,6 +21,13 @@ COPY cli ./cli
 COPY test ./test
 RUN cargo build --release -p nats3-server
 
+FROM node:20-slim AS web-builder
+WORKDIR /app/web
+COPY server/web/package*.json ./
+RUN npm ci
+COPY server/web ./
+RUN npm run build
+
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y \
     ca-certificates \
@@ -28,4 +35,5 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app/target/release/nats3-server /usr/local/bin
+COPY --from=web-builder /app/web/dist ./server/web/dist
 ENTRYPOINT ["/usr/local/bin/nats3-server"]

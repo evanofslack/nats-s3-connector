@@ -41,13 +41,20 @@ impl PostgresStore {
         trace!("start run migrations");
         let mut client = self.get_client().await?;
 
-        migrations::runner()
-            .run_async(&mut *client)
-            .await
-            .map_err(|e| {
-                error!("migration failed: {}", e);
-                PostgresError::Pool(format!("migration failed: {}", e))
-            })?;
+        let runner = migrations::runner();
+
+        for migration in runner.get_migrations() {
+            debug!(
+                name = migration.name(),
+                checksum = migration.checksum(),
+                "migration checksum",
+            );
+        }
+
+        runner.run_async(&mut *client).await.map_err(|e| {
+            error!(error = ?e, "fail migration");
+            PostgresError::Pool(format!("migration failed: {}", e))
+        })?;
 
         debug!("finish run migrations");
         Ok(())

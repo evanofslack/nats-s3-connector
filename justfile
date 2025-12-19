@@ -24,6 +24,12 @@ run-server: build-server
 dev-server: build-server
     RUST_LOG=none,nats3_server=DEBUG RUST_BACKTRACE=1 ./target/debug/nats3-server --config examples/config.local.toml
 
+dev-web:
+    cd server/web && npm run dev
+
+build-web:
+    cd server/web && npm run build
+
 build-cli:
     cargo build -p nats3-cli
 
@@ -37,7 +43,7 @@ install-test-cli:
     cargo install --path test --force
 
 up:
-    cd examples && docker compose -f docker-compose-dev.yaml up -d && docker compose logs --follow
+    cd examples && docker compose -f docker-compose-dev.yaml --profile infra --profile main up -d && docker compose logs --follow
 
 upb:
     cd examples && docker compose -f docker-compose-dev.yaml --profile infra --profile main up -d --build --force-recreate && docker compose logs --follow
