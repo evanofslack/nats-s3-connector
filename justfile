@@ -43,7 +43,7 @@ install-test-cli:
     cargo install --path test --force
 
 up:
-    cd examples && docker compose -f docker-compose-dev.yaml up -d && docker compose logs --follow
+    cd examples && docker compose -f docker-compose-dev.yaml --profile infra --profile main up -d && docker compose logs --follow
 
 upb:
     cd examples && docker compose -f docker-compose-dev.yaml --profile infra --profile main up -d --build --force-recreate && docker compose logs --follow
