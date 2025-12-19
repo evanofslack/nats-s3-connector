@@ -22,7 +22,7 @@ run-server: build-server
     ./target/debug/nats3-server --config examples/config.toml
 
 dev-server: build-server
-    RUST_LOG=none,nats3_server=DEBUG RUST_BACKTRACE=1 ./target/debug/nats3-server --config examples/config.local.toml
+    RUST_LOG=none,nats3_server=debug,tower_http=debug RUST_BACKTRACE=1 ./target/debug/nats3-server --config examples/config.local.toml
 
 dev-web:
     cd server/web && npm run dev
