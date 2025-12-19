@@ -41,7 +41,7 @@ impl Coordinator {
 
         let registered = self
             .registry
-            .try_register_load_job(job_id.clone(), handle, task_token, config)
+            .try_register_load_job(job_id.clone(), handle, task_token)
             .await;
 
         let status = if registered {
@@ -74,7 +74,7 @@ impl Coordinator {
 
         let registered = self
             .registry
-            .try_register_load_job(job_id.clone(), handle, task_token, config)
+            .try_register_load_job(job_id.clone(), handle, task_token)
             .await;
 
         let status = if registered {
@@ -112,7 +112,7 @@ impl Coordinator {
 
         let registered = self
             .registry
-            .try_register_store_job(job_id.clone(), handle, task_token, config)
+            .try_register_store_job(job_id.clone(), handle, task_token)
             .await;
 
         let status = if registered {
@@ -145,7 +145,7 @@ impl Coordinator {
 
         let registered = self
             .registry
-            .try_register_store_job(job_id.clone(), handle, task_token, config)
+            .try_register_store_job(job_id.clone(), handle, task_token)
             .await;
 
         let status = if registered {

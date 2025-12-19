@@ -6,8 +6,6 @@ use tokio::{sync::RwLock, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, trace};
 
-use crate::io;
-
 #[derive(Error, Debug)]
 pub enum RegistryError {
     #[error("job already running: {job_id}")]
@@ -18,16 +16,12 @@ pub enum RegistryError {
 struct StoreJobHandle {
     handle: JoinHandle<Result<()>>,
     cancel_token: CancellationToken,
-    started_at: chrono::DateTime<chrono::Utc>,
-    config: io::ConsumeConfig,
 }
 
 #[derive(Debug)]
 struct LoadJobHandle {
     handle: JoinHandle<Result<()>>,
     cancel_token: CancellationToken,
-    started_at: chrono::DateTime<chrono::Utc>,
-    config: io::PublishConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -72,7 +66,6 @@ impl Registry {
         job_id: String,
         handle: JoinHandle<Result<()>>,
         cancel_token: CancellationToken,
-        config: io::ConsumeConfig,
     ) -> bool {
         debug!(job_id = job_id, "try register store job handle");
 
@@ -86,8 +79,6 @@ impl Registry {
             StoreJobHandle {
                 handle,
                 cancel_token,
-                started_at: chrono::Utc::now(),
-                config,
             },
         );
         true
@@ -98,7 +89,6 @@ impl Registry {
         job_id: String,
         handle: JoinHandle<Result<()>>,
         cancel_token: CancellationToken,
-        config: io::PublishConfig,
     ) -> bool {
         debug!(job_id = job_id, "register load job handle");
 
@@ -113,8 +103,6 @@ impl Registry {
             LoadJobHandle {
                 handle,
                 cancel_token,
-                started_at: chrono::Utc::now(),
-                config,
             },
         );
         true
@@ -322,19 +310,8 @@ mod tests {
             Ok(())
         });
 
-        let config = io::ConsumeConfig {
-            stream: "test".to_string(),
-            consumer: None,
-            subject: "test".to_string(),
-            bucket: "test".to_string(),
-            prefix: None,
-            bytes_max: 1000,
-            messages_max: 100,
-            codec: nats3_types::Codec::Json,
-        };
-
         registry
-            .try_register_store_job(job_id.clone(), handle, cancel_token, config)
+            .try_register_store_job(job_id.clone(), handle, cancel_token)
             .await;
 
         assert!(registry.is_store_job_running(&job_id).await);
@@ -357,28 +334,12 @@ mod tests {
             Ok(())
         });
 
-        let config = io::ConsumeConfig {
-            stream: "test".to_string(),
-            consumer: None,
-            subject: "test".to_string(),
-            bucket: "test".to_string(),
-            prefix: None,
-            bytes_max: 1000,
-            messages_max: 100,
-            codec: nats3_types::Codec::Json,
-        };
-
         registry
-            .try_register_store_job(
-                job_id.clone(),
-                handle1,
-                cancel_token.clone(),
-                config.clone(),
-            )
+            .try_register_store_job(job_id.clone(), handle1, cancel_token.clone())
             .await;
 
         let result = registry
-            .try_register_store_job(job_id.clone(), handle2, cancel_token, config)
+            .try_register_store_job(job_id.clone(), handle2, cancel_token)
             .await;
 
         assert!(!result);
@@ -392,19 +353,8 @@ mod tests {
 
         let handle = tokio::spawn(async { Ok(()) });
 
-        let config = io::ConsumeConfig {
-            stream: "test".to_string(),
-            consumer: None,
-            subject: "test".to_string(),
-            bucket: "test".to_string(),
-            prefix: None,
-            bytes_max: 1000,
-            messages_max: 100,
-            codec: nats3_types::Codec::Json,
-        };
-
         registry
-            .try_register_store_job(job_id.clone(), handle, cancel_token, config)
+            .try_register_store_job(job_id.clone(), handle, cancel_token)
             .await;
 
         sleep(Duration::from_millis(50)).await;
@@ -429,19 +379,8 @@ mod tests {
 
         let handle = tokio::spawn(async { Err(anyhow::anyhow!("test error")) });
 
-        let config = io::ConsumeConfig {
-            stream: "test".to_string(),
-            consumer: None,
-            subject: "test".to_string(),
-            bucket: "test".to_string(),
-            prefix: None,
-            bytes_max: 1000,
-            messages_max: 100,
-            codec: nats3_types::Codec::Json,
-        };
-
         registry
-            .try_register_store_job(job_id.clone(), handle, cancel_token, config)
+            .try_register_store_job(job_id.clone(), handle, cancel_token)
             .await;
 
         sleep(Duration::from_millis(50)).await;
@@ -468,19 +407,8 @@ mod tests {
             panic!("intentional panic");
         });
 
-        let config = io::ConsumeConfig {
-            stream: "test".to_string(),
-            consumer: None,
-            subject: "test".to_string(),
-            bucket: "test".to_string(),
-            prefix: None,
-            bytes_max: 1000,
-            messages_max: 100,
-            codec: nats3_types::Codec::Json,
-        };
-
         registry
-            .try_register_store_job(job_id.clone(), handle, cancel_token, config)
+            .try_register_store_job(job_id.clone(), handle, cancel_token)
             .await;
 
         sleep(Duration::from_millis(50)).await;
