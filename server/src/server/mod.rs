@@ -16,7 +16,8 @@ use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
 use tower_http::services::{ServeDir, ServeFile};
-use tracing::{debug, info, warn};
+use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
+use tracing::{debug, info, warn, Level};
 
 use crate::{coordinator, db, error, metrics as counter, registry};
 
@@ -130,7 +131,15 @@ fn create_router(deps: Dependencies) -> Router {
 
     let serve_dir =
         ServeDir::new("server/web/dist").fallback(ServeFile::new("server/web/dist/index.html"));
-    Router::new().merge(api_router).fallback_service(serve_dir)
+    Router::new()
+        .merge(api_router)
+        .fallback_service(serve_dir)
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(Level::DEBUG))
+                .on_request(DefaultOnRequest::new().level(Level::DEBUG))
+                .on_response(DefaultOnResponse::new().level(Level::INFO)),
+        )
 }
 
 impl IntoResponse for error::AppError {
