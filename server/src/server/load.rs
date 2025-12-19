@@ -7,7 +7,6 @@ use axum::{
 };
 use nats3_types::{CreateLoadJob, LoadJob};
 use serde::Deserialize;
-use tracing::info;
 
 use crate::{error::AppError, io, server::Dependencies};
 
@@ -31,13 +30,6 @@ async fn get_load_job(
     State(state): State<Dependencies>,
     Query(params): Query<GetJobParams>,
 ) -> Result<Json<LoadJob>, AppError> {
-    info!(
-        route = "/load/job",
-        method = "GET",
-        job_id = params.job_id,
-        "handle request"
-    );
-
     // fetch load jobs from db
     let job = state.db.get_load_job(params.job_id).await?;
 
@@ -49,13 +41,6 @@ async fn delete_load_job(
     State(state): State<Dependencies>,
     Query(params): Query<GetJobParams>,
 ) -> Result<(), AppError> {
-    info!(
-        route = "/load/job",
-        method = "DELETE",
-        job_id = params.job_id,
-        "handle request"
-    );
-
     state.coordinator.stop_load_job(params.job_id.clone()).await;
     state.db.delete_load_job(params.job_id).await?;
     Ok(())
@@ -63,8 +48,6 @@ async fn delete_load_job(
 
 #[debug_handler]
 async fn get_load_jobs(State(state): State<Dependencies>) -> Result<Json<Vec<LoadJob>>, AppError> {
-    info!(route = "/load/jobs", method = "GET", "handle request");
-
     let jobs = state.db.get_load_jobs(None).await?;
     Ok(Json(jobs))
 }
@@ -74,16 +57,6 @@ async fn start_load_job(
     State(state): State<Dependencies>,
     Json(payload): Json<CreateLoadJob>,
 ) -> Result<Json<LoadJob>, AppError> {
-    info!(
-        route = "/load/job",
-        method = "PUT",
-        bucket = payload.bucket,
-        read_subject = payload.read_subject,
-        write_subject = payload.write_subject,
-        delete_chunks = payload.delete_chunks,
-        "handle request"
-    );
-
     let job = LoadJob::new(
         payload.bucket.clone(),
         payload.prefix.clone(),
