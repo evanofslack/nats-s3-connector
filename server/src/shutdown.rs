@@ -19,8 +19,4 @@ impl ShutdownCoordinator {
     pub fn shutdown(&self) {
         self.shutdown_token.cancel();
     }
-
-    pub fn is_shutdown(&self) -> bool {
-        self.shutdown_token.is_cancelled()
-    }
 }
