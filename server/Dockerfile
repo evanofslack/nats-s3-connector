@@ -35,5 +35,5 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app/target/release/nats3-server /usr/local/bin
-COPY --from=web-builder /app/web/dist /app/web/dist
+COPY --from=web-builder /app/web/dist ./server/web/dist
 ENTRYPOINT ["/usr/local/bin/nats3-server"]
