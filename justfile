@@ -42,6 +42,9 @@ install-cli:
 install-test-cli:
     cargo install --path test --force
 
+install-web:
+    cd server/web && npm install
+
 up:
     cd examples && docker compose -f docker-compose-dev.yaml --profile infra --profile main up -d && docker compose logs --follow
 
