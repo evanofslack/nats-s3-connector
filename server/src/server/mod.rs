@@ -11,14 +11,15 @@ use hyper_util::{
     server,
 };
 use serde_json::json;
-use std::time::Duration;
-use std::{convert::Infallible, net::SocketAddr};
+use std::{convert::Infallible, net::SocketAddr, time::Duration};
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
-use tower_http::services::{ServeDir, ServeFile};
-use tower_http::trace::TraceLayer;
-use tracing::{debug, info, warn, Span};
+use tower_http::{
+    services::{ServeDir, ServeFile},
+    trace::TraceLayer,
+};
+use tracing::{debug, info, info_span, warn, Span};
 
 use crate::{coordinator, db, error, metrics as counter, registry};
 
@@ -131,22 +132,23 @@ fn create_router(deps: Dependencies) -> Router {
         .merge(store::create_router(deps));
 
     let trace_mw = TraceLayer::new_for_http()
-        .on_request(|request: &Request<_>, _span: &Span| {
-            info!(
-                version = ?request.version(),
+        .make_span_with(|request: &Request<_>| {
+            info_span!(
+                "handle_request",
                 method = %request.method(),
-                path = request.uri().path(),
-                "start handle request"
+                uri = %request.uri(),
+                status = tracing::field::Empty,
+                latency_ms = tracing::field::Empty,
             )
         })
-        .on_response(|response: &Response<_>, latency: Duration, _span: &Span| {
-            info!(
-                version = ?response.version(),
-                status = response.status().as_u16(),
-                latency_ms = latency.as_millis(),
-                "finish handle request"
-            );
-        });
+        .on_request(())
+        .on_response(|response: &Response<_>, latency: Duration, span: &Span| {
+            span.record("status", response.status().as_u16());
+            span.record("latency_ms", latency.as_millis());
+            info!("request completed");
+        })
+        .on_body_chunk(())
+        .on_eos(());
 
     let serve_dir =
         ServeDir::new("server/web/dist").fallback(ServeFile::new("server/web/dist/index.html"));
