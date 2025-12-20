@@ -15,6 +15,8 @@ pub enum LoadJobStatusEnum {
     Created,
     #[postgres(name = "running")]
     Running,
+    #[postgres(name = "paused")]
+    Paused,
     #[postgres(name = "success")]
     Success,
     #[postgres(name = "failure")]
@@ -26,6 +28,7 @@ impl From<LoadJobStatus> for LoadJobStatusEnum {
         match status {
             LoadJobStatus::Created => Self::Created,
             LoadJobStatus::Running => Self::Running,
+            LoadJobStatus::Paused => Self::Paused,
             LoadJobStatus::Success => Self::Success,
             LoadJobStatus::Failure => Self::Failure,
         }
@@ -37,6 +40,7 @@ impl From<LoadJobStatusEnum> for LoadJobStatus {
         match status {
             LoadJobStatusEnum::Created => Self::Created,
             LoadJobStatusEnum::Running => Self::Running,
+            LoadJobStatusEnum::Paused => Self::Paused,
             LoadJobStatusEnum::Success => Self::Success,
             LoadJobStatusEnum::Failure => Self::Failure,
         }
@@ -131,6 +135,8 @@ pub enum StoreJobStatusEnum {
     Created,
     #[postgres(name = "running")]
     Running,
+    #[postgres(name = "paused")]
+    Paused,
     #[postgres(name = "success")]
     Success,
     #[postgres(name = "failure")]
@@ -142,6 +148,7 @@ impl From<StoreJobStatus> for StoreJobStatusEnum {
         match status {
             StoreJobStatus::Created => Self::Created,
             StoreJobStatus::Running => Self::Running,
+            StoreJobStatus::Paused => Self::Paused,
             StoreJobStatus::Success => Self::Success,
             StoreJobStatus::Failure => Self::Failure,
         }
@@ -153,6 +160,7 @@ impl From<StoreJobStatusEnum> for StoreJobStatus {
         match status {
             StoreJobStatusEnum::Created => Self::Created,
             StoreJobStatusEnum::Running => Self::Running,
+            StoreJobStatusEnum::Paused => Self::Paused,
             StoreJobStatusEnum::Success => Self::Success,
             StoreJobStatusEnum::Failure => Self::Failure,
         }

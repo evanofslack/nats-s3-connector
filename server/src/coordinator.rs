@@ -33,15 +33,28 @@ impl Coordinator {
         self.db.create_load_job(job.clone()).await?;
         let io = self.io.clone();
         let registry_config = config.clone();
-        let task_token = self.registry.create_cancel_token();
-        let task_token_clone = task_token.clone();
 
-        let handle: tokio::task::JoinHandle<Result<()>> =
-            tokio::spawn(async move { io.publish_stream(registry_config, task_token_clone).await });
+        // Cancel token is child of shutdown (for stop/shutdown)
+        let cancel_token = self.registry.create_cancel_token();
+        let cancel_token_clone = cancel_token.clone();
+
+        // Pause token is independent (for pause)
+        let pause_token = self.registry.create_pause_token();
+        let pause_token_clone = pause_token.clone();
+
+        let handle: tokio::task::JoinHandle<Result<()>> = tokio::spawn(async move {
+            io.publish_stream(registry_config, cancel_token, pause_token)
+                .await
+        });
 
         let registered = self
             .registry
-            .try_register_load_job(job_id.clone(), handle, task_token)
+            .try_register_load_job(
+                job_id.clone(),
+                handle,
+                cancel_token_clone,
+                pause_token_clone,
+            )
             .await;
 
         let status = if registered {
@@ -51,6 +64,25 @@ impl Coordinator {
         };
 
         self.db.update_load_job(job_id, status).await?;
+        Ok(job)
+    }
+
+    pub async fn pause_load_job(&self, job_id: String) -> Result<LoadJob, error::AppError> {
+        self.registry.pause_load_job(&job_id).await;
+        let status = LoadJobStatus::Paused;
+        let job = self.db.update_load_job(job_id, status).await?;
+        Ok(job)
+    }
+
+    pub async fn resume_load_job(&self, job_id: String) -> Result<LoadJob, error::AppError> {
+        let job = self.db.get_load_job(job_id.clone()).await?;
+        if job.status != LoadJobStatus::Paused {
+            return Ok(job);
+        }
+        let config: io::PublishConfig = job.clone().into();
+        self.restart_load_job(job, config).await?;
+        let status = LoadJobStatus::Running;
+        let job = self.db.update_load_job(job_id, status).await?;
         Ok(job)
     }
 
@@ -66,15 +98,25 @@ impl Coordinator {
 
         let io = self.io.clone();
         let registry_config = config.clone();
-        let task_token = self.registry.create_cancel_token();
-        let task_token_clone = task_token.clone();
 
-        let handle: tokio::task::JoinHandle<Result<()>> =
-            tokio::spawn(async move { io.publish_stream(registry_config, task_token_clone).await });
+        let cancel_token = self.registry.create_cancel_token();
+        let cancel_token_clone = cancel_token.clone();
+        let pause_token = self.registry.create_pause_token();
+        let pause_token_clone = pause_token.clone();
+
+        let handle: tokio::task::JoinHandle<Result<()>> = tokio::spawn(async move {
+            io.publish_stream(registry_config, cancel_token, pause_token)
+                .await
+        });
 
         let registered = self
             .registry
-            .try_register_load_job(job_id.clone(), handle, task_token)
+            .try_register_load_job(
+                job_id.clone(),
+                handle,
+                cancel_token_clone,
+                pause_token_clone,
+            )
             .await;
 
         let status = if registered {
@@ -104,15 +146,25 @@ impl Coordinator {
         self.db.create_store_job(job.clone()).await?;
         let io = self.io.clone();
         let registry_config = config.clone();
-        let task_token = self.registry.create_cancel_token();
-        let task_token_clone = task_token.clone();
 
-        let handle: tokio::task::JoinHandle<Result<()>> =
-            tokio::spawn(async move { io.consume_stream(registry_config, task_token_clone).await });
+        let cancel_token = self.registry.create_cancel_token();
+        let cancel_token_clone = cancel_token.clone();
+        let pause_token = self.registry.create_pause_token();
+        let pause_token_clone = pause_token.clone();
+
+        let handle: tokio::task::JoinHandle<Result<()>> = tokio::spawn(async move {
+            io.consume_stream(registry_config, cancel_token, pause_token)
+                .await
+        });
 
         let registered = self
             .registry
-            .try_register_store_job(job_id.clone(), handle, task_token)
+            .try_register_store_job(
+                job_id.clone(),
+                handle,
+                cancel_token_clone,
+                pause_token_clone,
+            )
             .await;
 
         let status = if registered {
@@ -122,6 +174,25 @@ impl Coordinator {
         };
 
         self.db.update_store_job(job_id, status).await?;
+        Ok(job)
+    }
+
+    pub async fn pause_store_job(&self, job_id: String) -> Result<StoreJob, error::AppError> {
+        self.registry.pause_store_job(&job_id).await;
+        let status = StoreJobStatus::Paused;
+        let job = self.db.update_store_job(job_id, status).await?;
+        Ok(job)
+    }
+
+    pub async fn resume_store_job(&self, job_id: String) -> Result<StoreJob, error::AppError> {
+        let job = self.db.get_store_job(job_id.clone()).await?;
+        if job.status != StoreJobStatus::Paused {
+            return Ok(job);
+        }
+        let config: io::ConsumeConfig = job.clone().into();
+        self.restart_store_job(job, config).await?;
+        let status = StoreJobStatus::Running;
+        let job = self.db.update_store_job(job_id, status).await?;
         Ok(job)
     }
 
@@ -137,15 +208,25 @@ impl Coordinator {
 
         let io = self.io.clone();
         let registry_config = config.clone();
-        let task_token = self.registry.create_cancel_token();
-        let task_token_clone = task_token.clone();
 
-        let handle: tokio::task::JoinHandle<Result<()>> =
-            tokio::spawn(async move { io.consume_stream(registry_config, task_token_clone).await });
+        let cancel_token = self.registry.create_cancel_token();
+        let cancel_token_clone = cancel_token.clone();
+        let pause_token = self.registry.create_pause_token();
+        let pause_token_clone = pause_token.clone();
+
+        let handle: tokio::task::JoinHandle<Result<()>> = tokio::spawn(async move {
+            io.consume_stream(registry_config, cancel_token, pause_token)
+                .await
+        });
 
         let registered = self
             .registry
-            .try_register_store_job(job_id.clone(), handle, task_token)
+            .try_register_store_job(
+                job_id.clone(),
+                handle,
+                cancel_token_clone,
+                pause_token_clone,
+            )
             .await;
 
         let status = if registered {

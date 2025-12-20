@@ -385,3 +385,69 @@ async fn test_delete_store_job_http_error() {
     }
     mock.assert();
 }
+
+#[tokio::test]
+async fn test_pause_load_job_success() {
+    let mut server = mockito::Server::new_async().await;
+    let job = LoadJob::new(
+        "test-bucket".to_string(),
+        Some("prefix/".to_string()),
+        "read-stream".to_string(),
+        None,
+        "read.subject".to_string(),
+        "write.subject".to_string(),
+        None,
+        false,
+        None,
+        None,
+    );
+
+    let mock = server
+        .mock("POST", "/load/job/pause")
+        .match_query(mockito::Matcher::UrlEncoded(
+            "job_id".into(),
+            job.id.clone(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(serde_json::to_string(&job).unwrap())
+        .create();
+
+    let client = Client::new(server.url());
+    let result = client.pause_load_job(job.id).await.unwrap();
+
+    assert_eq!(result.bucket, "test-bucket");
+    mock.assert();
+}
+
+#[tokio::test]
+async fn test_resume_store_job_success() {
+    let mut server = mockito::Server::new_async().await;
+    let job = StoreJob::new(
+        "test-job".to_string(),
+        "test-stream".to_string(),
+        None,
+        "test.subject".to_string(),
+        "test-bucket".to_string(),
+        None,
+        Batch::default(),
+        Encoding::default(),
+    );
+
+    let mock = server
+        .mock("POST", "/store/job/resume")
+        .match_query(mockito::Matcher::UrlEncoded(
+            "job_id".into(),
+            job.id.clone(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(serde_json::to_string(&job).unwrap())
+        .create();
+
+    let client = Client::new(server.url());
+    let result = client.resume_store_job(job.id).await.unwrap();
+
+    assert_eq!(result.name, "test-job");
+    mock.assert();
+}

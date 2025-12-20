@@ -50,6 +50,20 @@ pub enum LoadCommand {
         #[arg(long, value_parser = parse_datetime)]
         to_time: Option<DateTime<Utc>>,
     },
+    Pause {
+        #[arg(short, long)]
+        interactive: bool,
+
+        #[arg(long, required_unless_present_any = ["interactive"])]
+        job_id: Option<String>,
+    },
+    Resume {
+        #[arg(short, long)]
+        interactive: bool,
+
+        #[arg(long, required_unless_present_any = ["interactive"])]
+        job_id: Option<String>,
+    },
     Delete {
         #[arg(short, long)]
         interactive: bool,
@@ -108,12 +122,50 @@ impl LoadCommand {
                     .context("Fail create load job")?;
                 output::print_load_job(created, output_format)?;
             }
+            LoadCommand::Pause {
+                interactive,
+                mut job_id,
+            } => {
+                if interactive {
+                    job_id = Some(interactive::prompt_job_id()?);
+                };
+                if job_id.is_none() {
+                    println!("{}", "Must provide job id to pause load job".red());
+                    return Ok(());
+                }
+
+                client
+                    .pause_load_job(job_id.expect("job id is set"))
+                    .await
+                    .context("Fail pause load job")?;
+
+                println!("{}", "Load job paused successfully!".green());
+            }
+            LoadCommand::Resume {
+                interactive,
+                mut job_id,
+            } => {
+                if interactive {
+                    job_id = Some(interactive::prompt_job_id()?);
+                };
+                if job_id.is_none() {
+                    println!("{}", "Must provide job id to resume load job".red());
+                    return Ok(());
+                }
+
+                client
+                    .resume_load_job(job_id.expect("job id is set"))
+                    .await
+                    .context("Fail resume load job")?;
+
+                println!("{}", "Load job resumed successfully!".green());
+            }
             LoadCommand::Delete {
                 interactive,
                 mut job_id,
             } => {
                 if interactive {
-                    job_id = Some(interactive::prompt_delete_load_job()?);
+                    job_id = Some(interactive::prompt_job_id()?);
                 };
                 if job_id.is_none() {
                     println!("{}", "Must provide job id to delete load job".red());

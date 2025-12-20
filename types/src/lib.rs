@@ -138,6 +138,7 @@ impl StoreJob {
 pub enum StoreJobStatus {
     Created,
     Running,
+    Paused,
     Success,
     Failure,
 }
@@ -280,6 +281,7 @@ impl LoadJob {
 pub enum LoadJobStatus {
     Created,
     Running,
+    Paused,
     Success,
     Failure,
 }

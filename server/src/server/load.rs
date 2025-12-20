@@ -15,6 +15,8 @@ pub fn create_router(deps: Dependencies) -> Router {
         .route("/load/job", get(get_load_job))
         .route("/load/job", delete(delete_load_job))
         .route("/load/job", post(start_load_job))
+        .route("/load/job/pause", post(pause_load_job))
+        .route("/load/job/resume", post(resume_load_job))
         .route("/load/jobs", get(get_load_jobs))
         .with_state(deps);
     router
@@ -78,5 +80,23 @@ async fn start_load_job(
 
     // return a 201 resp
     // TODO: write location header
+    Ok(Json(job))
+}
+
+#[debug_handler]
+async fn pause_load_job(
+    State(state): State<Dependencies>,
+    Query(params): Query<GetJobParams>,
+) -> Result<Json<LoadJob>, AppError> {
+    let job = state.coordinator.pause_load_job(params.job_id).await?;
+    Ok(Json(job))
+}
+
+#[debug_handler]
+async fn resume_load_job(
+    State(state): State<Dependencies>,
+    Query(params): Query<GetJobParams>,
+) -> Result<Json<LoadJob>, AppError> {
+    let job = state.coordinator.resume_load_job(params.job_id).await?;
     Ok(Json(job))
 }

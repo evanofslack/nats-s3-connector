@@ -1,6 +1,6 @@
-CREATE TYPE load_job_status AS ENUM ('created', 'running', 'success', 'failure');
+CREATE TYPE load_job_status AS ENUM ('created', 'running', 'paused', 'success', 'failure');
 
-CREATE TYPE store_job_status AS ENUM ('created', 'running', 'success', 'failure');
+CREATE TYPE store_job_status AS ENUM ('created', 'running', 'paused', 'success', 'failure');
 
 CREATE TYPE encoding_codec AS ENUM ('json', 'binary');
 

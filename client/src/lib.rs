@@ -33,6 +33,36 @@ impl Client {
             .map_err(|e| ClientError::Deserialization(e.to_string()))
     }
 
+    pub async fn pause_load_job(&self, id: String) -> Result<LoadJob> {
+        let url = format!("{}/load/job/pause", self.base_url);
+        let response = self.http.post(&url).query(&[("job_id", id)]).send().await?;
+        if !response.status().is_success() {
+            return Err(ClientError::Http {
+                status: response.status().as_u16(),
+                message: response.text().await.unwrap_or_default(),
+            });
+        }
+        response
+            .json()
+            .await
+            .map_err(|e| ClientError::Deserialization(e.to_string()))
+    }
+
+    pub async fn resume_load_job(&self, id: String) -> Result<LoadJob> {
+        let url = format!("{}/load/job/resume", self.base_url);
+        let response = self.http.post(&url).query(&[("job_id", id)]).send().await?;
+        if !response.status().is_success() {
+            return Err(ClientError::Http {
+                status: response.status().as_u16(),
+                message: response.text().await.unwrap_or_default(),
+            });
+        }
+        response
+            .json()
+            .await
+            .map_err(|e| ClientError::Deserialization(e.to_string()))
+    }
+
     pub async fn get_load_jobs(&self) -> Result<Vec<LoadJob>> {
         let url = format!("{}/load/jobs", self.base_url);
         let response = self.http.get(&url).send().await?;
@@ -113,6 +143,36 @@ impl Client {
             });
         }
 
+        response
+            .json()
+            .await
+            .map_err(|e| ClientError::Deserialization(e.to_string()))
+    }
+
+    pub async fn pause_store_job(&self, id: String) -> Result<StoreJob> {
+        let url = format!("{}/store/job/pause", self.base_url);
+        let response = self.http.post(&url).query(&[("job_id", id)]).send().await?;
+        if !response.status().is_success() {
+            return Err(ClientError::Http {
+                status: response.status().as_u16(),
+                message: response.text().await.unwrap_or_default(),
+            });
+        }
+        response
+            .json()
+            .await
+            .map_err(|e| ClientError::Deserialization(e.to_string()))
+    }
+
+    pub async fn resume_store_job(&self, id: String) -> Result<StoreJob> {
+        let url = format!("{}/store/job/resume", self.base_url);
+        let response = self.http.post(&url).query(&[("job_id", id)]).send().await?;
+        if !response.status().is_success() {
+            return Err(ClientError::Http {
+                status: response.status().as_u16(),
+                message: response.text().await.unwrap_or_default(),
+            });
+        }
         response
             .json()
             .await

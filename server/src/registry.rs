@@ -16,12 +16,14 @@ pub enum RegistryError {
 struct StoreJobHandle {
     handle: JoinHandle<Result<()>>,
     cancel_token: CancellationToken,
+    pause_token: CancellationToken,
 }
 
 #[derive(Debug)]
 struct LoadJobHandle {
     handle: JoinHandle<Result<()>>,
     cancel_token: CancellationToken,
+    pause_token: CancellationToken,
 }
 
 #[derive(Debug, Clone)]
@@ -61,11 +63,16 @@ impl Registry {
         self.shutdown_token.child_token()
     }
 
+    pub fn create_pause_token(&self) -> CancellationToken {
+        CancellationToken::new()
+    }
+
     pub async fn try_register_store_job(
         &self,
         job_id: String,
         handle: JoinHandle<Result<()>>,
         cancel_token: CancellationToken,
+        pause_token: CancellationToken,
     ) -> bool {
         debug!(job_id = job_id, "try register store job handle");
 
@@ -79,6 +86,7 @@ impl Registry {
             StoreJobHandle {
                 handle,
                 cancel_token,
+                pause_token,
             },
         );
         true
@@ -89,6 +97,7 @@ impl Registry {
         job_id: String,
         handle: JoinHandle<Result<()>>,
         cancel_token: CancellationToken,
+        pause_token: CancellationToken,
     ) -> bool {
         debug!(job_id = job_id, "register load job handle");
 
@@ -103,6 +112,7 @@ impl Registry {
             LoadJobHandle {
                 handle,
                 cancel_token,
+                pause_token,
             },
         );
         true
@@ -212,6 +222,20 @@ impl Registry {
         }
     }
 
+    pub async fn pause_store_job(&self, job_id: &str) {
+        let handles = self.store_handles.read().await;
+        if let Some(job_handle) = handles.get(job_id) {
+            job_handle.pause_token.cancel();
+        }
+    }
+
+    pub async fn pause_load_job(&self, job_id: &str) {
+        let handles = self.load_handles.read().await;
+        if let Some(job_handle) = handles.get(job_id) {
+            job_handle.pause_token.cancel();
+        }
+    }
+
     pub async fn wait_for_all_jobs(&self) -> Result<()> {
         debug!("wait for all in progress jobs to complete");
 
@@ -259,10 +283,6 @@ mod tests {
             Self::default()
         }
 
-        async fn get_calls(&self) -> Vec<(String, JobResult)> {
-            self.calls.lock().await.clone()
-        }
-
         async fn assert_called_with(&self, job_id: &str, expected: JobResult) {
             let calls = self.calls.lock().await;
             assert!(
@@ -302,6 +322,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_and_check_running() {
         let cancel_token = CancellationToken::new();
+        let pause_token = CancellationToken::new();
         let registry = Registry::new(cancel_token.clone());
         let job_id = "test-job-1".to_string();
 
@@ -311,7 +332,7 @@ mod tests {
         });
 
         registry
-            .try_register_store_job(job_id.clone(), handle, cancel_token)
+            .try_register_store_job(job_id.clone(), handle, cancel_token, pause_token)
             .await;
 
         assert!(registry.is_store_job_running(&job_id).await);
@@ -321,6 +342,7 @@ mod tests {
     #[tokio::test]
     async fn test_duplicate_registration_fails() {
         let cancel_token = CancellationToken::new();
+        let pause_token = CancellationToken::new();
         let registry = Registry::new(cancel_token.clone());
         let job_id = "test-job-2".to_string();
 
@@ -335,26 +357,58 @@ mod tests {
         });
 
         registry
-            .try_register_store_job(job_id.clone(), handle1, cancel_token.clone())
+            .try_register_store_job(
+                job_id.clone(),
+                handle1,
+                cancel_token.clone(),
+                pause_token.clone(),
+            )
             .await;
 
         let result = registry
-            .try_register_store_job(job_id.clone(), handle2, cancel_token)
+            .try_register_store_job(job_id.clone(), handle2, cancel_token, pause_token)
             .await;
 
         assert!(!result);
     }
 
     #[tokio::test]
+    async fn test_pause_store_job() {
+        let cancel_token = CancellationToken::new();
+        let registry = Registry::new(cancel_token.clone());
+        let job_id = "test-job-pause".to_string();
+        let pause_token = CancellationToken::new();
+        let pause_token_clone = pause_token.clone();
+
+        let handle = tokio::spawn(async move {
+            tokio::select! {
+                _ = sleep(Duration::from_secs(10)) => Ok(()),
+                _ = pause_token_clone.cancelled() => Ok(()),
+            }
+        });
+
+        registry
+            .try_register_store_job(job_id.clone(), handle, cancel_token, pause_token.clone())
+            .await;
+
+        registry.pause_store_job(&job_id).await;
+
+        // Give it time to process pause
+        sleep(Duration::from_millis(50)).await;
+        assert!(pause_token.is_cancelled());
+    }
+
+    #[tokio::test]
     async fn test_cleanup_calls_handler_on_success() {
         let cancel_token = CancellationToken::new();
+        let pause_token = CancellationToken::new();
         let registry = Registry::new(cancel_token.clone());
         let job_id = "test-job-success".to_string();
 
         let handle = tokio::spawn(async { Ok(()) });
 
         registry
-            .try_register_store_job(job_id.clone(), handle, cancel_token)
+            .try_register_store_job(job_id.clone(), handle, cancel_token, pause_token)
             .await;
 
         sleep(Duration::from_millis(50)).await;
@@ -374,13 +428,14 @@ mod tests {
     #[tokio::test]
     async fn test_cleanup_calls_handler_on_failure() {
         let cancel_token = CancellationToken::new();
+        let pause_token = CancellationToken::new();
         let registry = Registry::new(cancel_token.clone());
         let job_id = "test-job-fail".to_string();
 
         let handle = tokio::spawn(async { Err(anyhow::anyhow!("test error")) });
 
         registry
-            .try_register_store_job(job_id.clone(), handle, cancel_token)
+            .try_register_store_job(job_id.clone(), handle, cancel_token, pause_token)
             .await;
 
         sleep(Duration::from_millis(50)).await;
@@ -399,6 +454,7 @@ mod tests {
     #[tokio::test]
     async fn test_cleanup_calls_handler_on_panic() {
         let cancel_token = CancellationToken::new();
+        let pause_token = CancellationToken::new();
         let handler = MockJobCompletionHandler::new();
         let registry = Registry::new(cancel_token.clone());
         let job_id = "test-job-panic".to_string();
@@ -408,7 +464,7 @@ mod tests {
         });
 
         registry
-            .try_register_store_job(job_id.clone(), handle, cancel_token)
+            .try_register_store_job(job_id.clone(), handle, cancel_token, pause_token)
             .await;
 
         sleep(Duration::from_millis(50)).await;

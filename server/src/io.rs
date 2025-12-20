@@ -102,6 +102,7 @@ impl IO {
         &self,
         config: ConsumeConfig,
         cancel_token: CancellationToken,
+        pause_token: CancellationToken,
     ) -> Result<()> {
         debug!(
             stream = config.stream,
@@ -160,6 +161,15 @@ impl IO {
                         self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
                     }
                 }
+                _ = pause_token.cancelled() => {
+                    debug!("consume stream paused, flushing buffer");
+                    let messages_total = buffer.len().await;
+                    if messages_total > 0 {
+                        self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
+                    }
+                    debug!("buffer flushed, exiting gracefully for pause");
+                    break;
+            }
                 _ = cancel_token.cancelled() => {
                     debug!("consume stream cancelled, flushing buffer");
                     let messages_total = buffer.len().await;
@@ -241,6 +251,7 @@ impl IO {
         &self,
         config: PublishConfig,
         cancel_token: CancellationToken,
+        pause_token: CancellationToken,
     ) -> Result<()> {
         debug!(
             read_stream = config.read_stream,
@@ -276,6 +287,10 @@ impl IO {
                 if cancel_token.is_cancelled() {
                     debug!("publish stream cancelled");
                     break;
+                }
+                if pause_token.is_cancelled() {
+                    debug!("publish stream paused");
+                    return Ok(());
                 }
                 let path = if chunk_md.prefix.clone().is_some_and(|p| !p.is_empty()) {
                     format!(
