@@ -8,6 +8,7 @@ import { usePauseLoadJob } from "../hooks/usePauseLoadJob";
 import { usePauseStoreJob } from "../hooks/usePauseStoreJob";
 import { useResumeLoadJob } from "../hooks/useResumeLoadJob";
 import { useResumeStoreJob } from "../hooks/useResumeStoreJob";
+import { getStatusColor } from "../utils/status";
 import { Table } from "../components/Table";
 import { Button } from "../components/Button";
 import { Spinner } from "../components/Spinner";
@@ -102,23 +103,6 @@ export function Dashboard() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Created":
-        return "text-text-muted";
-      case "Running":
-        return "text-warning";
-      case "Paused":
-        return "text-text-muted";
-      case "Success":
-        return "text-success";
-      case "Failure":
-        return "text-error";
-      default:
-        return "text-text-primary";
-    }
-  };
-
   const loadColumns = [
     { header: "ID", accessor: (job: LoadJob) => job.id.slice(0, 8) },
     {
@@ -142,7 +126,7 @@ export function Dashboard() {
                 e.stopPropagation();
                 handlePauseLoad(job.id);
               }}
-              className="text-warning hover:text-warning/80 transition-colors"
+              className="text-text-muted hover:text-text-muted/80 transition-colors"
             >
               <Pause size={16} />
             </button>
@@ -153,7 +137,7 @@ export function Dashboard() {
                 e.stopPropagation();
                 handleResumeLoad(job.id);
               }}
-              className="text-success hover:text-success/80 transition-colors"
+              className="text-text-muted hover:text-text-muted/80 transition-colors"
             >
               <Play size={16} />
             </button>
@@ -195,7 +179,7 @@ export function Dashboard() {
                 e.stopPropagation();
                 handlePauseStore(job.id);
               }}
-              className="text-warning hover:text-warning/80 transition-colors"
+              className="text-text-primary hover:text-text-primary/80 transition-colors"
             >
               <Pause size={16} />
             </button>
@@ -206,7 +190,7 @@ export function Dashboard() {
                 e.stopPropagation();
                 handleResumeStore(job.id);
               }}
-              className="text-success hover:text-success/80 transition-colors"
+              className="text-text-primary hover:text-text-primary/80 transition-colors"
             >
               <Play size={16} />
             </button>

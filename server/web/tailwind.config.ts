@@ -20,6 +20,13 @@ export default {
           DEFAULT: "var(--color-accent)",
           alt: "var(--color-accent-alt)",
         },
+        status: {
+          created: "var(--color-status-created)",
+          running: "var(--color-status-running)",
+          paused: "var(--color-status-paused)",
+          success: "var(--color-status-success)",
+          failure: "var(--color-status-failure)",
+        },
         success: "var(--color-success)",
         warning: "var(--color-warning)",
         error: "var(--color-error)",

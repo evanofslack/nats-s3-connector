@@ -10,6 +10,7 @@ import { Button } from "../components/Button";
 import { Spinner } from "../components/Spinner";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { format } from "date-fns";
+import { getStatusColor } from "../utils/status";
 
 export function LoadJobDetail() {
   const { jobId } = useParams<{ jobId: string }>();
@@ -68,23 +69,6 @@ export function LoadJobDetail() {
       </div>
     );
   }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Created":
-        return "text-text-muted";
-      case "Running":
-        return "text-warning";
-      case "Paused":
-        return "text-text-muted";
-      case "Success":
-        return "text-success";
-      case "Failure":
-        return "text-error";
-      default:
-        return "text-text-primary";
-    }
-  };
 
   const formatDuration = (duration?: { secs: number; nanos: number }) => {
     if (!duration) return "-";
