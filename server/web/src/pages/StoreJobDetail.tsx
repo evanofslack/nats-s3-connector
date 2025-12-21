@@ -1,9 +1,11 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2, Pause, Play } from "lucide-react";
 import { useState } from "react";
 import { getStoreJob } from "../api";
 import { useDeleteStoreJob } from "../hooks/useDeleteStoreJob";
+import { usePauseStoreJob } from "../hooks/usePauseStoreJob";
+import { useResumeStoreJob } from "../hooks/useResumeStoreJob";
 import { Button } from "../components/Button";
 import { Spinner } from "../components/Spinner";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -13,6 +15,8 @@ export function StoreJobDetail() {
   const navigate = useNavigate();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteJob = useDeleteStoreJob();
+  const pauseJob = usePauseStoreJob();
+  const resumeJob = useResumeStoreJob();
 
   const {
     data: job,
@@ -28,6 +32,16 @@ export function StoreJobDetail() {
     if (!jobId) return;
     await deleteJob.mutateAsync(jobId);
     navigate("/");
+  };
+
+  const handlePause = async () => {
+    if (!jobId) return;
+    await pauseJob.mutateAsync(jobId);
+  };
+
+  const handleResume = async () => {
+    if (!jobId) return;
+    await resumeJob.mutateAsync(jobId);
   };
 
   if (isLoading) {
@@ -60,6 +74,8 @@ export function StoreJobDetail() {
         return "text-text-muted";
       case "Running":
         return "text-warning";
+      case "Paused":
+        return "text-text-muted";
       case "Success":
         return "text-success";
       case "Failure":
@@ -77,10 +93,24 @@ export function StoreJobDetail() {
             <ArrowLeft size={16} className="inline mr-2" />
             Back to Dashboard
           </Button>
-          <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
-            <Trash2 size={16} className="inline mr-2" />
-            Delete Job
-          </Button>
+          <div className="flex items-center gap-2">
+            {job.status === "Running" && (
+              <Button variant="secondary" onClick={handlePause}>
+                <Pause size={16} className="inline mr-2" />
+                Pause Job
+              </Button>
+            )}
+            {job.status === "Paused" && (
+              <Button variant="secondary" onClick={handleResume}>
+                <Play size={16} className="inline mr-2" />
+                Resume Job
+              </Button>
+            )}
+            <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
+              <Trash2 size={16} className="inline mr-2" />
+              Delete Job
+            </Button>
+          </div>
         </div>
 
         <div className="bg-bg-panel border border-border-subtle rounded-lg p-6">

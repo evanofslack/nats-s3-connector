@@ -1,6 +1,11 @@
 import type { Batch, Encoding } from "./common";
 
-export type StoreJobStatus = "Created" | "Running" | "Success" | "Failure";
+export type StoreJobStatus =
+  | "Created"
+  | "Running"
+  | "Paused"
+  | "Success"
+  | "Failure";
 
 export interface StoreJob {
   id: string;

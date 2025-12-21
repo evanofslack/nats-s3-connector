@@ -1,4 +1,9 @@
-export type LoadJobStatus = "Created" | "Running" | "Success" | "Failure";
+export type LoadJobStatus =
+  | "Created"
+  | "Running"
+  | "Paused"
+  | "Success"
+  | "Failure";
 
 export interface LoadJob {
   id: string;

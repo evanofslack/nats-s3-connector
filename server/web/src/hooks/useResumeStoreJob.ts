@@ -1,15 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { deleteStoreJob } from "../api";
+import { resumeStoreJob } from "../api";
 
-export function useDeleteStoreJob(onDeleteSuccess?: () => void) {
+export function useResumeStoreJob(onResumeSuccess?: () => void) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: deleteStoreJob,
+    mutationFn: resumeStoreJob,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["storeJobs"] });
       queryClient.invalidateQueries({ queryKey: ["storeJob"] });
-      onDeleteSuccess?.();
+      onResumeSuccess?.();
     },
   });
 }

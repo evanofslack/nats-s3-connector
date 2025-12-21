@@ -36,11 +36,16 @@ export async function get<T>(
   return handleResponse<T>(response);
 }
 
-export async function post<T, B = unknown>(url: string, body: B): Promise<T> {
-  const response = await fetch(url, {
+export async function post<T, B = unknown>(
+  url: string,
+  body?: B,
+  params?: Record<string, string>,
+): Promise<T> {
+  const urlWithParams = params ? `${url}?${new URLSearchParams(params)}` : url;
+  const response = await fetch(urlWithParams, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    ...(body !== undefined && { body: JSON.stringify(body) }),
   });
 
   return handleResponse<T>(response);
