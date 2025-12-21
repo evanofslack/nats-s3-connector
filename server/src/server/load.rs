@@ -75,7 +75,7 @@ async fn start_load_job(
     let config: io::PublishConfig = job.clone().into();
     state
         .coordinator
-        .start_new_load_job(job.clone(), config)
+        .start_load_job(job.clone(), config, false)
         .await?;
 
     // return a 201 resp

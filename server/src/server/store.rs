@@ -78,7 +78,7 @@ async fn start_store_job(
     let config: io::ConsumeConfig = job.clone().into();
     state
         .coordinator
-        .start_new_store_job(job.clone(), config)
+        .start_store_job(job.clone(), config, false)
         .await?;
 
     // return a 201 resp

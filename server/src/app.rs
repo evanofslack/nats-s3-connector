@@ -2,11 +2,11 @@ use anyhow::{Context, Result};
 use nats3_types::{ListLoadJobsQuery, ListStoreJobsQuery, LoadJobStatus, StoreJobStatus};
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::{
-    config::Config, coordinator, db, error, io, metrics, nats, registry, s3, server,
-    shutdown::ShutdownCoordinator,
+    completer::TaskCompleter, config::Config, coordinator, db, error, io, metrics, nats, registry,
+    s3, server, shutdown::ShutdownCoordinator,
 };
 
 #[derive(Debug, Clone)]
@@ -15,6 +15,7 @@ pub struct App {
     pub coordinator: coordinator::Coordinator,
     pub server: server::Server,
     pub registry: Arc<registry::Registry>,
+    pub completer: TaskCompleter,
 }
 
 // construct a new instance of nats3 application
@@ -56,12 +57,14 @@ pub async fn new(config: Config, shutdown: ShutdownCoordinator) -> Result<App> {
         job_db.clone(),
         coordinator.clone(),
     );
+    let completer = TaskCompleter::new(job_db.clone(), registry.clone());
 
     let app = App {
         coordinator,
         server,
         db: job_db,
         registry,
+        completer,
     };
 
     Ok(app)
@@ -83,7 +86,7 @@ impl App {
 
         for job in store_jobs {
             let config: io::ConsumeConfig = job.clone().into();
-            self.coordinator.restart_store_job(job, config).await?;
+            self.coordinator.start_store_job(job, config, true).await?;
         }
         Ok(())
     }
@@ -102,42 +105,12 @@ impl App {
         );
         for job in load_jobs {
             let config: io::PublishConfig = job.clone().into();
-            self.coordinator.restart_load_job(job, config).await?;
+            self.coordinator.start_load_job(job, config, true).await?;
         }
         Ok(())
     }
 
-    pub fn cleanup_completed_job_tasks(&self, shutdown_token: CancellationToken) {
-        let registry = self.registry.clone();
-        let job_handler = Arc::new(self.coordinator.clone());
-
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
-            loop {
-                tokio::select! {
-                    _ = interval.tick() => {
-                        if let Err(e) = registry
-                            .cleanup_completed_jobs(job_handler.clone(), job_handler.clone())
-                            .await
-                        {
-                            // If we deleted the job, the handler later tried to update the job
-                            // state but the job no longer exists. This is not really an error.
-                            // TODO: there has to be a cleaner way to handle this.
-                            let is_not_found = e
-                                .downcast_ref::<db::JobStoreError>()
-                                .is_some_and(|err| matches!(err, db::JobStoreError::NotFound { .. }));
-
-                            if !is_not_found {
-                                warn!(error = e.to_string(), "fail cleanup completed jobs");
-                            }
-                        }
-                    }
-                    _ = shutdown_token.cancelled() => {
-                        debug!("cleanup task cancelled");
-                        break;
-                    }
-                }
-            }
-        });
+    pub fn start_task_completer(&self, shutdown_token: CancellationToken) {
+        self.completer.clone().start(shutdown_token);
     }
 }

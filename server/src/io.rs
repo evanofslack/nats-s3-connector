@@ -4,13 +4,14 @@ use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use nats3_types::Codec;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 use tokio::{sync::RwLock, time};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, trace, warn};
 
 use nats3_types::{LoadJob, StoreJob};
 
-use crate::{db, encoding, metrics, nats, s3};
+use crate::{db, encoding, metrics, nats, registry, s3};
 
 const KEEP_ALIVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
 const DEFAULT_BATCH_WAIT: time::Duration = time::Duration::from_secs(10);
@@ -100,11 +101,14 @@ impl IO {
     }
     pub async fn consume_stream(
         &self,
+        job_id: String,
         config: ConsumeConfig,
         cancel_token: CancellationToken,
         pause_token: CancellationToken,
+        exit_tx: mpsc::UnboundedSender<registry::TaskExitInfo>,
     ) -> Result<()> {
         debug!(
+            job_id = job_id,
             stream = config.stream,
             subject = config.subject,
             bucket = config.bucket,
@@ -167,8 +171,12 @@ impl IO {
                     if messages_total > 0 {
                         self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
                     }
+                    let _ = exit_tx.send(registry::TaskExitInfo {
+                        reason: registry::TaskExitReason::Paused,
+                        job_id: job_id.clone(),
+                    });
                     debug!("buffer flushed, exiting gracefully for pause");
-                    break;
+                    return Ok(());
             }
                 _ = cancel_token.cancelled() => {
                     debug!("consume stream cancelled, flushing buffer");
@@ -176,10 +184,19 @@ impl IO {
                     if messages_total > 0 {
                         self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
                     }
-                    break;
+                    let _ = exit_tx.send(registry::TaskExitInfo {
+                        reason: registry::TaskExitReason::Cancelled,
+                        job_id: job_id.clone(),
+                    });
+
+                    return Ok(());
                     }
             }
         }
+        let _ = exit_tx.send(registry::TaskExitInfo {
+            reason: registry::TaskExitReason::Completed(Ok(())),
+            job_id,
+        });
         Ok(())
     }
 
@@ -249,11 +266,14 @@ impl IO {
 
     pub async fn publish_stream(
         &self,
+        job_id: String,
         config: PublishConfig,
         cancel_token: CancellationToken,
         pause_token: CancellationToken,
+        exit_tx: mpsc::UnboundedSender<registry::TaskExitInfo>,
     ) -> Result<()> {
         debug!(
+            job_id = job_id,
             read_stream = config.read_stream,
             read_consumer = config.read_consumer,
             read_subject = config.read_subject,
@@ -286,10 +306,19 @@ impl IO {
             for chunk_md in chunks {
                 if cancel_token.is_cancelled() {
                     debug!("publish stream cancelled");
-                    break;
+                    let _ = exit_tx.send(registry::TaskExitInfo {
+                        reason: registry::TaskExitReason::Cancelled,
+                        job_id: job_id.clone(),
+                    });
+                    return Ok(());
                 }
                 if pause_token.is_cancelled() {
                     debug!("publish stream paused");
+                    let _ = exit_tx.send(registry::TaskExitInfo {
+                        reason: registry::TaskExitReason::Paused,
+                        job_id: job_id.clone(),
+                    });
+
                     return Ok(());
                 }
                 let path = if chunk_md.prefix.clone().is_some_and(|p| !p.is_empty()) {
@@ -383,7 +412,11 @@ impl IO {
                 None => break, // One-shot
                 Some(duration) => {
                     if cancel_token.is_cancelled() {
-                        break;
+                        let _ = exit_tx.send(registry::TaskExitInfo {
+                            reason: registry::TaskExitReason::Cancelled,
+                            job_id: job_id.clone(),
+                        });
+                        return Ok(());
                     }
                     trace!(
                         duration_secs = duration.as_secs(),
@@ -400,6 +433,11 @@ impl IO {
             bucket = config.bucket,
             "finish download from s3 and publish to nats"
         );
+        let _ = exit_tx.send(registry::TaskExitInfo {
+            reason: registry::TaskExitReason::Completed(Ok(())),
+            job_id,
+        });
+
         Ok(())
     }
 }
