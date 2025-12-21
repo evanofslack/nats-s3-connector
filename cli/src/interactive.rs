@@ -53,11 +53,6 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
     })
 }
 
-pub fn prompt_delete_load_job() -> Result<String> {
-    let job_id = Text::new("Job id:").prompt()?;
-    Ok(job_id)
-}
-
 pub fn prompt_create_store_job() -> Result<CreateStoreJob> {
     let name = Text::new("Job name:").prompt()?;
     let stream = Text::new("Stream:").prompt()?;
@@ -122,7 +117,7 @@ pub fn prompt_create_store_job() -> Result<CreateStoreJob> {
     })
 }
 
-pub fn prompt_delete_store_job() -> Result<String> {
+pub fn prompt_job_id() -> Result<String> {
     let job_id = Text::new("Job id:").prompt()?;
     Ok(job_id)
 }

@@ -15,6 +15,8 @@ pub fn create_router(deps: Dependencies) -> Router {
         .route("/store/job", get(get_store_job))
         .route("/store/job", delete(delete_store_job))
         .route("/store/job", post(start_store_job))
+        .route("/store/job/pause", post(pause_store_job))
+        .route("/store/job/resume", post(resume_store_job))
         .route("/store/jobs", get(get_store_jobs))
         .with_state(deps);
     router
@@ -76,9 +78,27 @@ async fn start_store_job(
     let config: io::ConsumeConfig = job.clone().into();
     state
         .coordinator
-        .start_new_store_job(job.clone(), config)
+        .start_store_job(job.clone(), config, false)
         .await?;
 
     // return a 201 resp
+    Ok(Json(job))
+}
+
+#[debug_handler]
+async fn pause_store_job(
+    State(state): State<Dependencies>,
+    Query(params): Query<GetJobParams>,
+) -> Result<Json<StoreJob>, AppError> {
+    let job = state.coordinator.pause_store_job(params.job_id).await?;
+    Ok(Json(job))
+}
+
+#[debug_handler]
+async fn resume_store_job(
+    State(state): State<Dependencies>,
+    Query(params): Query<GetJobParams>,
+) -> Result<Json<StoreJob>, AppError> {
+    let job = state.coordinator.resume_store_job(params.job_id).await?;
     Ok(Json(job))
 }

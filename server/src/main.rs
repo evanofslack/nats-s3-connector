@@ -6,6 +6,7 @@ use tracing::{debug, info, warn};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 mod app;
+mod completer;
 mod config;
 mod coordinator;
 mod db;
@@ -51,7 +52,7 @@ async fn main() -> Result<(), Error> {
 
     // Thread periodically cleaning up async threads
     let cleanup_token = shutdown.subscribe();
-    app.cleanup_completed_job_tasks(cleanup_token);
+    app.start_task_completer(cleanup_token);
 
     // start server
     let server_token = shutdown.subscribe();

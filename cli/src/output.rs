@@ -65,6 +65,7 @@ fn print_load_jobs_table(jobs: Vec<LoadJob>) -> Result<()> {
         let status_cell = match job.status {
             LoadJobStatus::Created => Cell::new(job.status.to_string()).fg(Color::Grey),
             LoadJobStatus::Running => Cell::new(job.status.to_string()).fg(Color::Yellow),
+            LoadJobStatus::Paused => Cell::new(job.status.to_string()).fg(Color::Blue),
             LoadJobStatus::Success => Cell::new(job.status.to_string()).fg(Color::Green),
             LoadJobStatus::Failure => Cell::new(job.status.to_string()).fg(Color::Red),
         };
@@ -106,6 +107,7 @@ fn print_store_jobs_table(jobs: Vec<StoreJob>) -> Result<()> {
         let status_cell = match job.status {
             StoreJobStatus::Created => Cell::new(job.status.to_string()).fg(Color::Grey),
             StoreJobStatus::Running => Cell::new(job.status.to_string()).fg(Color::Yellow),
+            StoreJobStatus::Paused => Cell::new(job.status.to_string()).fg(Color::Blue),
             StoreJobStatus::Success => Cell::new(job.status.to_string()).fg(Color::Green),
             StoreJobStatus::Failure => Cell::new(job.status.to_string()).fg(Color::Red),
         };

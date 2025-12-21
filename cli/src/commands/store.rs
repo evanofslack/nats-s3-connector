@@ -46,6 +46,20 @@ pub enum StoreCommand {
         #[arg(long, value_parser = clap::value_parser!(Codec))]
         codec: Option<Codec>,
     },
+    Pause {
+        #[arg(short, long)]
+        interactive: bool,
+
+        #[arg(long, required_unless_present_any = ["interactive"])]
+        job_id: Option<String>,
+    },
+    Resume {
+        #[arg(short, long)]
+        interactive: bool,
+
+        #[arg(long, required_unless_present_any = ["interactive"])]
+        job_id: Option<String>,
+    },
     Delete {
         #[arg(short, long)]
         interactive: bool,
@@ -112,12 +126,50 @@ impl StoreCommand {
                     .context("Fail create store job")?;
                 output::print_store_job(created, output_format)?;
             }
+            StoreCommand::Pause {
+                interactive,
+                mut job_id,
+            } => {
+                if interactive {
+                    job_id = Some(interactive::prompt_job_id()?);
+                };
+                if job_id.is_none() {
+                    println!("{}", "Must provide job id to pause store job".red());
+                    return Ok(());
+                }
+
+                client
+                    .pause_store_job(job_id.expect("job id is set"))
+                    .await
+                    .context("Fail pause store job")?;
+
+                println!("{}", "Store job paused successfully!".green());
+            }
+            StoreCommand::Resume {
+                interactive,
+                mut job_id,
+            } => {
+                if interactive {
+                    job_id = Some(interactive::prompt_job_id()?);
+                };
+                if job_id.is_none() {
+                    println!("{}", "Must provide job id to resume store job".red());
+                    return Ok(());
+                }
+
+                client
+                    .resume_store_job(job_id.expect("job id is set"))
+                    .await
+                    .context("Fail resume store job")?;
+
+                println!("{}", "Store job resumed successfully!".green());
+            }
             StoreCommand::Delete {
                 interactive,
                 mut job_id,
             } => {
                 if interactive {
-                    job_id = Some(interactive::prompt_delete_store_job()?);
+                    job_id = Some(interactive::prompt_job_id()?);
                 };
                 if job_id.is_none() {
                     println!("{}", "Must provide job id to delete store job".red());
