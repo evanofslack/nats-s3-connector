@@ -1,11 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Trash2, Pause, Play } from "lucide-react";
 import { useState } from "react";
 import { getStoreJob } from "../api";
 import { useDeleteStoreJob } from "../hooks/useDeleteStoreJob";
 import { usePauseStoreJob } from "../hooks/usePauseStoreJob";
 import { useResumeStoreJob } from "../hooks/useResumeStoreJob";
+import { getStatusColor } from "../utils/status";
+import { ArrowLeft, Trash2, Pause, Play } from "lucide-react";
 import { Button } from "../components/Button";
 import { Spinner } from "../components/Spinner";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -67,23 +68,6 @@ export function StoreJobDetail() {
       </div>
     );
   }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Created":
-        return "text-text-muted";
-      case "Running":
-        return "text-warning";
-      case "Paused":
-        return "text-text-muted";
-      case "Success":
-        return "text-success";
-      case "Failure":
-        return "text-error";
-      default:
-        return "text-text-primary";
-    }
-  };
 
   return (
     <div className="min-h-screen py-24 px-6">

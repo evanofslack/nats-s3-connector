@@ -13,6 +13,12 @@
   --color-success: #22c55e;
   --color-warning: #eab308;
   --color-error: #ef4444;
+
+  --color-status-created: #a3a3a3; /* gray - waiting to start */
+  --color-status-running: #67bee6; /* blue - active/in-progress */
+  --color-status-paused: #f59e0b; /* orange - temporarily stopped */
+  --color-status-success: #22c55e; /* green - completed successfully */
+  --color-status-failure: #ef4444; /* red - failed */
 }
 
 body {
