@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Trash2 } from "lucide-react";
 import { useLoadJobs } from "../hooks/useLoadJobs";
 import { useStoreJobs } from "../hooks/useStoreJobs";
 import { useDeleteLoadJob } from "../hooks/useDeleteLoadJob";
 import { useDeleteStoreJob } from "../hooks/useDeleteStoreJob";
+import { usePauseLoadJob } from "../hooks/usePauseLoadJob";
+import { usePauseStoreJob } from "../hooks/usePauseStoreJob";
+import { useResumeLoadJob } from "../hooks/useResumeLoadJob";
+import { useResumeStoreJob } from "../hooks/useResumeStoreJob";
 import { Table } from "../components/Table";
 import { Button } from "../components/Button";
 import { Spinner } from "../components/Spinner";
@@ -14,6 +17,7 @@ import { CreateLoadJobModal } from "../components/CreateLoadJobModal";
 import { CreateStoreJobModal } from "../components/CreateStoreJobModal";
 import type { LoadJob } from "../types/load";
 import type { StoreJob } from "../types/store";
+import { Pause, Play, Trash2, Plus } from "lucide-react";
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -30,6 +34,10 @@ export function Dashboard() {
 
   const deleteLoadJob = useDeleteLoadJob();
   const deleteStoreJob = useDeleteStoreJob();
+  const pauseLoadJob = usePauseLoadJob();
+  const pauseStoreJob = usePauseStoreJob();
+  const resumeLoadJob = useResumeLoadJob();
+  const resumeStoreJob = useResumeStoreJob();
 
   const [showCreateLoadModal, setShowCreateLoadModal] = useState(false);
   const [showCreateStoreModal, setShowCreateStoreModal] = useState(false);
@@ -39,6 +47,38 @@ export function Dashboard() {
   const [deleteStoreConfirm, setDeleteStoreConfirm] = useState<string | null>(
     null,
   );
+
+  const handlePauseLoad = async (jobId: string) => {
+    try {
+      await pauseLoadJob.mutateAsync(jobId);
+    } catch (err) {
+      console.error("Pause failed:", err);
+    }
+  };
+
+  const handleResumeLoad = async (jobId: string) => {
+    try {
+      await resumeLoadJob.mutateAsync(jobId);
+    } catch (err) {
+      console.error("Resume failed:", err);
+    }
+  };
+
+  const handlePauseStore = async (jobId: string) => {
+    try {
+      await pauseStoreJob.mutateAsync(jobId);
+    } catch (err) {
+      console.error("Pause failed:", err);
+    }
+  };
+
+  const handleResumeStore = async (jobId: string) => {
+    try {
+      await resumeStoreJob.mutateAsync(jobId);
+    } catch (err) {
+      console.error("Resume failed:", err);
+    }
+  };
 
   const handleDeleteLoad = async () => {
     if (!deleteLoadConfirm) return;
@@ -68,6 +108,8 @@ export function Dashboard() {
         return "text-text-muted";
       case "Running":
         return "text-warning";
+      case "Paused":
+        return "text-text-muted";
       case "Success":
         return "text-success";
       case "Failure":
@@ -93,15 +135,39 @@ export function Dashboard() {
     {
       header: "Actions",
       accessor: (job: LoadJob) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setDeleteLoadConfirm(job.id);
-          }}
-          className="text-error hover:text-error/80 transition-colors"
-        >
-          <Trash2 size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          {job.status === "Running" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePauseLoad(job.id);
+              }}
+              className="text-warning hover:text-warning/80 transition-colors"
+            >
+              <Pause size={16} />
+            </button>
+          )}
+          {job.status === "Paused" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleResumeLoad(job.id);
+              }}
+              className="text-success hover:text-success/80 transition-colors"
+            >
+              <Play size={16} />
+            </button>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteLoadConfirm(job.id);
+            }}
+            className="text-error hover:text-error/80 transition-colors"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       ),
     },
   ];
@@ -122,15 +188,39 @@ export function Dashboard() {
     {
       header: "Actions",
       accessor: (job: StoreJob) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setDeleteStoreConfirm(job.id);
-          }}
-          className="text-error hover:text-error/80 transition-colors"
-        >
-          <Trash2 size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          {job.status === "Running" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePauseStore(job.id);
+              }}
+              className="text-warning hover:text-warning/80 transition-colors"
+            >
+              <Pause size={16} />
+            </button>
+          )}
+          {job.status === "Paused" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleResumeStore(job.id);
+              }}
+              className="text-success hover:text-success/80 transition-colors"
+            >
+              <Play size={16} />
+            </button>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteStoreConfirm(job.id);
+            }}
+            className="text-error hover:text-error/80 transition-colors"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       ),
     },
   ];
