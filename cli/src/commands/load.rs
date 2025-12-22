@@ -20,6 +20,9 @@ pub enum LoadCommand {
         #[arg(long, value_name = "FILE")]
         from_json: Option<PathBuf>,
 
+        #[arg(long)]
+        name: Option<String>,
+
         #[arg(long, required_unless_present_any = ["interactive", "from_json"])]
         bucket: Option<String>,
 
@@ -86,6 +89,7 @@ impl LoadCommand {
             LoadCommand::Create {
                 interactive,
                 from_json,
+                name,
                 bucket,
                 prefix,
                 read_stream,
@@ -103,6 +107,7 @@ impl LoadCommand {
                     load_from_json(&path)?
                 } else {
                     CreateLoadJob {
+                        name,
                         bucket: bucket.unwrap(),
                         prefix,
                         read_stream: read_stream.unwrap(),

@@ -5,7 +5,7 @@ use axum::{
     routing::{delete, get, post},
     Json, Router,
 };
-use nats3_types::{CreateStoreJob, StoreJob};
+use nats3_types::{CreateStoreJob, StoreJob, StoreJobConfig};
 use serde::Deserialize;
 
 use crate::{error::AppError, io, server::Dependencies};
@@ -65,16 +65,18 @@ async fn start_store_job(
     State(state): State<Dependencies>,
     Json(payload): Json<CreateStoreJob>,
 ) -> Result<Json<StoreJob>, AppError> {
-    let job = StoreJob::new(
-        payload.name.clone(),
-        payload.stream.clone(),
-        payload.consumer.clone(),
-        payload.subject.clone(),
-        payload.bucket.clone(),
-        payload.prefix.clone(),
-        payload.batch.unwrap_or_default(),
-        payload.encoding.unwrap_or_default(),
-    );
+    let job_config = StoreJobConfig {
+        name: payload.name.clone(),
+        stream: payload.stream.clone(),
+        consumer: payload.consumer.clone(),
+        subject: payload.subject.clone(),
+        bucket: payload.bucket.clone(),
+        prefix: payload.prefix.clone(),
+        batch: payload.batch.unwrap_or_default(),
+        encoding: payload.encoding.unwrap_or_default(),
+    };
+
+    let job = StoreJob::new(job_config);
     let config: io::ConsumeConfig = job.clone().into();
     state
         .coordinator

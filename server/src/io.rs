@@ -4,8 +4,10 @@ use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use nats3_types::Codec;
 use std::sync::Arc;
-use tokio::sync::mpsc;
-use tokio::{sync::RwLock, time};
+use tokio::{
+    sync::{mpsc, RwLock},
+    time,
+};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, trace, warn};
 

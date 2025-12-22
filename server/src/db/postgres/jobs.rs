@@ -18,7 +18,7 @@ impl LoadJobStorer for PostgresStore {
 
         let row = client
             .query_one(
-                "SELECT id, status, bucket, prefix, read_stream, read_consumer,
+                "SELECT id, name, status, bucket, prefix, read_stream, read_consumer,
                         read_subject, write_subject, poll_interval, delete_chunks, from_time,
                         to_time, created_at, updated_at
                  FROM load_jobs WHERE id = $1",
@@ -125,11 +125,12 @@ impl LoadJobStorer for PostgresStore {
         client
             .execute(
                 "INSERT INTO load_jobs 
-             (id, status, bucket, prefix, read_stream, read_consumer,
+             (id, name, status, bucket, prefix, read_stream, read_consumer,
               read_subject, write_subject, poll_interval, delete_chunks, from_time, to_time)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
                 &[
                     &row.id,
+                    &row.name,
                     &row.status,
                     &row.bucket,
                     &row.prefix,
