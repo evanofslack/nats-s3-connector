@@ -15,6 +15,7 @@ export function CreateLoadJobModal({
 }: CreateLoadJobModalProps) {
   const createJob = useCreateLoadJob();
   const [formData, setFormData] = useState({
+    name: "",
     bucket: "",
     prefix: "",
     read_stream: "",
@@ -54,6 +55,7 @@ export function CreateLoadJobModal({
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    if (!formData.name.trim()) newErrors.name = "Job name is required";
     if (!formData.bucket.trim()) newErrors.bucket = "Bucket is required";
     if (!formData.read_stream.trim())
       newErrors.read_stream = "Read stream is required";
@@ -83,6 +85,7 @@ export function CreateLoadJobModal({
     if (!validate()) return;
 
     const job: CreateLoadJob = {
+      name: formData.name,
       bucket: formData.bucket,
       prefix: formData.prefix || undefined,
       read_stream: formData.read_stream,
@@ -100,6 +103,7 @@ export function CreateLoadJobModal({
     await createJob.mutateAsync(job);
     onClose();
     setFormData({
+      name: "",
       bucket: "",
       prefix: "",
       read_stream: "",
@@ -121,6 +125,20 @@ export function CreateLoadJobModal({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Create load job">
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Job Name <span className="text-error">*</span>
+          </label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="w-full px-3 py-2 bg-bg-main border border-border-subtle rounded focus:outline-none focus:border-accent"
+          />
+          {errors.name && (
+            <p className="text-error text-sm mt-1">{errors.name}</p>
+          )}
+        </div>
         <div>
           <label className="block text-sm font-medium mb-1">
             Bucket <span className="text-error">*</span>
