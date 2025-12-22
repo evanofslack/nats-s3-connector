@@ -104,15 +104,20 @@ export function Dashboard() {
   };
 
   const loadColumns = [
-    { header: "ID", accessor: (job: LoadJob) => job.id.slice(0, 8) },
+    { header: "Name", accessor: (job: LoadJob) => job.name, width: "w-56" },
     {
       header: "Status",
       accessor: (job: LoadJob) => (
         <span className={getStatusColor(job.status)}>{job.status}</span>
       ),
+      width: "w-20",
     },
-    { header: "Bucket", accessor: (job: LoadJob) => job.bucket },
-    { header: "Prefix", accessor: (job: LoadJob) => job.prefix || "-" },
+    { header: "Bucket", accessor: (job: LoadJob) => job.bucket, width: "w-56" },
+    {
+      header: "Prefix",
+      accessor: (job: LoadJob) => job.prefix || "-",
+      width: "w-24",
+    },
     { header: "Read Stream", accessor: (job: LoadJob) => job.read_stream },
     { header: "Read Subject", accessor: (job: LoadJob) => job.read_subject },
     { header: "Write Subject", accessor: (job: LoadJob) => job.write_subject },
@@ -157,18 +162,26 @@ export function Dashboard() {
   ];
 
   const storeColumns = [
-    { header: "ID", accessor: (job: StoreJob) => job.id.slice(0, 8) },
-    { header: "Name", accessor: (job: StoreJob) => job.name },
+    { header: "Name", accessor: (job: StoreJob) => job.name, width: "w-56" },
     {
       header: "Status",
       accessor: (job: StoreJob) => (
         <span className={getStatusColor(job.status)}>{job.status}</span>
       ),
+      width: "w-20",
+    },
+    {
+      header: "Bucket",
+      accessor: (job: StoreJob) => job.bucket,
+      width: "w-56",
+    },
+    {
+      header: "Prefix",
+      accessor: (job: StoreJob) => job.prefix || "-",
+      width: "w-24",
     },
     { header: "Stream", accessor: (job: StoreJob) => job.stream },
     { header: "Subject", accessor: (job: StoreJob) => job.subject },
-    { header: "Bucket", accessor: (job: StoreJob) => job.bucket },
-    { header: "Prefix", accessor: (job: StoreJob) => job.prefix || "-" },
     {
       header: "Actions",
       accessor: (job: StoreJob) => (

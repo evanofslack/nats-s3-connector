@@ -2,6 +2,7 @@ interface Column<T> {
   header: string;
   accessor: (row: T) => React.ReactNode;
   className?: string;
+  width?: string;
 }
 
 interface TableProps<T> {
@@ -19,7 +20,7 @@ export function Table<T>({ columns, data, onRowClick }: TableProps<T>) {
             {columns.map((column, i) => (
               <th
                 key={i}
-                className="text-left py-3 px-4 text-sm font-medium text-text-muted"
+                className={`text-left py-3 px-4 text-sm font-medium text-text-muted ${column.width || ""}`}
               >
                 {column.header}
               </th>
@@ -38,7 +39,7 @@ export function Table<T>({ columns, data, onRowClick }: TableProps<T>) {
               {columns.map((column, colIndex) => (
                 <td
                   key={colIndex}
-                  className={`py-3 px-4 text-sm ${column.className || ""}`}
+                  className={`py-3 px-4 text-sm ${column.className || ""} ${column.width || ""}`}
                 >
                   {column.accessor(row)}
                 </td>

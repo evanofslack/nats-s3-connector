@@ -7,6 +7,7 @@ export type LoadJobStatus =
 
 export interface LoadJob {
   id: string;
+  name: string;
   status: LoadJobStatus;
   bucket: string;
   prefix?: string;
