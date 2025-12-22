@@ -4,9 +4,7 @@ use inquire::{Confirm, Text};
 use nats3_types::{Batch, Codec, CreateLoadJob, CreateStoreJob, Encoding};
 
 pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
-    let name = Text::new("Job name (optional):")
-        .with_help_message("Press Enter to skip")
-        .prompt_skippable()?;
+    let name = Text::new("Job name:").prompt()?;
     let bucket = Text::new("Bucket name:").prompt()?;
 
     let prefix = Text::new("Key prefix (optional):")

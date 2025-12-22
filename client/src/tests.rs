@@ -46,7 +46,7 @@ async fn test_create_load_job_success() {
     let mut server = mockito::Server::new_async().await;
     let job_config = LoadJobConfig {
         bucket: "test-bucket".to_string(),
-        name: Some("test".to_string()),
+        name: "test".to_string(),
         prefix: None,
         read_stream: "read-stream".to_string(),
         read_consumer: None,
@@ -69,7 +69,7 @@ async fn test_create_load_job_success() {
 
     let client = Client::new(server.url());
     let create_job = CreateLoadJob {
-        name: Some("test-job".to_string()),
+        name: "test".to_string(),
         bucket: "test-bucket".to_string(),
         prefix: Some("prefix/".to_string()),
         read_stream: "read-stream".to_string(),
@@ -172,7 +172,7 @@ async fn test_get_load_job_success() {
 
     let job_config = LoadJobConfig {
         bucket: "test-bucket".to_string(),
-        name: Some("test".to_string()),
+        name: "test".to_string(),
         prefix: Some("prefix".to_string()),
         read_stream: "read-stream".to_string(),
         read_consumer: None,
@@ -401,7 +401,7 @@ async fn test_pause_load_job_success() {
     let mut server = mockito::Server::new_async().await;
     let job_config = LoadJobConfig {
         bucket: "test-bucket".to_string(),
-        name: Some("test".to_string()),
+        name: "test".to_string(),
         prefix: Some("prefix".to_string()),
         read_stream: "read-stream".to_string(),
         read_consumer: None,

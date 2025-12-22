@@ -49,7 +49,7 @@ impl From<LoadJobStatusEnum> for LoadJobStatus {
 
 pub struct LoadJobRow {
     pub id: String,
-    pub name: Option<String>,
+    pub name: String,
     pub status: LoadJobStatusEnum,
     pub bucket: String,
     pub prefix: Option<String>,

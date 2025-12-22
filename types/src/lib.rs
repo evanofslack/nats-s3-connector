@@ -55,11 +55,11 @@ impl FromStr for Codec {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreateStoreJob {
     pub name: String,
+    pub bucket: String,
+    pub prefix: Option<String>,
     pub stream: String,
     pub consumer: Option<String>,
     pub subject: String,
-    pub bucket: String,
-    pub prefix: Option<String>,
     pub batch: Option<Batch>,
     pub encoding: Option<Encoding>,
 }
@@ -187,7 +187,7 @@ fn codec_default() -> Codec {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreateLoadJob {
-    pub name: Option<String>,
+    pub name: String,
     pub bucket: String,
     pub prefix: Option<String>,
     pub read_stream: String,
@@ -231,7 +231,7 @@ impl ListLoadJobsQuery {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LoadJob {
     pub id: String,
-    pub name: Option<String>,
+    pub name: String,
     pub status: LoadJobStatus,
     pub bucket: String,
     pub prefix: Option<String>,
@@ -247,7 +247,7 @@ pub struct LoadJob {
 
 pub struct LoadJobConfig {
     pub bucket: String,
-    pub name: Option<String>,
+    pub name: String,
     pub prefix: Option<String>,
     pub read_stream: String,
     pub read_consumer: Option<String>,

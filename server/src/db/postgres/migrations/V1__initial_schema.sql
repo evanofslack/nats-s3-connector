@@ -6,7 +6,7 @@ CREATE TYPE encoding_codec AS ENUM ('json', 'binary');
 
 CREATE TABLE load_jobs (
     id TEXT PRIMARY KEY,
-    name TEXT,
+    name TEXT NOT NULL,
     status load_job_status NOT NULL,
     bucket TEXT NOT NULL,
     prefix TEXT,
@@ -26,7 +26,7 @@ CREATE INDEX idx_load_jobs_status ON load_jobs(status);
 
 CREATE TABLE store_jobs (
     id TEXT PRIMARY KEY,
-    name TEXT,
+    name TEXT NOT NULL,
     status store_job_status NOT NULL,
     stream TEXT NOT NULL,
     consumer TEXT,
