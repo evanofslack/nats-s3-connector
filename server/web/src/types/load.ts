@@ -7,6 +7,7 @@ export type LoadJobStatus =
 
 export interface LoadJob {
   id: string;
+  name: string;
   status: LoadJobStatus;
   bucket: string;
   prefix?: string;
@@ -21,6 +22,7 @@ export interface LoadJob {
 }
 
 export interface CreateLoadJob {
+  name: string;
   bucket: string;
   prefix?: string;
   read_stream: string;

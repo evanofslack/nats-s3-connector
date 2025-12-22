@@ -45,6 +45,7 @@ fn load_job_builder() -> LoadJobBuilder {
 
 struct LoadJobBuilder {
     id: String,
+    name: String,
     status: LoadJobStatus,
     bucket: String,
     prefix: Option<String>,
@@ -62,6 +63,7 @@ impl Default for LoadJobBuilder {
     fn default() -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
+            name: "test-job".to_string(),
             status: LoadJobStatus::Created,
             bucket: "test-bucket".to_string(),
             prefix: Some("test-prefix".to_string()),
@@ -96,6 +98,7 @@ impl LoadJobBuilder {
     fn build(self) -> LoadJob {
         LoadJob {
             id: self.id,
+            name: self.name,
             status: self.status,
             bucket: self.bucket,
             prefix: self.prefix,

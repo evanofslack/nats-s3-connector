@@ -5,7 +5,7 @@ use axum::{
     routing::{delete, get, post},
     Json, Router,
 };
-use nats3_types::{CreateLoadJob, LoadJob};
+use nats3_types::{CreateLoadJob, LoadJob, LoadJobConfig};
 use serde::Deserialize;
 
 use crate::{error::AppError, io, server::Dependencies};
@@ -59,18 +59,21 @@ async fn start_load_job(
     State(state): State<Dependencies>,
     Json(payload): Json<CreateLoadJob>,
 ) -> Result<Json<LoadJob>, AppError> {
-    let job = LoadJob::new(
-        payload.bucket.clone(),
-        payload.prefix.clone(),
-        payload.read_stream.clone(),
-        payload.read_consumer.clone(),
-        payload.read_subject.clone(),
-        payload.write_subject.clone(),
-        payload.poll_interval,
-        payload.delete_chunks,
-        payload.from_time,
-        payload.to_time,
-    );
+    let job_config = LoadJobConfig {
+        bucket: payload.bucket.clone(),
+        name: payload.name.clone(),
+        prefix: payload.prefix.clone(),
+        read_stream: payload.read_stream.clone(),
+        read_consumer: payload.read_consumer.clone(),
+        read_subject: payload.read_subject.clone(),
+        write_subject: payload.write_subject.clone(),
+        poll_interval: payload.poll_interval,
+        delete_chunks: payload.delete_chunks,
+        from_time: payload.from_time,
+        to_time: payload.to_time,
+    };
+
+    let job = LoadJob::new(job_config);
 
     let config: io::PublishConfig = job.clone().into();
     state

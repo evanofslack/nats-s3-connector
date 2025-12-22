@@ -89,7 +89,7 @@ export function LoadJobDetail() {
   };
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen py-24 px-6">
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <Button onClick={() => navigate("/")} variant="secondary">
@@ -119,7 +119,7 @@ export function LoadJobDetail() {
         <div className="bg-bg-panel border border-border-subtle rounded-lg p-6">
           <div className="flex items-center justify-between mb-6 pr-12">
             <div>
-              <h1 className="text-2xl font-bold">Load Job</h1>
+              <h1 className="text-2xl font-bold">{job.name}</h1>
               <p className="text-text-muted text-sm mt-1">ID: {job.id}</p>
             </div>
             <div

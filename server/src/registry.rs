@@ -1,8 +1,10 @@
 use anyhow::Result;
 use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
-use tokio::sync::{mpsc, Mutex};
-use tokio::{sync::RwLock, task::JoinHandle};
+use tokio::{
+    sync::{mpsc, Mutex, RwLock},
+    task::JoinHandle,
+};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, trace};
 

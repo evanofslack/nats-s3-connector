@@ -6,6 +6,7 @@ CREATE TYPE encoding_codec AS ENUM ('json', 'binary');
 
 CREATE TABLE load_jobs (
     id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
     status load_job_status NOT NULL,
     bucket TEXT NOT NULL,
     prefix TEXT,

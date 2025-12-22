@@ -55,11 +55,11 @@ impl FromStr for Codec {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreateStoreJob {
     pub name: String,
+    pub bucket: String,
+    pub prefix: Option<String>,
     pub stream: String,
     pub consumer: Option<String>,
     pub subject: String,
-    pub bucket: String,
-    pub prefix: Option<String>,
     pub batch: Option<Batch>,
     pub encoding: Option<Encoding>,
 }
@@ -105,31 +105,30 @@ pub struct StoreJob {
     pub encoding: Encoding,
 }
 
-#[allow(clippy::too_many_arguments)]
+pub struct StoreJobConfig {
+    pub name: String,
+    pub stream: String,
+    pub consumer: Option<String>,
+    pub subject: String,
+    pub bucket: String,
+    pub prefix: Option<String>,
+    pub batch: Batch,
+    pub encoding: Encoding,
+}
+
 impl StoreJob {
-    pub fn new(
-        name: String,
-        stream: String,
-        consumer: Option<String>,
-        subject: String,
-        bucket: String,
-        prefix: Option<String>,
-        batch: Batch,
-        encoding: Encoding,
-    ) -> Self {
-        let id = Ulid::new().to_string();
-        let status = StoreJobStatus::Created;
+    pub fn new(config: StoreJobConfig) -> Self {
         Self {
-            id,
-            name,
-            status,
-            stream,
-            consumer,
-            subject,
-            bucket,
-            prefix,
-            batch,
-            encoding,
+            id: Ulid::new().to_string(),
+            status: StoreJobStatus::Created,
+            name: config.name,
+            stream: config.stream,
+            consumer: config.consumer,
+            subject: config.subject,
+            bucket: config.bucket,
+            prefix: config.prefix,
+            batch: config.batch,
+            encoding: config.encoding,
         }
     }
 }
@@ -188,6 +187,7 @@ fn codec_default() -> Codec {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreateLoadJob {
+    pub name: String,
     pub bucket: String,
     pub prefix: Option<String>,
     pub read_stream: String,
@@ -231,6 +231,7 @@ impl ListLoadJobsQuery {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LoadJob {
     pub id: String,
+    pub name: String,
     pub status: LoadJobStatus,
     pub bucket: String,
     pub prefix: Option<String>,
@@ -244,35 +245,36 @@ pub struct LoadJob {
     pub to_time: Option<DateTime<Utc>>,
 }
 
+pub struct LoadJobConfig {
+    pub bucket: String,
+    pub name: String,
+    pub prefix: Option<String>,
+    pub read_stream: String,
+    pub read_consumer: Option<String>,
+    pub read_subject: String,
+    pub write_subject: String,
+    pub poll_interval: Option<time::Duration>,
+    pub delete_chunks: bool,
+    pub from_time: Option<DateTime<Utc>>,
+    pub to_time: Option<DateTime<Utc>>,
+}
+
 impl LoadJob {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        bucket: String,
-        prefix: Option<String>,
-        read_stream: String,
-        read_consumer: Option<String>,
-        read_subject: String,
-        write_subject: String,
-        poll_interval: Option<time::Duration>,
-        delete_chunks: bool,
-        from_time: Option<DateTime<Utc>>,
-        to_time: Option<DateTime<Utc>>,
-    ) -> Self {
-        let id = Ulid::new().to_string();
-        let status = LoadJobStatus::Created;
+    pub fn new(config: LoadJobConfig) -> Self {
         Self {
-            id,
-            status,
-            bucket,
-            prefix,
-            read_stream,
-            read_consumer,
-            read_subject,
-            write_subject,
-            poll_interval,
-            delete_chunks,
-            from_time,
-            to_time,
+            id: Ulid::new().to_string(),
+            bucket: config.bucket,
+            name: config.name,
+            status: LoadJobStatus::Created,
+            prefix: config.prefix,
+            read_stream: config.read_stream,
+            read_consumer: config.read_consumer,
+            read_subject: config.read_subject,
+            write_subject: config.write_subject,
+            poll_interval: config.poll_interval,
+            delete_chunks: config.delete_chunks,
+            from_time: config.from_time,
+            to_time: config.to_time,
         }
     }
 }

@@ -1,5 +1,8 @@
 use crate::{Client, ClientError};
-use nats3_types::{Batch, CreateLoadJob, CreateStoreJob, Encoding, LoadJob, StoreJob};
+use nats3_types::{
+    Batch, CreateLoadJob, CreateStoreJob, Encoding, LoadJob, LoadJobConfig, StoreJob,
+    StoreJobConfig,
+};
 
 #[tokio::test]
 async fn test_get_load_jobs_success() {
@@ -41,19 +44,21 @@ async fn test_get_load_jobs_http_error() {
 #[tokio::test]
 async fn test_create_load_job_success() {
     let mut server = mockito::Server::new_async().await;
+    let job_config = LoadJobConfig {
+        bucket: "test-bucket".to_string(),
+        name: "test".to_string(),
+        prefix: None,
+        read_stream: "read-stream".to_string(),
+        read_consumer: None,
+        read_subject: "read.subject".to_string(),
+        write_subject: "write.subject".to_string(),
+        poll_interval: None,
+        delete_chunks: false,
+        from_time: None,
+        to_time: None,
+    };
 
-    let job = LoadJob::new(
-        "test-bucket".to_string(),
-        Some("prefix/".to_string()),
-        "read-stream".to_string(),
-        None,
-        "read.subject".to_string(),
-        "write.subject".to_string(),
-        None,
-        false,
-        None,
-        None,
-    );
+    let job = LoadJob::new(job_config);
 
     let mock = server
         .mock("POST", "/load/job")
@@ -64,6 +69,7 @@ async fn test_create_load_job_success() {
 
     let client = Client::new(server.url());
     let create_job = CreateLoadJob {
+        name: "test".to_string(),
         bucket: "test-bucket".to_string(),
         prefix: Some("prefix/".to_string()),
         read_stream: "read-stream".to_string(),
@@ -102,17 +108,17 @@ async fn test_get_store_jobs_success() {
 #[tokio::test]
 async fn test_create_store_job_success() {
     let mut server = mockito::Server::new_async().await;
-
-    let job = StoreJob::new(
-        "test-job".to_string(),
-        "test-stream".to_string(),
-        None,
-        "test.subject".to_string(),
-        "test-bucket".to_string(),
-        Some("prefix/".to_string()),
-        Batch::default(),
-        Encoding::default(),
-    );
+    let job_config = StoreJobConfig {
+        name: "test-job".to_string(),
+        stream: "test-stream".to_string(),
+        consumer: None,
+        subject: "test-subject".to_string(),
+        bucket: "test-bucket".to_string(),
+        prefix: Some("prefix".to_string()),
+        batch: Batch::default(),
+        encoding: Encoding::default(),
+    };
+    let job = StoreJob::new(job_config);
 
     let mock = server
         .mock("POST", "/store/job")
@@ -164,18 +170,20 @@ async fn test_invalid_json_response() {
 async fn test_get_load_job_success() {
     let mut server = mockito::Server::new_async().await;
 
-    let job = LoadJob::new(
-        "test-bucket".to_string(),
-        Some("prefix/".to_string()),
-        "read-stream".to_string(),
-        None,
-        "read.subject".to_string(),
-        "write.subject".to_string(),
-        None,
-        false,
-        None,
-        None,
-    );
+    let job_config = LoadJobConfig {
+        bucket: "test-bucket".to_string(),
+        name: "test".to_string(),
+        prefix: Some("prefix".to_string()),
+        read_stream: "read-stream".to_string(),
+        read_consumer: None,
+        read_subject: "read.subject".to_string(),
+        write_subject: "write.subject".to_string(),
+        poll_interval: None,
+        delete_chunks: false,
+        from_time: None,
+        to_time: None,
+    };
+    let job = LoadJob::new(job_config);
 
     let mock = server
         .mock("GET", "/load/job")
@@ -271,16 +279,17 @@ async fn test_delete_load_job_http_error() {
 async fn test_get_store_job_success() {
     let mut server = mockito::Server::new_async().await;
 
-    let job = StoreJob::new(
-        "test-job".to_string(),
-        "test-stream".to_string(),
-        None,
-        "test.subject".to_string(),
-        "test-bucket".to_string(),
-        Some("prefix/".to_string()),
-        Batch::default(),
-        Encoding::default(),
-    );
+    let job_config = StoreJobConfig {
+        name: "test-job".to_string(),
+        stream: "test-stream".to_string(),
+        consumer: None,
+        subject: "test-subject".to_string(),
+        bucket: "test-bucket".to_string(),
+        prefix: Some("prefix".to_string()),
+        batch: Batch::default(),
+        encoding: Encoding::default(),
+    };
+    let job = StoreJob::new(job_config);
 
     let mock = server
         .mock("GET", "/store/job")
@@ -331,16 +340,17 @@ async fn test_get_store_job_not_found() {
 async fn test_delete_store_job_success() {
     let mut server = mockito::Server::new_async().await;
 
-    let job = StoreJob::new(
-        "deleted-job".to_string(),
-        "test-stream".to_string(),
-        None,
-        "test.subject".to_string(),
-        "test-bucket".to_string(),
-        None,
-        Batch::default(),
-        Encoding::default(),
-    );
+    let job_config = StoreJobConfig {
+        name: "deleted-job".to_string(),
+        stream: "test-stream".to_string(),
+        consumer: None,
+        subject: "test-subject".to_string(),
+        bucket: "test-bucket".to_string(),
+        prefix: None,
+        batch: Batch::default(),
+        encoding: Encoding::default(),
+    };
+    let job = StoreJob::new(job_config);
 
     let mock = server
         .mock("DELETE", "/store/job")
@@ -389,18 +399,20 @@ async fn test_delete_store_job_http_error() {
 #[tokio::test]
 async fn test_pause_load_job_success() {
     let mut server = mockito::Server::new_async().await;
-    let job = LoadJob::new(
-        "test-bucket".to_string(),
-        Some("prefix/".to_string()),
-        "read-stream".to_string(),
-        None,
-        "read.subject".to_string(),
-        "write.subject".to_string(),
-        None,
-        false,
-        None,
-        None,
-    );
+    let job_config = LoadJobConfig {
+        bucket: "test-bucket".to_string(),
+        name: "test".to_string(),
+        prefix: Some("prefix".to_string()),
+        read_stream: "read-stream".to_string(),
+        read_consumer: None,
+        read_subject: "read.subject".to_string(),
+        write_subject: "write.subject".to_string(),
+        poll_interval: None,
+        delete_chunks: false,
+        from_time: None,
+        to_time: None,
+    };
+    let job = LoadJob::new(job_config);
 
     let mock = server
         .mock("POST", "/load/job/pause")
@@ -423,16 +435,17 @@ async fn test_pause_load_job_success() {
 #[tokio::test]
 async fn test_resume_store_job_success() {
     let mut server = mockito::Server::new_async().await;
-    let job = StoreJob::new(
-        "test-job".to_string(),
-        "test-stream".to_string(),
-        None,
-        "test.subject".to_string(),
-        "test-bucket".to_string(),
-        None,
-        Batch::default(),
-        Encoding::default(),
-    );
+    let job_config = StoreJobConfig {
+        name: "test-job".to_string(),
+        stream: "test-stream".to_string(),
+        consumer: None,
+        subject: "test-subject".to_string(),
+        bucket: "test-bucket".to_string(),
+        prefix: None,
+        batch: Batch::default(),
+        encoding: Encoding::default(),
+    };
+    let job = StoreJob::new(job_config);
 
     let mock = server
         .mock("POST", "/store/job/resume")

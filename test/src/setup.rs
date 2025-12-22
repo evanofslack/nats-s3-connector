@@ -152,6 +152,7 @@ async fn create_load_job(config: &Config) -> anyhow::Result<()> {
     info!("Creating load job: {}", job_name);
 
     let create_job = CreateLoadJob {
+        name: job_name.clone(),
         bucket: config.bucket_name(),
         prefix: None,
         read_stream: config.input_stream.clone(),

@@ -49,6 +49,7 @@ impl From<LoadJobStatusEnum> for LoadJobStatus {
 
 pub struct LoadJobRow {
     pub id: String,
+    pub name: String,
     pub status: LoadJobStatusEnum,
     pub bucket: String,
     pub prefix: Option<String>,
@@ -68,6 +69,7 @@ impl LoadJobRow {
     pub fn from_row(row: &Row) -> Result<Self, JobStoreError> {
         Ok(Self {
             id: row.try_get("id")?,
+            name: row.try_get("name")?,
             status: row.try_get("status")?,
             bucket: row.try_get("bucket")?,
             prefix: row.try_get("prefix")?,
@@ -89,6 +91,7 @@ impl From<LoadJobRow> for LoadJob {
     fn from(row: LoadJobRow) -> Self {
         Self {
             id: row.id,
+            name: row.name,
             status: row.status.into(),
             bucket: row.bucket,
             prefix: row.prefix,
@@ -111,6 +114,7 @@ impl From<LoadJob> for LoadJobRow {
         let now = Utc::now();
         Self {
             id: job.id,
+            name: job.name,
             status: job.status.into(),
             bucket: job.bucket,
             prefix: job.prefix,
