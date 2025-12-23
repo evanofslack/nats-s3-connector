@@ -1,6 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use tracing::debug;
+use uuid::Uuid;
 
 use super::{
     models::{
@@ -18,7 +19,10 @@ use nats3_types::{
 #[async_trait]
 impl LoadJobStorer for PostgresStore {
     async fn get_load_job(&self, id: String) -> Result<LoadJob, JobStoreError> {
+        debug!(job_id = id, "get load job");
         let client = self.get_client().await?;
+
+        let uuid = Uuid::parse_str(&id)?;
 
         let row = client
             .query_one(
@@ -26,7 +30,7 @@ impl LoadJobStorer for PostgresStore {
                         read_subject, write_subject, poll_interval, delete_chunks, from_time,
                         to_time, created_at, updated_at
                  FROM load_jobs WHERE id = $1",
-                &[&id],
+                &[&uuid],
             )
             .await
             .map_err(|e| match e.as_db_error() {
@@ -42,6 +46,7 @@ impl LoadJobStorer for PostgresStore {
         &self,
         query: Option<ListLoadJobsQuery>,
     ) -> Result<Vec<LoadJob>, JobStoreError> {
+        debug!("get load jobs");
         let client = self.get_client().await?;
 
         let mut sql = String::from("SELECT * FROM load_jobs WHERE 1=1");
@@ -122,6 +127,7 @@ impl LoadJobStorer for PostgresStore {
             .collect()
     }
     async fn create_load_job(&self, job: LoadJobCreate) -> Result<LoadJob, JobStoreError> {
+        debug!("create load job");
         let client = self.get_client().await?;
         let row: LoadJobCreateRow = job.into();
 
@@ -130,7 +136,7 @@ impl LoadJobStorer for PostgresStore {
                 "INSERT INTO load_jobs
             (name, status, bucket, prefix, read_stream, read_consumer,
             read_subject, write_subject, poll_interval, delete_chunks, from_time, to_time)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING id, name, status, bucket, prefix, read_stream, read_consumer,
             read_subject, write_subject, poll_interval, delete_chunks, from_time, to_time,
             created_at, updated_at",
@@ -160,8 +166,11 @@ impl LoadJobStorer for PostgresStore {
         id: String,
         status: LoadJobStatus,
     ) -> Result<LoadJob, JobStoreError> {
+        debug!(job_id = id, "update load job");
+
         let client = self.get_client().await?;
         let status_row: LoadJobStatusEnum = status.into();
+        let uuid = Uuid::parse_str(&id)?;
 
         let row = client
             .query_one(
@@ -169,7 +178,7 @@ impl LoadJobStorer for PostgresStore {
              SET status = $1, updated_at = NOW() 
              WHERE id = $2
              RETURNING *",
-                &[&status_row, &id],
+                &[&status_row, &uuid],
             )
             .await
             .map_err(|e| match e.as_db_error() {
@@ -182,11 +191,13 @@ impl LoadJobStorer for PostgresStore {
     }
 
     async fn delete_load_job(&self, id: String) -> Result<(), JobStoreError> {
-        debug!(job_id = id, "delete load job postgres");
+        debug!(job_id = id, "delete load job");
         let client = self.get_client().await?;
 
+        let uuid = Uuid::parse_str(&id)?;
+
         let rows_affected = client
-            .execute("DELETE FROM load_jobs WHERE id = $1", &[&id])
+            .execute("DELETE FROM load_jobs WHERE id = $1", &[&uuid])
             .await?;
 
         if rows_affected == 0 {
@@ -199,15 +210,17 @@ impl LoadJobStorer for PostgresStore {
 #[async_trait]
 impl StoreJobStorer for PostgresStore {
     async fn get_store_job(&self, id: String) -> Result<StoreJob, JobStoreError> {
-        let client = self.get_client().await?;
+        debug!(job_id = id, "get store job");
 
+        let client = self.get_client().await?;
+        let uuid = Uuid::parse_str(&id)?;
         let row = client
             .query_one(
                 "SELECT id, name, status, stream, consumer, subject,
                  bucket, prefix, batch_max_bytes, batch_max_count,
                  encoding_codec, created_at, updated_at
                  FROM store_jobs WHERE id = $1",
-                &[&id],
+                &[&uuid],
             )
             .await
             .map_err(|e| match e.as_db_error() {
@@ -223,8 +236,9 @@ impl StoreJobStorer for PostgresStore {
         &self,
         query: Option<ListStoreJobsQuery>,
     ) -> Result<Vec<StoreJob>, JobStoreError> {
-        let client = self.get_client().await?;
+        debug!("get store jobs");
 
+        let client = self.get_client().await?;
         let mut sql = String::from("SELECT * FROM store_jobs WHERE 1=1");
 
         let statuses: Option<Vec<StoreJobStatusEnum>> = query.as_ref().and_then(|q| {
@@ -298,6 +312,7 @@ impl StoreJobStorer for PostgresStore {
     }
 
     async fn create_store_job(&self, job: StoreJobCreate) -> Result<StoreJob, JobStoreError> {
+        debug!("create store job");
         let client = self.get_client().await?;
         let row: StoreJobCreateRow = job.into();
 
@@ -306,7 +321,7 @@ impl StoreJobStorer for PostgresStore {
                 "INSERT INTO store_jobs 
             (name, status, stream, consumer, subject, bucket,
             prefix, batch_max_bytes, batch_max_count, encoding_codec)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING id, name, status, stream, consumer, subject, bucket,
             prefix, batch_max_bytes, batch_max_count, encoding_codec, created_at, updated_at",
                 &[
@@ -333,16 +348,18 @@ impl StoreJobStorer for PostgresStore {
         id: String,
         status: StoreJobStatus,
     ) -> Result<StoreJob, JobStoreError> {
-        let client = self.get_client().await?;
-        let status_row: StoreJobStatusEnum = status.into();
+        debug!(job_id = id, "update store job");
 
+        let client = self.get_client().await?;
+        let uuid = Uuid::parse_str(&id)?;
+        let status_row: StoreJobStatusEnum = status.into();
         let row = client
             .query_one(
                 "UPDATE store_jobs 
              SET status = $1, updated_at = NOW() 
              WHERE id = $2
              RETURNING *",
-                &[&status_row, &id],
+                &[&status_row, &uuid],
             )
             .await
             .map_err(|e| match e.as_db_error() {
@@ -355,11 +372,13 @@ impl StoreJobStorer for PostgresStore {
     }
 
     async fn delete_store_job(&self, id: String) -> Result<(), JobStoreError> {
-        debug!(job_id = id, "delete store job postgres");
+        debug!(job_id = id, "delete store job");
         let client = self.get_client().await?;
 
+        let uuid = Uuid::parse_str(&id)?;
+
         let rows_affected = client
-            .execute("DELETE FROM store_jobs WHERE id = $1", &[&id])
+            .execute("DELETE FROM store_jobs WHERE id = $1", &[&uuid])
             .await?;
 
         if rows_affected == 0 {

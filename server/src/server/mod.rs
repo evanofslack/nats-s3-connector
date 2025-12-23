@@ -166,6 +166,7 @@ impl IntoResponse for error::AppError {
             }
             error::AppError::JobStore(db::JobStoreError::Database(_))
             | error::AppError::JobStore(db::JobStoreError::Pool(_))
+            | error::AppError::JobStore(db::JobStoreError::InvalidUuid(_))
             | error::AppError::JobStore(db::JobStoreError::Postgres(_)) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal server error".to_string(),

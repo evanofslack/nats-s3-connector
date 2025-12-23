@@ -21,6 +21,9 @@ pub enum JobStoreError {
 
     #[error("connection pool error: {0}")]
     Pool(String),
+
+    #[error("invalid uuid: {0}")]
+    InvalidUuid(#[from] uuid::Error),
 }
 
 #[allow(dead_code)]

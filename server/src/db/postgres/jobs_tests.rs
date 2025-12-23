@@ -7,6 +7,7 @@ use nats3_types::{
 use std::time;
 use testcontainers::{runners::AsyncRunner, ImageExt};
 use testcontainers_modules::postgres::Postgres;
+use uuid::Uuid;
 
 struct TestContext {
     _container: testcontainers::ContainerAsync<Postgres>,
@@ -45,7 +46,6 @@ fn load_job_create_builder() -> LoadJobCreateBuilder {
 
 struct LoadJobCreateBuilder {
     name: String,
-    status: LoadJobStatus,
     bucket: String,
     prefix: Option<String>,
     read_stream: String,
@@ -62,7 +62,6 @@ impl Default for LoadJobCreateBuilder {
     fn default() -> Self {
         Self {
             name: "test-job".to_string(),
-            status: LoadJobStatus::Created,
             bucket: "test-bucket".to_string(),
             prefix: Some("test-prefix".to_string()),
             read_stream: "read-stream".to_string(),
@@ -80,11 +79,6 @@ impl Default for LoadJobCreateBuilder {
 impl LoadJobCreateBuilder {
     fn bucket(mut self, bucket: impl Into<String>) -> Self {
         self.bucket = bucket.into();
-        self
-    }
-
-    fn status(mut self, status: LoadJobStatus) -> Self {
-        self.status = status;
         self
     }
 
@@ -171,16 +165,10 @@ async fn test_create_and_get_load_job() {
     let ctx = setup_postgres().await;
 
     let job = load_job_create_builder().bucket("my-bucket").build();
+    let out = ctx.store.create_load_job(job.clone()).await.unwrap();
+    let retrieved = ctx.store.get_load_job(out.id.clone()).await.unwrap();
 
-    ctx.store.create_load_job(job.clone()).await.unwrap();
-
-    let retrieved = ctx
-        .store
-        .get_load_job("test-job-1".to_string())
-        .await
-        .unwrap();
-
-    assert_eq!(retrieved.id, "test-job-1");
+    assert_eq!(retrieved.id, out.id);
     assert_eq!(retrieved.bucket, "my-bucket");
     assert_eq!(retrieved.status, LoadJobStatus::Created);
     assert!(!retrieved.delete_chunks);
@@ -192,16 +180,16 @@ async fn test_update_load_job_status() {
     let ctx = setup_postgres().await;
 
     let job = load_job_create_builder().build();
-    ctx.store.create_load_job(job).await.unwrap();
+    let out = ctx.store.create_load_job(job).await.unwrap();
 
     let updated = ctx
         .store
-        .update_load_job("test-job-2".to_string(), LoadJobStatus::Running)
+        .update_load_job(out.id.clone(), LoadJobStatus::Running)
         .await
         .unwrap();
 
     assert_eq!(updated.status, LoadJobStatus::Running);
-    assert_eq!(updated.id, "test-job-2");
+    assert_eq!(updated.id, out.id);
 }
 
 #[tokio::test]
@@ -220,9 +208,9 @@ async fn test_get_load_jobs() {
     let jobs = ctx.store.get_load_jobs(None).await.unwrap();
 
     assert_eq!(jobs.len(), 3);
-    assert_eq!(jobs[0].id, "load-3");
-    assert_eq!(jobs[1].id, "load-2");
-    assert_eq!(jobs[2].id, "load-1");
+    assert_eq!(jobs[0].bucket, "bucket-3");
+    assert_eq!(jobs[1].bucket, "bucket-2");
+    assert_eq!(jobs[2].bucket, "bucket-1");
 }
 
 #[tokio::test]
@@ -230,22 +218,13 @@ async fn test_get_load_jobs() {
 async fn test_get_load_jobs_with_filters() {
     let ctx = setup_postgres().await;
 
-    let job1 = load_job_create_builder()
-        .bucket("bucket-x")
-        .status(LoadJobStatus::Running)
-        .build();
-    let job2 = load_job_create_builder()
-        .bucket("bucket-y")
-        .status(LoadJobStatus::Running)
-        .build();
-    let job3 = load_job_create_builder()
-        .bucket("bucket-x")
-        .status(LoadJobStatus::Success)
-        .build();
+    let job1 = load_job_create_builder().bucket("bucket-x").build();
+    let job2 = load_job_create_builder().bucket("bucket-y").build();
+    let job3 = load_job_create_builder().bucket("bucket-x").build();
 
-    ctx.store.create_load_job(job1).await.unwrap();
-    ctx.store.create_load_job(job2).await.unwrap();
-    ctx.store.create_load_job(job3).await.unwrap();
+    let out1 = ctx.store.create_load_job(job1).await.unwrap();
+    let out2 = ctx.store.create_load_job(job2).await.unwrap();
+    let _out3 = ctx.store.create_load_job(job3).await.unwrap();
 
     let query = ListLoadJobsQuery {
         bucket: Some("bucket-x".to_string()),
@@ -257,8 +236,16 @@ async fn test_get_load_jobs_with_filters() {
     assert_eq!(jobs.len(), 2);
     assert!(jobs.iter().all(|j| j.bucket == "bucket-x"));
 
-    let query2 = ListLoadJobsQuery::new().with_statuses(vec![LoadJobStatus::Running]);
+    ctx.store
+        .update_load_job(out1.id, LoadJobStatus::Running)
+        .await
+        .unwrap();
+    ctx.store
+        .update_load_job(out2.id, LoadJobStatus::Running)
+        .await
+        .unwrap();
 
+    let query2 = ListLoadJobsQuery::new().with_statuses(vec![LoadJobStatus::Running]);
     let jobs2 = ctx.store.get_load_jobs(Some(query2)).await.unwrap();
 
     assert_eq!(jobs2.len(), 2);
@@ -324,10 +311,11 @@ async fn test_delete_load_job() {
 async fn test_delete_load_job_not_found() {
     let ctx = setup_postgres().await;
 
-    let result = ctx.store.delete_load_job("nonexistent".to_string()).await;
-    assert!(
-        matches!(result, Err(crate::db::JobStoreError::NotFound { id }) if id == "nonexistent")
-    );
+    let result = ctx.store.delete_load_job(Uuid::default().to_string()).await;
+    assert!(matches!(
+        result,
+        Err(crate::db::JobStoreError::NotFound { .. })
+    ));
 }
 
 #[tokio::test]
@@ -339,14 +327,8 @@ async fn test_create_and_get_store_job() {
         .name("my-store-job")
         .bucket("store-bucket")
         .build();
-
-    ctx.store.create_store_job(job.clone()).await.unwrap();
-
-    let retrieved = ctx
-        .store
-        .get_store_job("store-1".to_string())
-        .await
-        .unwrap();
+    let out = ctx.store.create_store_job(job.clone()).await.unwrap();
+    let retrieved = ctx.store.get_store_job(out.id.to_string()).await.unwrap();
 
     assert_eq!(retrieved.name, "my-store-job");
     assert_eq!(retrieved.bucket, "store-bucket");
@@ -457,16 +439,15 @@ async fn test_update_store_job_status() {
 
     let job = store_job_create_builder().build();
     let out = ctx.store.create_store_job(job).await.unwrap();
-    let id = out.id;
 
     let updated = ctx
         .store
-        .update_store_job(id.clone().to_string(), StoreJobStatus::Running)
+        .update_store_job(out.id.clone().to_string(), StoreJobStatus::Running)
         .await
         .unwrap();
 
     assert_eq!(updated.status, StoreJobStatus::Running);
-    assert_eq!(updated.id, id);
+    assert_eq!(updated.id, out.id);
 }
 
 #[tokio::test]
@@ -492,10 +473,14 @@ async fn test_delete_store_job() {
 async fn test_delete_store_job_not_found() {
     let ctx = setup_postgres().await;
 
-    let result = ctx.store.delete_store_job("nonexistent".to_string()).await;
-    assert!(
-        matches!(result, Err(crate::db::JobStoreError::NotFound { id }) if id == "nonexistent")
-    );
+    let result = ctx
+        .store
+        .delete_store_job(Uuid::default().to_string())
+        .await;
+    assert!(matches!(
+        result,
+        Err(crate::db::JobStoreError::NotFound { .. })
+    ));
 }
 
 #[tokio::test]
@@ -505,11 +490,12 @@ async fn test_update_load_job_not_found() {
 
     let result = ctx
         .store
-        .update_load_job("nonexistent".to_string(), LoadJobStatus::Running)
+        .update_load_job(Uuid::default().to_string(), LoadJobStatus::Running)
         .await;
-    assert!(
-        matches!(result, Err(crate::db::JobStoreError::NotFound { id }) if id == "nonexistent")
-    );
+    assert!(matches!(
+        result,
+        Err(crate::db::JobStoreError::NotFound { .. })
+    ));
 }
 
 #[tokio::test]
@@ -519,11 +505,12 @@ async fn test_update_store_job_not_found() {
 
     let result = ctx
         .store
-        .update_store_job("nonexistent".to_string(), StoreJobStatus::Running)
+        .update_store_job(Uuid::default().to_string(), StoreJobStatus::Running)
         .await;
-    assert!(
-        matches!(result, Err(crate::db::JobStoreError::NotFound { id }) if id == "nonexistent")
-    );
+    assert!(matches!(
+        result,
+        Err(crate::db::JobStoreError::NotFound { .. })
+    ));
 }
 
 #[tokio::test]
@@ -531,10 +518,11 @@ async fn test_update_store_job_not_found() {
 async fn test_get_load_job_not_found() {
     let ctx = setup_postgres().await;
 
-    let result = ctx.store.get_load_job("nonexistent".to_string()).await;
-    assert!(
-        matches!(result, Err(crate::db::JobStoreError::NotFound { id }) if id == "nonexistent")
-    );
+    let result = ctx.store.get_load_job(Uuid::default().to_string()).await;
+    assert!(matches!(
+        result,
+        Err(crate::db::JobStoreError::NotFound { .. })
+    ));
 }
 
 #[tokio::test]
@@ -542,8 +530,9 @@ async fn test_get_load_job_not_found() {
 async fn test_get_store_job_not_found() {
     let ctx = setup_postgres().await;
 
-    let result = ctx.store.get_store_job("nonexistent".to_string()).await;
-    assert!(
-        matches!(result, Err(crate::db::JobStoreError::NotFound { id }) if id == "nonexistent")
-    );
+    let result = ctx.store.get_store_job(Uuid::default().to_string()).await;
+    assert!(matches!(
+        result,
+        Err(crate::db::JobStoreError::NotFound { .. })
+    ));
 }

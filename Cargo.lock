@@ -2485,6 +2485,7 @@ dependencies = [
  "fallible-iterator",
  "postgres-derive",
  "postgres-protocol",
+ "uuid",
 ]
 
 [[package]]

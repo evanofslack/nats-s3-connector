@@ -4,6 +4,9 @@ default:
 test:
     cargo test --features integration
 
+test1 TEST:
+    cargo test --features integration {{TEST}}
+
 check:
     cargo test --workspace
 

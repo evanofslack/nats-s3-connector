@@ -3,6 +3,7 @@ use chrono::{DateTime, Utc};
 use postgres_types::{FromSql, ToSql};
 use std::time;
 use tokio_postgres::Row;
+use uuid::Uuid;
 
 use nats3_types::{
     Batch, Codec, Encoding, LoadJob, LoadJobCreate, LoadJobStatus, StoreJob, StoreJobCreate,
@@ -85,7 +86,7 @@ impl From<LoadJobCreate> for LoadJobCreateRow {
 }
 
 pub struct LoadJobRow {
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
     pub status: LoadJobStatusEnum,
     pub bucket: String,
@@ -93,8 +94,8 @@ pub struct LoadJobRow {
     pub read_stream: String,
     pub read_consumer: Option<String>,
     pub read_subject: String,
-    pub poll_interval: Option<i64>,
     pub write_subject: String,
+    pub poll_interval: Option<i64>,
     pub delete_chunks: bool,
     pub from_time: Option<DateTime<Utc>>,
     pub to_time: Option<DateTime<Utc>>,
@@ -127,7 +128,7 @@ impl LoadJobRow {
 impl From<LoadJobRow> for LoadJob {
     fn from(row: LoadJobRow) -> Self {
         Self {
-            id: row.id,
+            id: row.id.to_string(),
             name: row.name,
             status: row.status.into(),
             bucket: row.bucket,
@@ -152,7 +153,7 @@ impl From<LoadJob> for LoadJobRow {
     fn from(job: LoadJob) -> Self {
         let now = Utc::now();
         Self {
-            id: job.id,
+            id: Uuid::parse_str(&job.id).unwrap_or_default(),
             name: job.name,
             status: job.status.into(),
             bucket: job.bucket,
@@ -252,7 +253,7 @@ pub struct StoreJobCreateRow {
 }
 
 pub struct StoreJobRow {
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
     pub status: StoreJobStatusEnum,
     pub stream: String,
@@ -290,7 +291,7 @@ impl StoreJobRow {
 impl From<StoreJobRow> for StoreJob {
     fn from(row: StoreJobRow) -> Self {
         Self {
-            id: row.id,
+            id: row.id.to_string(),
             name: row.name,
             status: row.status.into(),
             stream: row.stream,
