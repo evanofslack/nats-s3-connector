@@ -1,9 +1,9 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use inquire::{Confirm, Text};
-use nats3_types::{Batch, Codec, CreateLoadJob, CreateStoreJob, Encoding};
+use nats3_types::{Batch, Codec, Encoding, LoadJobCreate, StoreJobCreate};
 
-pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
+pub fn prompt_create_load_job() -> Result<LoadJobCreate> {
     let name = Text::new("Job name:").prompt()?;
     let bucket = Text::new("Bucket name:").prompt()?;
 
@@ -40,7 +40,7 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
         .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
         .map(|dt| dt.with_timezone(&Utc));
 
-    Ok(CreateLoadJob {
+    Ok(LoadJobCreate {
         name,
         bucket,
         prefix,
@@ -55,7 +55,7 @@ pub fn prompt_create_load_job() -> Result<CreateLoadJob> {
     })
 }
 
-pub fn prompt_create_store_job() -> Result<CreateStoreJob> {
+pub fn prompt_create_store_job() -> Result<StoreJobCreate> {
     let name = Text::new("Job name:").prompt()?;
     let stream = Text::new("Stream:").prompt()?;
     let consumer = Text::new("Consumer (optional):")
@@ -83,12 +83,12 @@ pub fn prompt_create_store_job() -> Result<CreateStoreJob> {
             .prompt()?
             .parse()?;
 
-        Some(Batch {
+        Batch {
             max_bytes,
             max_count,
-        })
+        }
     } else {
-        None
+        Batch::default()
     };
 
     let configure_encoding = Confirm::new("Configure encoding?")
@@ -102,12 +102,12 @@ pub fn prompt_create_store_job() -> Result<CreateStoreJob> {
 
         let codec = codec_str.parse::<Codec>()?;
 
-        Some(Encoding { codec })
+        Encoding { codec }
     } else {
-        None
+        Encoding::default()
     };
 
-    Ok(CreateStoreJob {
+    Ok(StoreJobCreate {
         name,
         stream,
         consumer,

@@ -3,8 +3,12 @@ use chrono::{DateTime, Utc};
 use postgres_types::{FromSql, ToSql};
 use std::time;
 use tokio_postgres::Row;
+use uuid::Uuid;
 
-use nats3_types::{Batch, Codec, Encoding, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
+use nats3_types::{
+    Batch, Codec, Encoding, LoadJob, LoadJobCreate, LoadJobStatus, StoreJob, StoreJobCreate,
+    StoreJobStatus,
+};
 
 use crate::db::{ChunkMetadata, ChunkMetadataError, CreateChunkMetadata, JobStoreError};
 
@@ -47,8 +51,7 @@ impl From<LoadJobStatusEnum> for LoadJobStatus {
     }
 }
 
-pub struct LoadJobRow {
-    pub id: String,
+pub struct LoadJobCreateRow {
     pub name: String,
     pub status: LoadJobStatusEnum,
     pub bucket: String,
@@ -58,6 +61,41 @@ pub struct LoadJobRow {
     pub read_subject: String,
     pub poll_interval: Option<i64>,
     pub write_subject: String,
+    pub delete_chunks: bool,
+    pub from_time: Option<DateTime<Utc>>,
+    pub to_time: Option<DateTime<Utc>>,
+}
+
+impl From<LoadJobCreate> for LoadJobCreateRow {
+    fn from(row: LoadJobCreate) -> Self {
+        Self {
+            name: row.name,
+            status: LoadJobStatus::Created.into(),
+            bucket: row.bucket,
+            prefix: row.prefix,
+            read_stream: row.read_stream,
+            read_consumer: row.read_consumer,
+            read_subject: row.read_subject,
+            write_subject: row.write_subject,
+            poll_interval: row.poll_interval.map(|d| d.as_secs() as i64),
+            delete_chunks: row.delete_chunks,
+            from_time: row.from_time,
+            to_time: row.to_time,
+        }
+    }
+}
+
+pub struct LoadJobRow {
+    pub id: Uuid,
+    pub name: String,
+    pub status: LoadJobStatusEnum,
+    pub bucket: String,
+    pub prefix: Option<String>,
+    pub read_stream: String,
+    pub read_consumer: Option<String>,
+    pub read_subject: String,
+    pub write_subject: String,
+    pub poll_interval: Option<i64>,
     pub delete_chunks: bool,
     pub from_time: Option<DateTime<Utc>>,
     pub to_time: Option<DateTime<Utc>>,
@@ -90,7 +128,7 @@ impl LoadJobRow {
 impl From<LoadJobRow> for LoadJob {
     fn from(row: LoadJobRow) -> Self {
         Self {
-            id: row.id,
+            id: row.id.to_string(),
             name: row.name,
             status: row.status.into(),
             bucket: row.bucket,
@@ -105,6 +143,8 @@ impl From<LoadJobRow> for LoadJob {
             delete_chunks: row.delete_chunks,
             from_time: row.from_time,
             to_time: row.to_time,
+            created: row.created_at,
+            updated: row.updated_at,
         }
     }
 }
@@ -113,7 +153,7 @@ impl From<LoadJob> for LoadJobRow {
     fn from(job: LoadJob) -> Self {
         let now = Utc::now();
         Self {
-            id: job.id,
+            id: Uuid::parse_str(&job.id).unwrap_or_default(),
             name: job.name,
             status: job.status.into(),
             bucket: job.bucket,
@@ -198,8 +238,22 @@ impl From<EncodingCodec> for Codec {
     }
 }
 
+// model when creating a new store job (doesn't yet have timestamps)
+pub struct StoreJobCreateRow {
+    pub name: String,
+    pub status: StoreJobStatusEnum,
+    pub stream: String,
+    pub consumer: Option<String>,
+    pub subject: String,
+    pub bucket: String,
+    pub prefix: Option<String>,
+    pub batch_max_bytes: i64,
+    pub batch_max_count: i64,
+    pub encoding_codec: EncodingCodec,
+}
+
 pub struct StoreJobRow {
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
     pub status: StoreJobStatusEnum,
     pub stream: String,
@@ -212,21 +266,6 @@ pub struct StoreJobRow {
     pub encoding_codec: EncodingCodec,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
-}
-
-// model when creating a new store job (doesn't yet have timestamps)
-pub struct StoreJobRowCreate {
-    pub id: String,
-    pub name: String,
-    pub status: StoreJobStatusEnum,
-    pub stream: String,
-    pub consumer: Option<String>,
-    pub subject: String,
-    pub bucket: String,
-    pub prefix: Option<String>,
-    pub batch_max_bytes: i64,
-    pub batch_max_count: i64,
-    pub encoding_codec: EncodingCodec,
 }
 
 impl StoreJobRow {
@@ -252,7 +291,7 @@ impl StoreJobRow {
 impl From<StoreJobRow> for StoreJob {
     fn from(row: StoreJobRow) -> Self {
         Self {
-            id: row.id,
+            id: row.id.to_string(),
             name: row.name,
             status: row.status.into(),
             stream: row.stream,
@@ -267,16 +306,17 @@ impl From<StoreJobRow> for StoreJob {
             encoding: Encoding {
                 codec: row.encoding_codec.into(),
             },
+            created: row.created_at,
+            updated: row.updated_at,
         }
     }
 }
 
-impl From<StoreJob> for StoreJobRowCreate {
-    fn from(job: StoreJob) -> Self {
+impl From<StoreJobCreate> for StoreJobCreateRow {
+    fn from(job: StoreJobCreate) -> Self {
         Self {
-            id: job.id,
             name: job.name,
-            status: job.status.into(),
+            status: StoreJobStatus::Created.into(),
             stream: job.stream,
             consumer: job.consumer,
             subject: job.subject,

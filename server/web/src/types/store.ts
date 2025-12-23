@@ -18,6 +18,8 @@ export interface StoreJob {
   prefix?: string;
   batch: Batch;
   encoding: Encoding;
+  created: string;
+  updated: string;
 }
 
 export interface CreateStoreJob {

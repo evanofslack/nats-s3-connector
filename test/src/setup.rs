@@ -1,7 +1,7 @@
 use crate::config::Config;
 use async_nats::jetstream::stream::{Config as StreamConfig, RetentionPolicy, StorageType};
 use nats3_client::Client;
-use nats3_types::{Batch, CreateLoadJob, CreateStoreJob};
+use nats3_types::{Batch, Encoding, LoadJobCreate, StoreJobCreate};
 use s3::{creds::Credentials, Bucket, BucketConfiguration, Region};
 use tracing::{debug, info};
 
@@ -117,18 +117,15 @@ async fn create_store_job(config: &Config) -> anyhow::Result<()> {
 
     info!("Creating store job: {}", job_name);
 
-    let create_job = CreateStoreJob {
+    let create_job = StoreJobCreate {
         name: job_name.clone(),
         stream: config.input_stream.clone(),
         consumer: None,
         subject: config.input_subject.clone(),
         bucket: config.bucket_name(),
         prefix: None,
-        batch: Some(Batch {
-            max_bytes: 100000,
-            max_count: 100,
-        }),
-        encoding: None,
+        batch: Batch::default(),
+        encoding: Encoding::default(),
     };
 
     match client.create_store_job(create_job).await {
@@ -151,7 +148,7 @@ async fn create_load_job(config: &Config) -> anyhow::Result<()> {
 
     info!("Creating load job: {}", job_name);
 
-    let create_job = CreateLoadJob {
+    let create_job = LoadJobCreate {
         name: job_name.clone(),
         bucket: config.bucket_name(),
         prefix: None,

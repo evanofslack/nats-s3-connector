@@ -9,8 +9,8 @@ import { useResumeLoadJob } from "../hooks/useResumeLoadJob";
 import { Button } from "../components/Button";
 import { Spinner } from "../components/Spinner";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { format } from "date-fns";
 import { getStatusColor } from "../utils/status";
+import { formatDateTime, formatDuration } from "../utils/time";
 
 export function LoadJobDetail() {
   const { jobId } = useParams<{ jobId: string }>();
@@ -70,24 +70,6 @@ export function LoadJobDetail() {
     );
   }
 
-  const formatDuration = (duration?: { secs: number; nanos: number }) => {
-    if (!duration) return "-";
-    const { secs } = duration;
-    if (secs < 60) return `${secs}s`;
-    if (secs < 3600) return `${Math.floor(secs / 60)}m`;
-    if (secs < 86400) return `${Math.floor(secs / 3600)}h`;
-    return `${Math.floor(secs / 86400)}d`;
-  };
-
-  const formatDateTime = (dateStr?: string) => {
-    if (!dateStr) return "-";
-    try {
-      return format(new Date(dateStr), "yyyy-MM-dd HH:mm:ss") + " UTC";
-    } catch {
-      return dateStr;
-    }
-  };
-
   return (
     <div className="min-h-screen py-24 px-6">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -121,6 +103,12 @@ export function LoadJobDetail() {
             <div>
               <h1 className="text-2xl font-bold">{job.name}</h1>
               <p className="text-text-muted text-sm mt-1">ID: {job.id}</p>
+              <div className="flex gap-4 mt-2 text-sm text-text-muted">
+                <span>Created: {formatDateTime(job.created)}</span>
+              </div>
+              <div className="flex gap-4 mt-2 text-sm text-text-muted">
+                <span>Updated: {formatDateTime(job.updated)}</span>
+              </div>
             </div>
             <div
               className={`text-2xl font-medium ${getStatusColor(job.status)}`}

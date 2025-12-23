@@ -9,6 +9,7 @@ nats3-types = { path = "../types" }
 serde = { workspace = true, features = ["derive"]  }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+chrono = { workspace = true }
 
 reqwest = { version = "0.12.24", features = ["json"] }
 

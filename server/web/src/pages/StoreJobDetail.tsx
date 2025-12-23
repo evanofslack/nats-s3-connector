@@ -10,6 +10,7 @@ import { ArrowLeft, Trash2, Pause, Play } from "lucide-react";
 import { Button } from "../components/Button";
 import { Spinner } from "../components/Spinner";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { formatDateTime } from "../utils/time";
 
 export function StoreJobDetail() {
   const { jobId } = useParams<{ jobId: string }>();
@@ -102,6 +103,12 @@ export function StoreJobDetail() {
             <div>
               <h1 className="text-2xl font-bold">{job.name}</h1>
               <p className="text-text-muted text-sm mt-1">ID: {job.id}</p>
+              <div className="flex gap-4 mt-2 text-sm text-text-muted">
+                <span>Created: {formatDateTime(job.created)}</span>
+              </div>
+              <div className="flex gap-4 mt-2 text-sm text-text-muted">
+                <span>Updated: {formatDateTime(job.updated)}</span>
+              </div>
             </div>
             <div
               className={`text-2xl font-medium ${getStatusColor(job.status)}`}

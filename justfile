@@ -4,6 +4,9 @@ default:
 test:
     cargo test --features integration
 
+test1 TEST:
+    cargo test --features integration {{TEST}}
+
 check:
     cargo test --workspace
 
@@ -36,6 +39,7 @@ build-cli:
 build-docker:
     docker build -f server/Dockerfile -t nats3 .
 
+
 install-cli:
     cargo install --path cli --force
 
@@ -44,6 +48,8 @@ install-test-cli:
 
 install-web:
     cd server/web && npm install
+
+install: install-cli install-test-cli install-web
 
 up:
     cd examples && docker compose -f docker-compose-dev.yaml --profile infra --profile main up -d && docker compose logs --follow

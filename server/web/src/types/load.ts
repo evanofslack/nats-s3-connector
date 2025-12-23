@@ -19,6 +19,8 @@ export interface LoadJob {
   delete_chunks: boolean;
   from_time?: string;
   to_time?: string;
+  created: string;
+  updated: string;
 }
 
 export interface CreateLoadJob {

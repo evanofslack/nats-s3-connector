@@ -1,7 +1,7 @@
 mod error;
 
 pub use error::{ClientError, Result};
-use nats3_types::{CreateLoadJob, CreateStoreJob, LoadJob, StoreJob};
+use nats3_types::{LoadJob, LoadJobCreate, StoreJob, StoreJobCreate};
 
 pub struct Client {
     http: reqwest::Client,
@@ -98,7 +98,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn create_load_job(&self, job: CreateLoadJob) -> Result<LoadJob> {
+    pub async fn create_load_job(&self, job: LoadJobCreate) -> Result<LoadJob> {
         let url = format!("{}/load/job", self.base_url);
         let response = self.http.post(&url).json(&job).send().await?;
 
@@ -197,7 +197,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn create_store_job(&self, job: CreateStoreJob) -> Result<StoreJob> {
+    pub async fn create_store_job(&self, job: StoreJobCreate) -> Result<StoreJob> {
         let url = format!("{}/store/job", self.base_url);
         let response = self.http.post(&url).json(&job).send().await?;
 

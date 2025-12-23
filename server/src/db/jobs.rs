@@ -4,7 +4,8 @@ use std::{fmt::Debug, sync::Arc};
 use thiserror::Error;
 
 use nats3_types::{
-    ListLoadJobsQuery, ListStoreJobsQuery, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus,
+    ListLoadJobsQuery, ListStoreJobsQuery, LoadJob, LoadJobCreate, LoadJobStatus, StoreJob,
+    StoreJobCreate, StoreJobStatus,
 };
 
 #[derive(Error, Debug)]
@@ -20,6 +21,9 @@ pub enum JobStoreError {
 
     #[error("connection pool error: {0}")]
     Pool(String),
+
+    #[error("invalid uuid: {0}")]
+    InvalidUuid(#[from] uuid::Error),
 }
 
 #[allow(dead_code)]
@@ -30,7 +34,7 @@ pub trait LoadJobStorer: Sync + Debug {
         &self,
         query: Option<ListLoadJobsQuery>,
     ) -> Result<Vec<LoadJob>, JobStoreError>;
-    async fn create_load_job(&self, job: LoadJob) -> Result<(), JobStoreError>;
+    async fn create_load_job(&self, job: LoadJobCreate) -> Result<LoadJob, JobStoreError>;
     async fn update_load_job(
         &self,
         id: String,
@@ -47,7 +51,7 @@ pub trait StoreJobStorer: Sync + Debug {
         &self,
         query: Option<ListStoreJobsQuery>,
     ) -> Result<Vec<StoreJob>, JobStoreError>;
-    async fn create_store_job(&self, job: StoreJob) -> Result<(), JobStoreError>;
+    async fn create_store_job(&self, job: StoreJobCreate) -> Result<StoreJob, JobStoreError>;
     async fn update_store_job(
         &self,
         id: String,
