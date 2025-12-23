@@ -85,8 +85,8 @@ impl App {
         );
 
         for job in store_jobs {
-            let config: io::ConsumeConfig = job.clone().into();
-            self.coordinator.start_store_job(job, config, true).await?;
+            // TODO: a little wasteful, multiple DB lookups
+            self.coordinator.resume_store_job(job.id).await?;
         }
         Ok(())
     }
@@ -104,8 +104,8 @@ impl App {
             "start existing load jobs from database"
         );
         for job in load_jobs {
-            let config: io::PublishConfig = job.clone().into();
-            self.coordinator.start_load_job(job, config, true).await?;
+            // TODO: a little wasteful, multple DB reads
+            self.coordinator.resume_load_job(job.id).await?;
         }
         Ok(())
     }

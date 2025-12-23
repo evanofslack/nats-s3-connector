@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use clap::Subcommand;
 use colored::Colorize;
 use nats3_client::Client;
-use nats3_types::CreateLoadJob;
+use nats3_types::LoadJobCreate;
 use std::{path::PathBuf, time};
 
 use crate::{config::OutputFormat, interactive, output};
@@ -106,7 +106,7 @@ impl LoadCommand {
                 } else if let Some(path) = from_json {
                     load_from_json(&path)?
                 } else {
-                    CreateLoadJob {
+                    LoadJobCreate {
                         name: name.unwrap(),
                         bucket: bucket.unwrap(),
                         prefix,
@@ -189,7 +189,7 @@ impl LoadCommand {
     }
 }
 
-fn load_from_json(path: &PathBuf) -> Result<CreateLoadJob> {
+fn load_from_json(path: &PathBuf) -> Result<LoadJobCreate> {
     let content = if path.to_str() == Some("-") {
         std::io::read_to_string(std::io::stdin())?
     } else {

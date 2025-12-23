@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use clap::Subcommand;
 use colored::Colorize;
 use nats3_client::Client;
-use nats3_types::{Batch, Codec, CreateStoreJob, Encoding};
+use nats3_types::{Batch, Codec, Encoding, StoreJobCreate};
 use std::path::PathBuf;
 
 use crate::{config::OutputFormat, interactive, output};
@@ -97,18 +97,16 @@ impl StoreCommand {
                 } else if let Some(path) = from_json {
                     load_from_json(&path)?
                 } else {
-                    let batch = if batch_max_bytes.is_some() || batch_max_count.is_some() {
-                        Some(Batch {
+                    let batch = match (batch_max_bytes, batch_max_count) {
+                        (None, None) => Batch::default(),
+                        _ => Batch {
                             max_bytes: batch_max_bytes.unwrap_or(1_000_000),
                             max_count: batch_max_count.unwrap_or(1000),
-                        })
-                    } else {
-                        None
+                        },
                     };
+                    let encoding = codec.map_or(Encoding::default(), |c| Encoding { codec: c });
 
-                    let encoding = codec.map(|c| Encoding { codec: c });
-
-                    CreateStoreJob {
+                    StoreJobCreate {
                         name: name.unwrap(),
                         stream: stream.unwrap(),
                         consumer,
@@ -188,7 +186,7 @@ impl StoreCommand {
     }
 }
 
-fn load_from_json(path: &PathBuf) -> Result<CreateStoreJob> {
+fn load_from_json(path: &PathBuf) -> Result<StoreJobCreate> {
     let content = if path.to_str() == Some("-") {
         std::io::read_to_string(std::io::stdin())?
     } else {

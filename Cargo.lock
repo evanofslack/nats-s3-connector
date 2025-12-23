@@ -1984,6 +1984,7 @@ dependencies = [
 name = "nats3-client"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "mockito",
  "nats3-types",
  "reqwest",

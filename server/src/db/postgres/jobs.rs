@@ -3,12 +3,16 @@ use async_trait::async_trait;
 use tracing::debug;
 
 use super::{
-    models::{LoadJobRow, LoadJobStatusEnum, StoreJobRow, StoreJobRowCreate, StoreJobStatusEnum},
+    models::{
+        LoadJobCreateRow, LoadJobRow, LoadJobStatusEnum, StoreJobCreateRow, StoreJobRow,
+        StoreJobStatusEnum,
+    },
     postgres::PostgresStore,
 };
 use crate::db::{JobStoreError, JobStorer, LoadJobStorer, StoreJobStorer};
 use nats3_types::{
-    ListLoadJobsQuery, ListStoreJobsQuery, LoadJob, LoadJobStatus, StoreJob, StoreJobStatus,
+    ListLoadJobsQuery, ListStoreJobsQuery, LoadJob, LoadJobCreate, LoadJobStatus, StoreJob,
+    StoreJobCreate, StoreJobStatus,
 };
 
 #[async_trait]
@@ -117,19 +121,20 @@ impl LoadJobStorer for PostgresStore {
             .map(|row| LoadJobRow::from_row(row).map(Into::into))
             .collect()
     }
-
-    async fn create_load_job(&self, job: LoadJob) -> Result<(), JobStoreError> {
+    async fn create_load_job(&self, job: LoadJobCreate) -> Result<LoadJob, JobStoreError> {
         let client = self.get_client().await?;
-        let row: LoadJobRow = job.into();
+        let row: LoadJobCreateRow = job.into();
 
-        client
-            .execute(
-                "INSERT INTO load_jobs 
-             (id, name, status, bucket, prefix, read_stream, read_consumer,
-              read_subject, write_subject, poll_interval, delete_chunks, from_time, to_time)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
+        let db_row = client
+            .query_one(
+                "INSERT INTO load_jobs
+            (name, status, bucket, prefix, read_stream, read_consumer,
+            read_subject, write_subject, poll_interval, delete_chunks, from_time, to_time)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            RETURNING id, name, status, bucket, prefix, read_stream, read_consumer,
+            read_subject, write_subject, poll_interval, delete_chunks, from_time, to_time,
+            created_at, updated_at",
                 &[
-                    &row.id,
                     &row.name,
                     &row.status,
                     &row.bucket,
@@ -145,7 +150,9 @@ impl LoadJobStorer for PostgresStore {
                 ],
             )
             .await?;
-        Ok(())
+
+        let job_row = LoadJobRow::from_row(&db_row)?;
+        Ok(job_row.into())
     }
 
     async fn update_load_job(
@@ -290,18 +297,19 @@ impl StoreJobStorer for PostgresStore {
             .collect()
     }
 
-    async fn create_store_job(&self, job: StoreJob) -> Result<(), JobStoreError> {
+    async fn create_store_job(&self, job: StoreJobCreate) -> Result<StoreJob, JobStoreError> {
         let client = self.get_client().await?;
-        let row: StoreJobRowCreate = job.into();
+        let row: StoreJobCreateRow = job.into();
 
-        client
-            .execute(
+        let db_row = client
+            .query_one(
                 "INSERT INTO store_jobs 
-                (id, name, status, stream, consumer, subject, bucket,
-                prefix, batch_max_bytes, batch_max_count, encoding_codec)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+            (name, status, stream, consumer, subject, bucket,
+            prefix, batch_max_bytes, batch_max_count, encoding_codec)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            RETURNING id, name, status, stream, consumer, subject, bucket,
+            prefix, batch_max_bytes, batch_max_count, encoding_codec, created_at, updated_at",
                 &[
-                    &row.id,
                     &row.name,
                     &row.status,
                     &row.stream,
@@ -316,7 +324,8 @@ impl StoreJobStorer for PostgresStore {
             )
             .await?;
 
-        Ok(())
+        let job_row = StoreJobRow::from_row(&db_row)?;
+        Ok(job_row.into())
     }
 
     async fn update_store_job(

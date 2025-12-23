@@ -2,7 +2,9 @@ use anyhow::Result;
 use std::sync::Arc;
 use tracing::debug;
 
-use nats3_types::{LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
+use nats3_types::{
+    LoadJob, LoadJobCreate, LoadJobStatus, StoreJob, StoreJobCreate, StoreJobStatus,
+};
 
 use crate::{db, error, io, registry};
 
@@ -19,21 +21,14 @@ impl Coordinator {
         Self { registry, io, db }
     }
 
-    pub async fn start_load_job(
-        &self,
-        job: LoadJob,
-        config: io::PublishConfig,
-        restart: bool,
-    ) -> Result<LoadJob, error::AppError> {
+    async fn start_load_job(&self, job: LoadJob) -> Result<LoadJob, error::AppError> {
         let job_id = job.id.to_string();
         if self.registry.is_load_job_running(&job_id).await {
             return Err(registry::RegistryError::JobAlreadyRunning { job_id }.into());
         }
 
-        if !restart {
-            self.db.create_load_job(job.clone()).await?;
-        }
         let io = self.io.clone();
+        let config: io::PublishConfig = job.clone().into();
         let registry_config = config.clone();
 
         let cancel_token = self.registry.create_cancel_token();
@@ -84,6 +79,11 @@ impl Coordinator {
         Ok(job)
     }
 
+    pub async fn start_new_load_job(&self, job: LoadJobCreate) -> Result<LoadJob, error::AppError> {
+        let out = self.db.create_load_job(job.clone()).await?;
+        self.start_load_job(out).await
+    }
+
     pub async fn pause_load_job(&self, job_id: String) -> Result<LoadJob, error::AppError> {
         self.registry.pause_load_job(&job_id).await;
         let status = LoadJobStatus::Paused;
@@ -96,8 +96,7 @@ impl Coordinator {
         if job.status != LoadJobStatus::Paused {
             return Ok(job);
         }
-        let config: io::PublishConfig = job.clone().into();
-        self.start_load_job(job, config, true).await?;
+        self.start_load_job(job).await?;
         let status = LoadJobStatus::Running;
         let job = self.db.update_load_job(job_id, status).await?;
         Ok(job)
@@ -107,21 +106,14 @@ impl Coordinator {
         self.registry.cancel_load_job(&job_id).await
     }
 
-    pub async fn start_store_job(
-        &self,
-        job: StoreJob,
-        config: io::ConsumeConfig,
-        resume: bool,
-    ) -> Result<StoreJob, error::AppError> {
+    async fn start_store_job(&self, job: StoreJob) -> Result<StoreJob, error::AppError> {
         let job_id = job.id.to_string();
         if self.registry.is_store_job_running(&job_id).await {
             return Err(registry::RegistryError::JobAlreadyRunning { job_id }.into());
         }
 
-        if !resume {
-            self.db.create_store_job(job.clone()).await?;
-        }
         let io = self.io.clone();
+        let config: io::ConsumeConfig = job.clone().into();
         let registry_config = config.clone();
 
         let cancel_token = self.registry.create_cancel_token();
@@ -172,6 +164,14 @@ impl Coordinator {
         Ok(job)
     }
 
+    pub async fn start_new_store_job(
+        &self,
+        job: StoreJobCreate,
+    ) -> Result<StoreJob, error::AppError> {
+        let out = self.db.create_store_job(job.clone()).await?;
+        self.start_store_job(out).await
+    }
+
     pub async fn pause_store_job(&self, job_id: String) -> Result<StoreJob, error::AppError> {
         self.registry.pause_store_job(&job_id).await;
         let status = StoreJobStatus::Paused;
@@ -184,8 +184,7 @@ impl Coordinator {
         if job.status != StoreJobStatus::Paused {
             return Ok(job);
         }
-        let config: io::ConsumeConfig = job.clone().into();
-        self.start_store_job(job, config, true).await?;
+        self.start_store_job(job).await?;
         let status = StoreJobStatus::Running;
         let job = self.db.update_store_job(job_id, status).await?;
         Ok(job)
