@@ -354,6 +354,7 @@ impl IO {
                     warn!(
                         key = path,
                         bucket = config.bucket,
+                        sequence_number = chunk_md.sequence_number,
                         "download chunk hash mismatch, skip publish"
                     );
                     continue;
