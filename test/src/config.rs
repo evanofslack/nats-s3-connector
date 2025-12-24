@@ -79,13 +79,15 @@ pub struct Config {
 
 impl Config {
     pub fn parse_args() -> Self {
-        Self::parse()
+        let mut config = Self::parse();
+        if config.bucket.is_none() {
+            config.bucket = Some(format!("test-bucket-{}", chrono::Utc::now().timestamp()));
+        }
+        config
     }
 
     pub fn bucket_name(&self) -> String {
-        self.bucket
-            .clone()
-            .unwrap_or_else(|| format!("test-bucket-{}", chrono::Utc::now().timestamp()))
+        self.bucket.clone().unwrap()
     }
 
     pub fn store_job_name(&self) -> String {
