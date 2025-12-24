@@ -2064,6 +2064,7 @@ dependencies = [
  "chrono",
  "serde",
  "strum_macros",
+ "thiserror 2.0.17",
  "ulid",
 ]
 
