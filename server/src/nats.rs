@@ -1,8 +1,10 @@
 use anyhow::{Context, Error, Result};
+use async_nats::header::HeaderMap;
 use async_nats::jetstream::{
     self,
     consumer::{pull::Stream, PullConsumer},
 };
+use std::collections::HashMap;
 
 use bytes::Bytes;
 use tracing::{debug, trace};
@@ -66,10 +68,30 @@ impl Client {
         Ok(messages)
     }
 
-    pub async fn publish(&self, subject: String, payload: Bytes) -> Result<(), Error> {
+    pub async fn publish(
+        &self,
+        subject: String,
+        payload: Bytes,
+        headers: Option<HashMap<String, Vec<String>>>,
+    ) -> Result<(), Error> {
         trace!(bytes = payload.len(), subject = subject, "publish message");
         let jetstream = jetstream::new(self.client.clone());
-        jetstream.publish(subject, payload).await?.await?;
+
+        let ack = if let Some(headers_map) = headers {
+            let mut nats_headers = HeaderMap::new();
+            for (key, values) in headers_map {
+                for value in values {
+                    nats_headers.append(key.as_str(), value.as_str());
+                }
+            }
+            jetstream
+                .publish_with_headers(subject, nats_headers, payload)
+                .await?
+        } else {
+            jetstream.publish(subject, payload).await?
+        };
+
+        ack.await?;
         Ok(())
     }
 }

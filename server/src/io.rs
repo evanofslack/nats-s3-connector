@@ -365,7 +365,7 @@ impl IO {
                 for message in chunk.block.messages {
                     bytes_total += message.payload.len();
                     self.nats_client
-                        .publish(write_subject.clone(), message.payload)
+                        .publish(write_subject.clone(), message.payload, message.headers)
                         .await?;
                 }
 
