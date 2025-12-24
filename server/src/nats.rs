@@ -1,8 +1,10 @@
 use anyhow::{Context, Error, Result};
-use async_nats::header::HeaderMap;
-use async_nats::jetstream::{
-    self,
-    consumer::{pull::Stream, PullConsumer},
+use async_nats::{
+    header::HeaderMap,
+    jetstream::{
+        self,
+        consumer::{pull::Stream, PullConsumer},
+    },
 };
 use std::collections::HashMap;
 
