@@ -123,7 +123,6 @@ impl IO {
         buffer.keep_alive(KEEP_ALIVE_INTERVAL);
 
         let mut bytes_total = 0;
-        let mut buffer_start = std::time::Instant::now();
         let mut messages = self
             .nats_client
             .consume(
@@ -153,7 +152,7 @@ impl IO {
                             if messages_total >= config.messages_max as usize
                                 || bytes_total >= config.bytes_max as usize
                             {
-                                self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
+                                self.upload_buffer(&buffer, &mut bytes_total, &config, prefix).await?;
                             }
                         }
                         Some(Err(e)) => return Err(e.into()),
@@ -164,14 +163,14 @@ impl IO {
                     let messages_total = buffer.len().await;
                     if messages_total > 0 {
                         debug!(messages = messages_total, "timer triggered upload");
-                        self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
+                        self.upload_buffer(&buffer, &mut bytes_total, &config, prefix).await?;
                     }
                 }
                 _ = pause_token.cancelled() => {
                     debug!("consume stream paused, flushing buffer");
                     let messages_total = buffer.len().await;
                     if messages_total > 0 {
-                        self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
+                        self.upload_buffer(&buffer, &mut bytes_total, &config, prefix).await?;
                     }
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Paused,
@@ -184,7 +183,7 @@ impl IO {
                     debug!("consume stream cancelled, flushing buffer");
                     let messages_total = buffer.len().await;
                     if messages_total > 0 {
-                        self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
+                        self.upload_buffer(&buffer, &mut bytes_total, &config, prefix).await?;
                     }
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Cancelled,
@@ -206,17 +205,14 @@ impl IO {
         &self,
         buffer: &MessageBuffer,
         bytes_total: &mut usize,
-        buffer_start: &mut std::time::Instant,
         config: &ConsumeConfig,
         prefix: &Option<String>,
     ) -> Result<()> {
         let messages_total = buffer.len().await;
-        let elapsed = buffer_start.elapsed();
 
         debug!(
             messages = messages_total,
             bytes = *bytes_total,
-            elapsed_secs = elapsed.as_secs(),
             "buffer threshold reached"
         );
 
@@ -235,33 +231,32 @@ impl IO {
         };
 
         let serialized = chunk.serialize(config.codec.clone())?;
-        let serialized_size = serialized.len();
+        let byte_count = serialized.len();
         self.s3_client
             .upload_chunk(serialized, &config.bucket, &path, config.codec.clone())
             .await?;
 
-        let chunk_md = chunk.to_chunk_metadata(config, &path, serialized_size);
+        let chunk_md = chunk.to_chunk_metadata(config, &path, byte_count);
         self.chunk_db.create_chunk(chunk_md).await?;
 
-        let nats_metrics = self.metrics.nats.write().await;
-        let labels = metrics::NatsLabels {
-            subject: subject.clone(),
-            stream: stream.clone(),
-        };
-        nats_metrics
-            .store_messages
-            .get_or_create(&labels)
-            .inc_by(messages_total as u64);
-        nats_metrics
-            .store_bytes
-            .get_or_create(&labels)
-            .inc_by(*bytes_total as u64);
-        drop(nats_metrics);
+        self.metrics
+            .io
+            .nats_messages_total
+            .get_or_create(&metrics::DirectionLabel {
+                direction: metrics::DIRECTION_OUT.to_string(),
+            })
+            .inc();
+        self.metrics
+            .io
+            .nats_bytes_total
+            .get_or_create(&metrics::DirectionLabel {
+                direction: metrics::DIRECTION_OUT.to_string(),
+            })
+            .inc_by(byte_count as u64);
 
         buffer.ack_all().await;
         buffer.clear().await;
         *bytes_total = 0;
-        *buffer_start = std::time::Instant::now();
 
         Ok(())
     }
@@ -360,31 +355,11 @@ impl IO {
                     continue;
                 }
 
-                let mut bytes_total = 0;
-                let messages_total = chunk.block.messages.len();
-
                 for message in chunk.block.messages {
-                    bytes_total += message.payload.len();
                     self.nats_client
                         .publish(write_subject.clone(), message.payload, message.headers)
                         .await?;
                 }
-
-                let nats_metrics = self.metrics.nats.write().await;
-                let labels = metrics::NatsLabels {
-                    subject: write_subject.clone(),
-                    // TODO: change metrics labels
-                    stream: "".to_string(),
-                };
-                nats_metrics
-                    .load_messages
-                    .get_or_create(&labels)
-                    .inc_by(messages_total as u64);
-                nats_metrics
-                    .load_bytes
-                    .get_or_create(&labels)
-                    .inc_by(bytes_total as u64);
-                drop(nats_metrics);
 
                 if config.delete_chunks {
                     if let Err(e) = self.s3_client.delete_chunk(&chunk_md.bucket, &path).await {

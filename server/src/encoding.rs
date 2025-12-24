@@ -128,12 +128,12 @@ impl Chunk {
             }
         }
     }
-    pub fn deserialize(data: Vec<u8>, codec: Codec) -> Result<Self> {
+    pub fn deserialize(data: &Bytes, codec: Codec) -> Result<Self> {
         match codec {
-            Codec::Json => serde_json::from_slice(&data).context("binary deserialization"),
+            Codec::Json => serde_json::from_slice(data).context("binary deserialization"),
             Codec::Binary => {
                 let config = bincode::config::legacy();
-                let (chunk, _) = bincode::serde::decode_from_slice(&data, config)
+                let (chunk, _) = bincode::serde::decode_from_slice(data, config)
                     .context("binary deserialization")?;
                 Ok(chunk)
             }
@@ -143,7 +143,7 @@ impl Chunk {
         &self,
         config: &ConsumeConfig,
         key: &str,
-        serialized_size: usize,
+        byte_count: usize,
     ) -> CreateChunkMetadata {
         CreateChunkMetadata {
             bucket: config.bucket.clone(),
@@ -155,7 +155,7 @@ impl Chunk {
             timestamp_start: self.block.timestamp_min,
             timestamp_end: self.block.timestamp_max,
             message_count: self.block.messages.len() as i64,
-            size_bytes: serialized_size as i64,
+            size_bytes: byte_count as i64,
             codec: config.codec.clone(),
             hash: self.hash.clone(),
             version: self.version.clone(),

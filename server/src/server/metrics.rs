@@ -15,8 +15,11 @@ pub fn create_router(deps: Dependencies) -> Router {
 async fn metrics(State(state): State<Dependencies>) -> (StatusCode, String) {
     info!(route = "/metrics", method = "GET", "handle request");
 
-    let registry = state.metrics.registry.write().await;
+    let registry = state.metrics.registry;
     let mut body = String::new();
-    encode(&mut body, &registry).expect("read metrics registry");
-    (StatusCode::OK, body)
+
+    match encode(&mut body, &registry) {
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, body),
+        Ok(_) => (StatusCode::OK, body),
+    }
 }

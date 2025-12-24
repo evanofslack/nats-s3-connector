@@ -6,23 +6,25 @@ use async_nats::{
         consumer::{pull::Stream, PullConsumer},
     },
 };
-use std::collections::HashMap;
-
 use bytes::Bytes;
+use std::collections::HashMap;
 use tracing::{debug, trace};
+
+use crate::metrics;
 
 #[derive(Clone, Debug)]
 pub struct Client {
     client: async_nats::Client,
+    metrics: metrics::Metrics,
 }
 
 impl Client {
-    pub async fn new(url: String) -> Result<Self, Error> {
+    pub async fn new(url: String, metrics: metrics::Metrics) -> Result<Self, Error> {
         debug!(url = url, "create new nats client");
         let client = async_nats::connect(url.clone())
             .await
             .context("fail connect to nats server")?;
-        let client = Client { client };
+        let client = Client { client, metrics };
         Ok(client)
     }
 
@@ -76,7 +78,8 @@ impl Client {
         payload: Bytes,
         headers: Option<HashMap<String, Vec<String>>>,
     ) -> Result<(), Error> {
-        trace!(bytes = payload.len(), subject = subject, "publish message");
+        let byte_count = payload.len();
+        trace!(bytes = byte_count, subject = subject, "publish message");
         let jetstream = jetstream::new(self.client.clone());
 
         let ack = if let Some(headers_map) = headers {
@@ -94,6 +97,21 @@ impl Client {
         };
 
         ack.await?;
+
+        self.metrics
+            .io
+            .nats_messages_total
+            .get_or_create(&metrics::DirectionLabel {
+                direction: metrics::DIRECTION_IN.to_string(),
+            })
+            .inc();
+        self.metrics
+            .io
+            .nats_bytes_total
+            .get_or_create(&metrics::DirectionLabel {
+                direction: metrics::DIRECTION_IN.to_string(),
+            })
+            .inc_by(byte_count as u64);
         Ok(())
     }
 }
