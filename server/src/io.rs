@@ -354,6 +354,7 @@ impl IO {
                     warn!(
                         key = path,
                         bucket = config.bucket,
+                        sequence_number = chunk_md.sequence_number,
                         "download chunk hash mismatch, skip publish"
                     );
                     continue;
@@ -365,7 +366,7 @@ impl IO {
                 for message in chunk.block.messages {
                     bytes_total += message.payload.len();
                     self.nats_client
-                        .publish(write_subject.clone(), message.payload)
+                        .publish(write_subject.clone(), message.payload, message.headers)
                         .await?;
                 }
 

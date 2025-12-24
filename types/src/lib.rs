@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::{str::FromStr, time};
 use strum_macros::Display;
+use thiserror::Error;
 
 const DEFAULT_MAX_BYTES: i64 = 1_000_000;
 const DEFAULT_MAX_COUNT: i64 = 1000;
@@ -171,6 +172,21 @@ pub struct LoadJobCreate {
     pub delete_chunks: bool,
     pub from_time: Option<DateTime<Utc>>,
     pub to_time: Option<DateTime<Utc>>,
+}
+
+#[derive(Error, Debug)]
+pub enum ValidationError {
+    #[error("load job with polling must delete chunks")]
+    PollMustDelete,
+}
+
+impl LoadJobCreate {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.poll_interval.is_some() && !self.delete_chunks {
+            return Err(ValidationError::PollMustDelete);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Default)]

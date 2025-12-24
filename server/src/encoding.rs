@@ -20,7 +20,7 @@ pub struct Message {
     // payload of the message. Can be any arbitrary data format.
     pub payload: Bytes,
     // optional headers.
-    pub headers: Option<HashMap<String, String>>,
+    pub headers: Option<HashMap<String, Vec<String>>>,
     pub length: usize,
     pub timestamp: chrono::DateTime<chrono::Utc>,
     pub sequence: u64,
@@ -45,10 +45,21 @@ impl From<jetstream::Message> for Message {
             .and_then(|seq| seq.as_str().parse::<u64>().ok())
             .unwrap_or(0);
 
+        let headers = source.headers.as_ref().map(|h| {
+            h.iter()
+                .map(|(k, values)| {
+                    (
+                        k.to_string(),
+                        values.iter().map(|v| v.to_string()).collect(),
+                    )
+                })
+                .collect()
+        });
+
         Message {
-            subject: source.subject.clone().to_string(),
+            subject: source.subject.to_string(),
             payload: source.payload.clone(),
-            headers: None,
+            headers,
             length: source.length,
             timestamp,
             sequence,

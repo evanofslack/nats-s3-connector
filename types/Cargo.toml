@@ -7,5 +7,6 @@ edition = "2021"
 ulid = { workspace = true }
 serde = { workspace = true }
 chrono = { workspace = true }
+thiserror = { workspace = true }
 
 strum_macros = "0.27"
