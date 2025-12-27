@@ -7,7 +7,7 @@ use async_nats::{
     },
 };
 use bytes::Bytes;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use tracing::{debug, trace};
 
 use crate::metrics;
@@ -76,7 +76,7 @@ impl Client {
         &self,
         subject: String,
         payload: Bytes,
-        headers: Option<HashMap<String, Vec<String>>>,
+        headers: Option<BTreeMap<String, Vec<String>>>,
     ) -> Result<(), Error> {
         let byte_count = payload.len();
         trace!(bytes = byte_count, subject = subject, "publish message");

@@ -4,7 +4,7 @@ use bytes::Bytes;
 use nats3_types::Codec;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, fmt};
+use std::{collections::BTreeMap, fmt};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use crate::{db::CreateChunkMetadata, io::ConsumeConfig};
@@ -20,7 +20,8 @@ pub struct Message {
     // payload of the message. Can be any arbitrary data format.
     pub payload: Bytes,
     // optional headers.
-    pub headers: Option<HashMap<String, Vec<String>>>,
+    // must use ordered map for determinstic hashing.
+    pub headers: Option<BTreeMap<String, Vec<String>>>,
     pub length: usize,
     pub timestamp: chrono::DateTime<chrono::Utc>,
     pub sequence: u64,
