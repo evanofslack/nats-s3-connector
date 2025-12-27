@@ -1,8 +1,26 @@
-CREATE TYPE load_job_status AS ENUM ('created', 'running', 'paused', 'success', 'failure');
-
 CREATE TYPE store_job_status AS ENUM ('created', 'running', 'paused', 'success', 'failure');
 
+CREATE TYPE load_job_status AS ENUM ('created', 'running', 'paused', 'success', 'failure');
+
 CREATE TYPE encoding_codec AS ENUM ('json', 'binary');
+
+CREATE TABLE store_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    status store_job_status NOT NULL,
+    stream TEXT NOT NULL,
+    consumer TEXT,
+    subject TEXT NOT NULL,
+    bucket TEXT NOT NULL,
+    prefix TEXT,
+    batch_max_bytes BIGINT NOT NULL,
+    batch_max_count BIGINT NOT NULL,
+    encoding_codec encoding_codec NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_store_jobs_status ON store_jobs(status);
 
 CREATE TABLE load_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -23,21 +41,3 @@ CREATE TABLE load_jobs (
 );
 
 CREATE INDEX idx_load_jobs_status ON load_jobs(status);
-
-CREATE TABLE store_jobs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    status store_job_status NOT NULL,
-    stream TEXT NOT NULL,
-    consumer TEXT,
-    subject TEXT NOT NULL,
-    bucket TEXT NOT NULL,
-    prefix TEXT,
-    batch_max_bytes BIGINT NOT NULL,
-    batch_max_count BIGINT NOT NULL,
-    encoding_codec encoding_codec NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_store_jobs_status ON store_jobs(status);
