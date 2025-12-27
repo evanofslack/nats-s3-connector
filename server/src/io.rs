@@ -119,7 +119,7 @@ impl IO {
             "consume stream and upload to bucket"
         );
 
-        let buffer = MessageBuffer::new(cancel_token.clone());
+        let buffer = MessageBuffer::new(cancel_token.clone(), pause_token.clone());
         buffer.keep_alive(KEEP_ALIVE_INTERVAL);
 
         let mut bytes_total = 0;
@@ -301,7 +301,7 @@ impl IO {
             let chunks = self.chunk_db.list_chunks(query.clone()).await?;
             for chunk_md in chunks {
                 if cancel_token.is_cancelled() {
-                    debug!("publish stream cancelled");
+                    debug!("publish stream cancelled during chunk list");
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Cancelled,
                         job_id: job_id.clone(),
@@ -309,7 +309,7 @@ impl IO {
                     return Ok(());
                 }
                 if pause_token.is_cancelled() {
-                    debug!("publish stream paused");
+                    debug!("publish stream paused during chunk list");
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Paused,
                         job_id: job_id.clone(),
@@ -386,20 +386,34 @@ impl IO {
             }
             // Poll interval handling
             match config.poll_interval {
-                None => break, // One-shot
+                None => break,
                 Some(duration) => {
-                    if cancel_token.is_cancelled() {
-                        let _ = exit_tx.send(registry::TaskExitInfo {
-                            reason: registry::TaskExitReason::Cancelled,
-                            job_id: job_id.clone(),
-                        });
-                        return Ok(());
-                    }
                     trace!(
                         duration_secs = duration.as_secs(),
-                        "sleep for poll interval duration for load job"
+                        "sleep poll interval duration for load job"
                     );
-                    tokio::time::sleep(duration).await;
+
+                    tokio::select! {
+                        _ = tokio::time::sleep(duration) => {
+                            continue;
+                        }
+                        _ = cancel_token.cancelled() => {
+                            debug!("publish stream cancelled during sleep");
+                            let _ = exit_tx.send(registry::TaskExitInfo {
+                                reason: registry::TaskExitReason::Cancelled,
+                                job_id: job_id.clone(),
+                            });
+                            return Ok(());
+                        }
+                        _ = pause_token.cancelled() => {
+                            debug!("publish stream paused during sleep");
+                            let _ = exit_tx.send(registry::TaskExitInfo {
+                                reason: registry::TaskExitReason::Paused,
+                                job_id: job_id.clone(),
+                            });
+                            return Ok(());
+                        }
+                    }
                 }
             }
         }
@@ -423,13 +437,15 @@ impl IO {
 struct MessageBuffer {
     messages: Arc<RwLock<Vec<jetstream::Message>>>,
     cancel_token: CancellationToken,
+    pause_token: CancellationToken,
 }
 
 impl MessageBuffer {
-    fn new(cancel_token: CancellationToken) -> Self {
+    fn new(cancel_token: CancellationToken, pause_token: CancellationToken) -> Self {
         Self {
             messages: Arc::new(RwLock::new(Vec::new())),
             cancel_token,
+            pause_token,
         }
     }
 
@@ -437,8 +453,8 @@ impl MessageBuffer {
     fn keep_alive(&self, interval: time::Duration) {
         let messages = self.messages.clone();
         let cancel_token = self.cancel_token.clone();
+        let pause_token = self.pause_token.clone();
 
-        // keepalive thread currently runs forever.
         tokio::spawn(async move {
             let mut interval = time::interval(interval);
             loop {
@@ -458,8 +474,12 @@ impl MessageBuffer {
                         drop(messages);
                     }
                     _ = cancel_token.cancelled() => {
-                        debug!("keepalive thread cancelled");
-                        break;
+                        debug!("keepalive thread cancelled (cancel)");
+                        return;
+                    }
+                    _ = pause_token.cancelled() => {
+                        debug!("keepalive thread cancelled (pause)");
+                        return;
                     }
                 }
             }
