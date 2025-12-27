@@ -189,7 +189,6 @@ impl IO {
                         reason: registry::TaskExitReason::Cancelled,
                         job_id: job_id.clone(),
                     });
-
                     return Ok(());
                     }
             }
@@ -245,7 +244,7 @@ impl IO {
             .get_or_create(&metrics::DirectionLabel {
                 direction: metrics::DIRECTION_OUT.to_string(),
             })
-            .inc();
+            .inc_by(messages_total as u64);
         self.metrics
             .io
             .nats_bytes_total
