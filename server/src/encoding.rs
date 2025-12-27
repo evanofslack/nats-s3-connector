@@ -4,7 +4,7 @@ use bytes::Bytes;
 use nats3_types::Codec;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, fmt};
+use std::{collections::BTreeMap, fmt};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use crate::{db::CreateChunkMetadata, io::ConsumeConfig};
@@ -20,7 +20,8 @@ pub struct Message {
     // payload of the message. Can be any arbitrary data format.
     pub payload: Bytes,
     // optional headers.
-    pub headers: Option<HashMap<String, Vec<String>>>,
+    // must use ordered map for determinstic hashing.
+    pub headers: Option<BTreeMap<String, Vec<String>>>,
     pub length: usize,
     pub timestamp: chrono::DateTime<chrono::Utc>,
     pub sequence: u64,
@@ -128,12 +129,12 @@ impl Chunk {
             }
         }
     }
-    pub fn deserialize(data: Vec<u8>, codec: Codec) -> Result<Self> {
+    pub fn deserialize(data: &Bytes, codec: Codec) -> Result<Self> {
         match codec {
-            Codec::Json => serde_json::from_slice(&data).context("binary deserialization"),
+            Codec::Json => serde_json::from_slice(data).context("binary deserialization"),
             Codec::Binary => {
                 let config = bincode::config::legacy();
-                let (chunk, _) = bincode::serde::decode_from_slice(&data, config)
+                let (chunk, _) = bincode::serde::decode_from_slice(data, config)
                     .context("binary deserialization")?;
                 Ok(chunk)
             }
@@ -143,7 +144,7 @@ impl Chunk {
         &self,
         config: &ConsumeConfig,
         key: &str,
-        serialized_size: usize,
+        byte_count: usize,
     ) -> CreateChunkMetadata {
         CreateChunkMetadata {
             bucket: config.bucket.clone(),
@@ -155,7 +156,7 @@ impl Chunk {
             timestamp_start: self.block.timestamp_min,
             timestamp_end: self.block.timestamp_max,
             message_count: self.block.messages.len() as i64,
-            size_bytes: serialized_size as i64,
+            size_bytes: byte_count as i64,
             codec: config.codec.clone(),
             hash: self.hash.clone(),
             version: self.version.clone(),

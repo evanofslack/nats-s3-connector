@@ -4,88 +4,93 @@ use prometheus_client::{
     registry::Registry,
 };
 use std::sync::Arc;
-use tokio::sync::RwLock;
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
-pub struct NatsLabels {
-    pub subject: String,
-    pub stream: String,
-}
-
-#[derive(Default, Debug, Clone)]
-pub struct NatsMetrics {
-    pub load_messages: Family<NatsLabels, Counter>,
-    pub load_bytes: Family<NatsLabels, Counter>,
-    pub store_messages: Family<NatsLabels, Counter>,
-    pub store_bytes: Family<NatsLabels, Counter>,
-}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
 pub struct JobLabels {
-    pub stream: String,
-    pub subject: String,
-    pub bucket: String,
+    pub job_type: String,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
+pub struct JobTypeLabel {
+    pub job_type: String,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
+pub struct DirectionLabel {
+    pub direction: String,
 }
 
 #[derive(Default, Debug, Clone)]
 pub struct JobMetrics {
-    pub load_jobs: Family<JobLabels, Gauge>,
-    pub store_jobs: Family<JobLabels, Gauge>,
+    pub jobs_total: Family<JobLabels, Counter>,
+    pub jobs_current: Family<JobTypeLabel, Gauge>,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct IoMetrics {
+    pub nats_messages_total: Family<DirectionLabel, Counter>,
+    pub nats_bytes_total: Family<DirectionLabel, Counter>,
+    pub s3_objects_total: Family<DirectionLabel, Counter>,
+    pub s3_bytes_total: Family<DirectionLabel, Counter>,
 }
 
 #[derive(Default, Debug, Clone)]
 pub struct Metrics {
-    pub registry: Arc<RwLock<Registry>>,
-    pub nats: Arc<RwLock<NatsMetrics>>,
-    pub jobs: Arc<RwLock<JobMetrics>>,
+    pub registry: Arc<Registry>,
+    pub jobs: JobMetrics,
+    pub io: IoMetrics,
 }
 
 impl Metrics {
-    pub async fn new() -> Self {
-        let metrics = Metrics {
-            registry: Arc::new(RwLock::new(<Registry>::default())),
-            nats: Arc::new(RwLock::new(NatsMetrics::default())),
-            jobs: Arc::new(RwLock::new(JobMetrics::default())),
-        };
-
-        let mut registry = metrics.registry.write().await;
-        let nats = metrics.nats.read().await;
-        let jobs = metrics.jobs.read().await;
+    pub fn new() -> Self {
+        let mut registry = Registry::default();
+        let jobs = JobMetrics::default();
+        let io = IoMetrics::default();
 
         registry.register(
-            "nats3_store_messages",
-            "Total count of stored messages",
-            nats.store_messages.clone(),
+            "nats3_jobs_total",
+            "Total jobs completed or failed",
+            jobs.jobs_total.clone(),
         );
         registry.register(
-            "nats3_store_bytes",
-            "Total size of stored messages in bytes",
-            nats.store_bytes.clone(),
+            "nats3_jobs_current",
+            "Currently running jobs",
+            jobs.jobs_current.clone(),
         );
         registry.register(
-            "nats3_load_messages",
-            "Total count of loaded messages",
-            nats.load_messages.clone(),
+            "nats3_nats_messages_total",
+            "Total NATS messages processed",
+            io.nats_messages_total.clone(),
         );
         registry.register(
-            "nats3_load_bytes",
-            "Total size of loaded messages in bytes",
-            nats.load_bytes.clone(),
+            "nats3_nats_bytes_total",
+            "Total NATS bytes processed",
+            io.nats_bytes_total.clone(),
         );
         registry.register(
-            "nats3_store_jobs",
-            "Number of store jobs in progress",
-            jobs.store_jobs.clone(),
+            "nats3_s3_objects_total",
+            "Total S3 objects processed",
+            io.s3_objects_total.clone(),
         );
         registry.register(
-            "nats3_load_jobs",
-            "Number of load jobs in progress",
-            jobs.load_jobs.clone(),
+            "nats3_s3_bytes_total",
+            "Total S3 bytes processed",
+            io.s3_bytes_total.clone(),
         );
 
-        drop(registry);
-        drop(nats);
-        drop(jobs);
-        metrics
+        Metrics {
+            registry: Arc::new(registry),
+            jobs,
+            io,
+        }
     }
 }
+
+// Usage constants
+pub const JOB_TYPE_STORE: &str = "store";
+pub const JOB_TYPE_LOAD: &str = "load";
+pub const STATUS_COMPLETED: &str = "completed";
+pub const STATUS_FAILED: &str = "failed";
+pub const DIRECTION_IN: &str = "in";
+pub const DIRECTION_OUT: &str = "out";

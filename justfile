@@ -8,7 +8,7 @@ test1 TEST:
     cargo test --features integration {{TEST}}
 
 check:
-    cargo test --workspace
+    cargo check --workspace
 
 build:
     cargo build
@@ -16,7 +16,7 @@ build:
 fmt:
     cargo +nightly fmt
 
-precommit: fmt check test
+precommit: fmt test
 
 build-server:
     cargo build -p nats3-server

@@ -3,7 +3,7 @@ use nats3_types::Codec;
 use s3::{creds::Credentials, Bucket, BucketConfiguration, Region};
 use tracing::{debug, info, warn};
 
-use crate::encoding;
+use crate::{encoding, metrics};
 
 #[derive(Clone, Debug)]
 pub struct Client {
@@ -11,16 +11,24 @@ pub struct Client {
     endpoint: String,
     access_key: String,
     secret_key: String,
+    metrics: metrics::Metrics,
 }
 
 impl Client {
-    pub fn new(region: String, endpoint: String, access_key: String, secret_key: String) -> Self {
+    pub fn new(
+        region: String,
+        endpoint: String,
+        access_key: String,
+        secret_key: String,
+        metrics: metrics::Metrics,
+    ) -> Self {
         debug!(endpoint = endpoint, region = region, "create new s3 client");
         Client {
             region,
             endpoint,
             access_key,
             secret_key,
+            metrics,
         }
     }
 
@@ -32,11 +40,11 @@ impl Client {
         codec: Codec,
     ) -> Result<()> {
         let bucket = self.bucket(bucket_name, true).await?;
-        let response_data = bucket
+        let resp = bucket
             .put_object(&path, &chunk)
             .await
             .context("put object")?;
-        let code = response_data.status_code();
+        let code = resp.status_code();
         if code != 200 {
             warn!(
                 code = code,
@@ -51,6 +59,20 @@ impl Client {
             codec = codec.to_string(),
             "finish upload block to s3"
         );
+        self.metrics
+            .io
+            .s3_objects_total
+            .get_or_create(&metrics::DirectionLabel {
+                direction: metrics::DIRECTION_IN.to_string(),
+            })
+            .inc();
+        self.metrics
+            .io
+            .s3_bytes_total
+            .get_or_create(&metrics::DirectionLabel {
+                direction: metrics::DIRECTION_IN.to_string(),
+            })
+            .inc_by(chunk.len() as u64);
         Ok(())
     }
 
@@ -61,8 +83,8 @@ impl Client {
         codec: Codec,
     ) -> Result<encoding::Chunk> {
         let bucket = self.bucket(bucket_name, false).await?;
-        let response_data = bucket.get_object(path).await?;
-        let code = response_data.status_code();
+        let resp = bucket.get_object(path).await?;
+        let code = resp.status_code();
         if code != 200 {
             warn!(
                 code = code,
@@ -71,7 +93,9 @@ impl Client {
                 "download chunk, unexpected status code"
             )
         }
-        let chunk = encoding::Chunk::deserialize(response_data.as_slice().into(), codec.clone())?;
+        let b = resp.bytes();
+        let bytes_download = b.len();
+        let chunk = encoding::Chunk::deserialize(b, codec.clone())?;
 
         debug!(
             bucket = bucket_name,
@@ -79,6 +103,22 @@ impl Client {
             codec = codec.to_string(),
             "finish download block from s3"
         );
+
+        self.metrics
+            .io
+            .s3_objects_total
+            .get_or_create(&metrics::DirectionLabel {
+                direction: metrics::DIRECTION_OUT.to_string(),
+            })
+            .inc();
+        self.metrics
+            .io
+            .s3_bytes_total
+            .get_or_create(&metrics::DirectionLabel {
+                direction: metrics::DIRECTION_OUT.to_string(),
+            })
+            .inc_by(bytes_download as u64);
+
         Ok(chunk)
     }
 

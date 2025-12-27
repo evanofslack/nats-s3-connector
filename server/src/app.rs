@@ -22,7 +22,7 @@ pub struct App {
 pub async fn new(config: Config, shutdown: ShutdownCoordinator) -> Result<App> {
     debug!("create new application from config");
 
-    let metrics = metrics::Metrics::new().await;
+    let metrics = metrics::Metrics::new();
 
     let pg_store = db::PostgresStore::new(&config.postgres.url)
         .await
@@ -38,26 +38,25 @@ pub async fn new(config: Config, shutdown: ShutdownCoordinator) -> Result<App> {
         config.s3.endpoint.clone(),
         config.s3.access_key.clone(),
         config.s3.secret_key.clone(),
+        metrics.clone(),
     );
 
-    let nats_client = nats::Client::new(config.nats.url.clone())
+    let nats_client = nats::Client::new(config.nats.url.clone(), metrics.clone())
         .await
-        .context("fail connect to nats server")?;
+        .context("fail connect nats")?;
 
+    let registry = Arc::new(registry::Registry::new(shutdown.subscribe()));
     let io = io::IO::new(metrics.clone(), s3_client, nats_client, chunk_db);
-
-    let registry_token = shutdown.subscribe();
-    let registry = Arc::new(registry::Registry::new(registry_token));
-
-    let coordinator = coordinator::Coordinator::new(registry.clone(), io.clone(), job_db.clone());
+    let coordinator =
+        coordinator::Coordinator::new(registry.clone(), io, job_db.clone(), metrics.clone());
 
     let server = server::Server::new(
-        config.clone().server.addr,
+        config.server.addr,
         metrics.clone(),
         job_db.clone(),
         coordinator.clone(),
     );
-    let completer = TaskCompleter::new(job_db.clone(), registry.clone());
+    let completer = TaskCompleter::new(job_db.clone(), registry.clone(), metrics);
 
     let app = App {
         coordinator,

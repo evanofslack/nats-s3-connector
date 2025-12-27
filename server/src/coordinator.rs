@@ -6,19 +6,30 @@ use nats3_types::{
     LoadJob, LoadJobCreate, LoadJobStatus, StoreJob, StoreJobCreate, StoreJobStatus,
 };
 
-use crate::{db, error, io, registry};
+use crate::{db, error, io, metrics, registry};
 
 #[derive(Debug, Clone)]
 pub struct Coordinator {
     registry: Arc<registry::Registry>,
     io: io::IO,
     db: db::DynJobStorer,
+    metrics: metrics::Metrics,
 }
 
 impl Coordinator {
-    pub fn new(registry: Arc<registry::Registry>, io: io::IO, db: db::DynJobStorer) -> Self {
+    pub fn new(
+        registry: Arc<registry::Registry>,
+        io: io::IO,
+        db: db::DynJobStorer,
+        metrics: metrics::Metrics,
+    ) -> Self {
         debug!("create new coordinator");
-        Self { registry, io, db }
+        Self {
+            registry,
+            io,
+            db,
+            metrics,
+        }
     }
 
     async fn start_load_job(&self, job: LoadJob) -> Result<LoadJob, error::AppError> {
@@ -26,6 +37,14 @@ impl Coordinator {
         if self.registry.is_load_job_running(&job_id).await {
             return Err(registry::RegistryError::JobAlreadyRunning { job_id }.into());
         }
+
+        self.metrics
+            .jobs
+            .jobs_current
+            .get_or_create(&metrics::JobTypeLabel {
+                job_type: metrics::JOB_TYPE_LOAD.to_string(),
+            })
+            .inc();
 
         let io = self.io.clone();
         let config: io::PublishConfig = job.clone().into();
@@ -111,6 +130,14 @@ impl Coordinator {
         if self.registry.is_store_job_running(&job_id).await {
             return Err(registry::RegistryError::JobAlreadyRunning { job_id }.into());
         }
+
+        self.metrics
+            .jobs
+            .jobs_current
+            .get_or_create(&metrics::JobTypeLabel {
+                job_type: metrics::JOB_TYPE_STORE.to_string(),
+            })
+            .inc();
 
         let io = self.io.clone();
         let config: io::ConsumeConfig = job.clone().into();

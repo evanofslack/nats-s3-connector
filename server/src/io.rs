@@ -119,11 +119,10 @@ impl IO {
             "consume stream and upload to bucket"
         );
 
-        let buffer = MessageBuffer::new(cancel_token.clone());
+        let buffer = MessageBuffer::new(cancel_token.clone(), pause_token.clone());
         buffer.keep_alive(KEEP_ALIVE_INTERVAL);
 
         let mut bytes_total = 0;
-        let mut buffer_start = std::time::Instant::now();
         let mut messages = self
             .nats_client
             .consume(
@@ -153,7 +152,7 @@ impl IO {
                             if messages_total >= config.messages_max as usize
                                 || bytes_total >= config.bytes_max as usize
                             {
-                                self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
+                                self.upload_buffer(&buffer, &mut bytes_total, &config, prefix).await?;
                             }
                         }
                         Some(Err(e)) => return Err(e.into()),
@@ -164,14 +163,14 @@ impl IO {
                     let messages_total = buffer.len().await;
                     if messages_total > 0 {
                         debug!(messages = messages_total, "timer triggered upload");
-                        self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
+                        self.upload_buffer(&buffer, &mut bytes_total, &config, prefix).await?;
                     }
                 }
                 _ = pause_token.cancelled() => {
                     debug!("consume stream paused, flushing buffer");
                     let messages_total = buffer.len().await;
                     if messages_total > 0 {
-                        self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
+                        self.upload_buffer(&buffer, &mut bytes_total, &config, prefix).await?;
                     }
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Paused,
@@ -184,13 +183,12 @@ impl IO {
                     debug!("consume stream cancelled, flushing buffer");
                     let messages_total = buffer.len().await;
                     if messages_total > 0 {
-                        self.upload_buffer(&buffer, &mut bytes_total, &mut buffer_start, &config, prefix).await?;
+                        self.upload_buffer(&buffer, &mut bytes_total, &config, prefix).await?;
                     }
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Cancelled,
                         job_id: job_id.clone(),
                     });
-
                     return Ok(());
                     }
             }
@@ -206,17 +204,14 @@ impl IO {
         &self,
         buffer: &MessageBuffer,
         bytes_total: &mut usize,
-        buffer_start: &mut std::time::Instant,
         config: &ConsumeConfig,
         prefix: &Option<String>,
     ) -> Result<()> {
         let messages_total = buffer.len().await;
-        let elapsed = buffer_start.elapsed();
 
         debug!(
             messages = messages_total,
             bytes = *bytes_total,
-            elapsed_secs = elapsed.as_secs(),
             "buffer threshold reached"
         );
 
@@ -235,33 +230,32 @@ impl IO {
         };
 
         let serialized = chunk.serialize(config.codec.clone())?;
-        let serialized_size = serialized.len();
+        let byte_count = serialized.len();
         self.s3_client
             .upload_chunk(serialized, &config.bucket, &path, config.codec.clone())
             .await?;
 
-        let chunk_md = chunk.to_chunk_metadata(config, &path, serialized_size);
+        let chunk_md = chunk.to_chunk_metadata(config, &path, byte_count);
         self.chunk_db.create_chunk(chunk_md).await?;
 
-        let nats_metrics = self.metrics.nats.write().await;
-        let labels = metrics::NatsLabels {
-            subject: subject.clone(),
-            stream: stream.clone(),
-        };
-        nats_metrics
-            .store_messages
-            .get_or_create(&labels)
+        self.metrics
+            .io
+            .nats_messages_total
+            .get_or_create(&metrics::DirectionLabel {
+                direction: metrics::DIRECTION_OUT.to_string(),
+            })
             .inc_by(messages_total as u64);
-        nats_metrics
-            .store_bytes
-            .get_or_create(&labels)
-            .inc_by(*bytes_total as u64);
-        drop(nats_metrics);
+        self.metrics
+            .io
+            .nats_bytes_total
+            .get_or_create(&metrics::DirectionLabel {
+                direction: metrics::DIRECTION_OUT.to_string(),
+            })
+            .inc_by(byte_count as u64);
 
         buffer.ack_all().await;
         buffer.clear().await;
         *bytes_total = 0;
-        *buffer_start = std::time::Instant::now();
 
         Ok(())
     }
@@ -307,7 +301,7 @@ impl IO {
             let chunks = self.chunk_db.list_chunks(query.clone()).await?;
             for chunk_md in chunks {
                 if cancel_token.is_cancelled() {
-                    debug!("publish stream cancelled");
+                    debug!("publish stream cancelled during chunk list");
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Cancelled,
                         job_id: job_id.clone(),
@@ -315,7 +309,7 @@ impl IO {
                     return Ok(());
                 }
                 if pause_token.is_cancelled() {
-                    debug!("publish stream paused");
+                    debug!("publish stream paused during chunk list");
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Paused,
                         job_id: job_id.clone(),
@@ -360,31 +354,11 @@ impl IO {
                     continue;
                 }
 
-                let mut bytes_total = 0;
-                let messages_total = chunk.block.messages.len();
-
                 for message in chunk.block.messages {
-                    bytes_total += message.payload.len();
                     self.nats_client
                         .publish(write_subject.clone(), message.payload, message.headers)
                         .await?;
                 }
-
-                let nats_metrics = self.metrics.nats.write().await;
-                let labels = metrics::NatsLabels {
-                    subject: write_subject.clone(),
-                    // TODO: change metrics labels
-                    stream: "".to_string(),
-                };
-                nats_metrics
-                    .load_messages
-                    .get_or_create(&labels)
-                    .inc_by(messages_total as u64);
-                nats_metrics
-                    .load_bytes
-                    .get_or_create(&labels)
-                    .inc_by(bytes_total as u64);
-                drop(nats_metrics);
 
                 if config.delete_chunks {
                     if let Err(e) = self.s3_client.delete_chunk(&chunk_md.bucket, &path).await {
@@ -412,20 +386,34 @@ impl IO {
             }
             // Poll interval handling
             match config.poll_interval {
-                None => break, // One-shot
+                None => break,
                 Some(duration) => {
-                    if cancel_token.is_cancelled() {
-                        let _ = exit_tx.send(registry::TaskExitInfo {
-                            reason: registry::TaskExitReason::Cancelled,
-                            job_id: job_id.clone(),
-                        });
-                        return Ok(());
-                    }
                     trace!(
                         duration_secs = duration.as_secs(),
-                        "sleep for poll interval duration for load job"
+                        "sleep poll interval duration for load job"
                     );
-                    tokio::time::sleep(duration).await;
+
+                    tokio::select! {
+                        _ = tokio::time::sleep(duration) => {
+                            continue;
+                        }
+                        _ = cancel_token.cancelled() => {
+                            debug!("publish stream cancelled during sleep");
+                            let _ = exit_tx.send(registry::TaskExitInfo {
+                                reason: registry::TaskExitReason::Cancelled,
+                                job_id: job_id.clone(),
+                            });
+                            return Ok(());
+                        }
+                        _ = pause_token.cancelled() => {
+                            debug!("publish stream paused during sleep");
+                            let _ = exit_tx.send(registry::TaskExitInfo {
+                                reason: registry::TaskExitReason::Paused,
+                                job_id: job_id.clone(),
+                            });
+                            return Ok(());
+                        }
+                    }
                 }
             }
         }
@@ -449,13 +437,15 @@ impl IO {
 struct MessageBuffer {
     messages: Arc<RwLock<Vec<jetstream::Message>>>,
     cancel_token: CancellationToken,
+    pause_token: CancellationToken,
 }
 
 impl MessageBuffer {
-    fn new(cancel_token: CancellationToken) -> Self {
+    fn new(cancel_token: CancellationToken, pause_token: CancellationToken) -> Self {
         Self {
             messages: Arc::new(RwLock::new(Vec::new())),
             cancel_token,
+            pause_token,
         }
     }
 
@@ -463,8 +453,8 @@ impl MessageBuffer {
     fn keep_alive(&self, interval: time::Duration) {
         let messages = self.messages.clone();
         let cancel_token = self.cancel_token.clone();
+        let pause_token = self.pause_token.clone();
 
-        // keepalive thread currently runs forever.
         tokio::spawn(async move {
             let mut interval = time::interval(interval);
             loop {
@@ -484,8 +474,12 @@ impl MessageBuffer {
                         drop(messages);
                     }
                     _ = cancel_token.cancelled() => {
-                        debug!("keepalive thread cancelled");
-                        break;
+                        debug!("keepalive thread cancelled (cancel)");
+                        return;
+                    }
+                    _ = pause_token.cancelled() => {
+                        debug!("keepalive thread cancelled (pause)");
+                        return;
                     }
                 }
             }
