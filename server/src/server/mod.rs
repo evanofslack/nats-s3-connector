@@ -126,10 +126,10 @@ fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
 }
 
 fn create_router(deps: Dependencies) -> Router {
+    let api_v1_router = load::create_router(deps.clone()).merge(store::create_router(deps.clone()));
     let api_router = status::create_router()
         .merge(metrics::create_router(deps.clone()))
-        .merge(load::create_router(deps.clone()))
-        .merge(store::create_router(deps));
+        .nest("/api/v1", api_v1_router);
 
     let trace_mw = TraceLayer::new_for_http()
         .make_span_with(|request: &Request<_>| {
@@ -152,6 +152,7 @@ fn create_router(deps: Dependencies) -> Router {
 
     let serve_dir =
         ServeDir::new("server/web/dist").fallback(ServeFile::new("server/web/dist/index.html"));
+
     Router::new()
         .merge(api_router)
         .fallback_service(serve_dir)

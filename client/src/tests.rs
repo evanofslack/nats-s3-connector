@@ -79,7 +79,7 @@ fn new_store_job_create() -> StoreJobCreate {
 async fn test_get_load_jobs_success() {
     let mut server = mockito::Server::new_async().await;
     let mock = server
-        .mock("GET", "/load/jobs")
+        .mock("GET", "/api/v1/load/jobs")
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(r#"[]"#)
@@ -96,7 +96,7 @@ async fn test_get_load_jobs_success() {
 async fn test_get_load_jobs_http_error() {
     let mut server = mockito::Server::new_async().await;
     let mock = server
-        .mock("GET", "/load/jobs")
+        .mock("GET", "/api/v1/load/jobs")
         .with_status(500)
         .with_body("Internal Server Error")
         .create();
@@ -118,7 +118,7 @@ async fn test_create_load_job_success() {
     let job = new_load_job();
 
     let mock = server
-        .mock("POST", "/load/job")
+        .mock("POST", "/api/v1/load/job")
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(serde_json::to_string(&job).unwrap())
@@ -136,7 +136,7 @@ async fn test_create_load_job_success() {
 async fn test_get_store_jobs_success() {
     let mut server = mockito::Server::new_async().await;
     let mock = server
-        .mock("GET", "/store/jobs")
+        .mock("GET", "/api/v1/store/jobs")
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(r#"[]"#)
@@ -155,7 +155,7 @@ async fn test_create_store_job_success() {
     let job = new_store_job();
 
     let mock = server
-        .mock("POST", "/store/job")
+        .mock("POST", "/api/v1/store/job")
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(serde_json::to_string(&job).unwrap())
@@ -172,7 +172,7 @@ async fn test_create_store_job_success() {
 async fn test_invalid_json_response() {
     let mut server = mockito::Server::new_async().await;
     let mock = server
-        .mock("GET", "/load/jobs")
+        .mock("GET", "/api/v1/load/jobs")
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(r#"invalid json"#)
@@ -196,7 +196,7 @@ async fn test_get_load_job_success() {
     let mut job = new_load_job();
     job.id = "test-job-123".to_string();
     let mock = server
-        .mock("GET", "/load/job")
+        .mock("GET", "/api/v1/load/job")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             "test-job-123".into(),
@@ -220,7 +220,7 @@ async fn test_get_load_job_success() {
 async fn test_get_load_job_not_found() {
     let mut server = mockito::Server::new_async().await;
     let mock = server
-        .mock("GET", "/load/job")
+        .mock("GET", "/api/v1/load/job")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             "nonexistent".into(),
@@ -244,7 +244,7 @@ async fn test_get_load_job_not_found() {
 async fn test_delete_load_job_success() {
     let mut server = mockito::Server::new_async().await;
     let mock = server
-        .mock("DELETE", "/load/job")
+        .mock("DELETE", "/api/v1/load/job")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             "test-job-456".into(),
@@ -265,7 +265,7 @@ async fn test_delete_load_job_success() {
 async fn test_delete_load_job_http_error() {
     let mut server = mockito::Server::new_async().await;
     let mock = server
-        .mock("DELETE", "/load/job")
+        .mock("DELETE", "/api/v1/load/job")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             "test-job".into(),
@@ -292,7 +292,7 @@ async fn test_get_store_job_success() {
     let mut job = new_store_job();
     job.id = "test-job-789".to_string();
     let mock = server
-        .mock("GET", "/store/job")
+        .mock("GET", "/api/v1/store/job")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             "test-job-789".into(),
@@ -316,7 +316,7 @@ async fn test_get_store_job_success() {
 async fn test_get_store_job_not_found() {
     let mut server = mockito::Server::new_async().await;
     let mock = server
-        .mock("GET", "/store/job")
+        .mock("GET", "/api/v1/store/job")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             "nonexistent".into(),
@@ -342,7 +342,7 @@ async fn test_delete_store_job_success() {
 
     let job = new_store_job();
     let mock = server
-        .mock("DELETE", "/store/job")
+        .mock("DELETE", "/api/v1/store/job")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             "job-to-delete".into(),
@@ -365,7 +365,7 @@ async fn test_delete_store_job_success() {
 async fn test_delete_store_job_http_error() {
     let mut server = mockito::Server::new_async().await;
     let mock = server
-        .mock("DELETE", "/store/job")
+        .mock("DELETE", "/api/v1/store/job")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             "job-fail".into(),
@@ -390,7 +390,7 @@ async fn test_pause_load_job_success() {
     let mut server = mockito::Server::new_async().await;
     let job = new_load_job();
     let mock = server
-        .mock("POST", "/load/job/pause")
+        .mock("POST", "/api/v1/load/job/pause")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             job.id.clone(),
@@ -412,7 +412,7 @@ async fn test_resume_store_job_success() {
     let mut server = mockito::Server::new_async().await;
     let job = new_store_job();
     let mock = server
-        .mock("POST", "/store/job/resume")
+        .mock("POST", "/api/v1/store/job/resume")
         .match_query(mockito::Matcher::UrlEncoded(
             "job_id".into(),
             job.id.clone(),

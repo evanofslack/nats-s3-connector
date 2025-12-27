@@ -6,15 +6,7 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      "/load": {
-        target: "http://localhost:8080",
-        changeOrigin: true,
-      },
-      "/store": {
-        target: "http://localhost:8080",
-        changeOrigin: true,
-      },
-      "/metrics": {
+      "/api/v1": {
         target: "http://localhost:8080",
         changeOrigin: true,
       },

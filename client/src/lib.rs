@@ -3,6 +3,8 @@ mod error;
 pub use error::{ClientError, Result};
 use nats3_types::{LoadJob, LoadJobCreate, StoreJob, StoreJobCreate};
 
+const API_PREFIX: &str = "/api/v1";
+
 pub struct Client {
     http: reqwest::Client,
     base_url: String,
@@ -17,7 +19,7 @@ impl Client {
     }
 
     pub async fn get_load_job(&self, id: String) -> Result<LoadJob> {
-        let url = format!("{}/load/job", self.base_url);
+        let url = format!("{}{}/load/job", self.base_url, API_PREFIX);
         let response = self.http.get(&url).query(&[("job_id", id)]).send().await?;
 
         if !response.status().is_success() {
@@ -34,7 +36,7 @@ impl Client {
     }
 
     pub async fn pause_load_job(&self, id: String) -> Result<LoadJob> {
-        let url = format!("{}/load/job/pause", self.base_url);
+        let url = format!("{}{}/load/job/pause", self.base_url, API_PREFIX);
         let response = self.http.post(&url).query(&[("job_id", id)]).send().await?;
         if !response.status().is_success() {
             return Err(ClientError::Http {
@@ -49,7 +51,7 @@ impl Client {
     }
 
     pub async fn resume_load_job(&self, id: String) -> Result<LoadJob> {
-        let url = format!("{}/load/job/resume", self.base_url);
+        let url = format!("{}{}/load/job/resume", self.base_url, API_PREFIX);
         let response = self.http.post(&url).query(&[("job_id", id)]).send().await?;
         if !response.status().is_success() {
             return Err(ClientError::Http {
@@ -64,7 +66,7 @@ impl Client {
     }
 
     pub async fn get_load_jobs(&self) -> Result<Vec<LoadJob>> {
-        let url = format!("{}/load/jobs", self.base_url);
+        let url = format!("{}{}/load/jobs", self.base_url, API_PREFIX);
         let response = self.http.get(&url).send().await?;
 
         if !response.status().is_success() {
@@ -81,7 +83,7 @@ impl Client {
     }
 
     pub async fn delete_load_job(&self, id: String) -> Result<()> {
-        let url = format!("{}/load/job", self.base_url);
+        let url = format!("{}{}/load/job", self.base_url, API_PREFIX);
         let response = self
             .http
             .delete(&url)
@@ -99,7 +101,7 @@ impl Client {
     }
 
     pub async fn create_load_job(&self, job: LoadJobCreate) -> Result<LoadJob> {
-        let url = format!("{}/load/job", self.base_url);
+        let url = format!("{}{}/load/job", self.base_url, API_PREFIX);
         let response = self.http.post(&url).json(&job).send().await?;
 
         if !response.status().is_success() {
@@ -116,7 +118,7 @@ impl Client {
     }
 
     pub async fn get_store_jobs(&self) -> Result<Vec<StoreJob>> {
-        let url = format!("{}/store/jobs", self.base_url);
+        let url = format!("{}{}/store/jobs", self.base_url, API_PREFIX);
         let response = self.http.get(&url).send().await?;
 
         if !response.status().is_success() {
@@ -133,7 +135,7 @@ impl Client {
     }
 
     pub async fn get_store_job(&self, id: String) -> Result<StoreJob> {
-        let url = format!("{}/store/job", self.base_url);
+        let url = format!("{}{}/store/job", self.base_url, API_PREFIX);
         let response = self.http.get(&url).query(&[("job_id", id)]).send().await?;
 
         if !response.status().is_success() {
@@ -150,7 +152,7 @@ impl Client {
     }
 
     pub async fn pause_store_job(&self, id: String) -> Result<StoreJob> {
-        let url = format!("{}/store/job/pause", self.base_url);
+        let url = format!("{}{}/store/job/pause", self.base_url, API_PREFIX);
         let response = self.http.post(&url).query(&[("job_id", id)]).send().await?;
         if !response.status().is_success() {
             return Err(ClientError::Http {
@@ -165,7 +167,7 @@ impl Client {
     }
 
     pub async fn resume_store_job(&self, id: String) -> Result<StoreJob> {
-        let url = format!("{}/store/job/resume", self.base_url);
+        let url = format!("{}{}/store/job/resume", self.base_url, API_PREFIX);
         let response = self.http.post(&url).query(&[("job_id", id)]).send().await?;
         if !response.status().is_success() {
             return Err(ClientError::Http {
@@ -180,7 +182,7 @@ impl Client {
     }
 
     pub async fn delete_store_job(&self, id: String) -> Result<()> {
-        let url = format!("{}/store/job", self.base_url);
+        let url = format!("{}{}/store/job", self.base_url, API_PREFIX);
         let response = self
             .http
             .delete(&url)
@@ -198,7 +200,7 @@ impl Client {
     }
 
     pub async fn create_store_job(&self, job: StoreJobCreate) -> Result<StoreJob> {
-        let url = format!("{}/store/job", self.base_url);
+        let url = format!("{}{}/store/job", self.base_url, API_PREFIX);
         let response = self.http.post(&url).json(&job).send().await?;
 
         if !response.status().is_success() {
