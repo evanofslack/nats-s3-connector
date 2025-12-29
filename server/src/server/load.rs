@@ -59,8 +59,10 @@ async fn start_load_job(
     State(state): State<Dependencies>,
     Json(payload): Json<LoadJobCreate>,
 ) -> Result<Json<LoadJob>, AppError> {
-    payload.validate()?;
-    let out = state.coordinator.start_new_load_job(payload).await?;
+    let out = state
+        .coordinator
+        .start_new_load_job(payload.try_into()?)
+        .await?;
 
     // return a 201 resp
     // TODO: write location header

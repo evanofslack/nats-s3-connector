@@ -1,5 +1,6 @@
 CREATE TABLE chunks (
     sequence_number BIGSERIAL PRIMARY KEY,
+    store_job_id UUID REFERENCES store_jobs(id) ON DELETE SET NULL;
     bucket TEXT NOT NULL,
     prefix TEXT,
     key TEXT NOT NULL,
@@ -22,10 +23,11 @@ CREATE TABLE chunks (
     CONSTRAINT chunks_size_bytes_positive CHECK (size_bytes > 0)
 );
 
--- Primary query: load jobs finding chunks to download
+CREATE INDEX idx_store_job_id ON chunks(store_job_id)
+WHERE deleted_at IS NULL;
+
 CREATE INDEX idx_chunks_load_query ON chunks(stream, consumer, subject, bucket, prefix, timestamp_start, timestamp_end) 
 WHERE deleted_at IS NULL;
 
--- Maintenance: cleanup soft-deleted chunks
 CREATE INDEX idx_chunks_deleted ON chunks(deleted_at) 
 WHERE deleted_at IS NOT NULL;

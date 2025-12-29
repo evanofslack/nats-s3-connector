@@ -4,8 +4,8 @@ use std::{fmt::Debug, sync::Arc};
 use thiserror::Error;
 
 use nats3_types::{
-    ListLoadJobsQuery, ListStoreJobsQuery, LoadJob, LoadJobCreate, LoadJobStatus, StoreJob,
-    StoreJobCreate, StoreJobStatus,
+    ListLoadJobsQuery, ListStoreJobsQuery, LoadJob, LoadJobCreate, LoadJobCreateValidated,
+    LoadJobStatus, StoreJob, StoreJobCreate, StoreJobStatus,
 };
 
 #[derive(Error, Debug)]
@@ -26,7 +26,6 @@ pub enum JobStoreError {
     InvalidUuid(#[from] uuid::Error),
 }
 
-#[allow(dead_code)]
 #[async_trait]
 pub trait LoadJobStorer: Sync + Debug {
     async fn get_load_job(&self, id: String) -> Result<LoadJob, JobStoreError>;
@@ -34,7 +33,7 @@ pub trait LoadJobStorer: Sync + Debug {
         &self,
         query: Option<ListLoadJobsQuery>,
     ) -> Result<Vec<LoadJob>, JobStoreError>;
-    async fn create_load_job(&self, job: LoadJobCreate) -> Result<LoadJob, JobStoreError>;
+    async fn create_load_job(&self, job: LoadJobCreateValidated) -> Result<LoadJob, JobStoreError>;
     async fn update_load_job(
         &self,
         id: String,
@@ -43,7 +42,6 @@ pub trait LoadJobStorer: Sync + Debug {
     async fn delete_load_job(&self, id: String) -> Result<(), JobStoreError>;
 }
 
-#[allow(dead_code)]
 #[async_trait]
 pub trait StoreJobStorer: Sync + Debug {
     async fn get_store_job(&self, id: String) -> Result<StoreJob, JobStoreError>;

@@ -178,7 +178,8 @@ impl IntoResponse for error::AppError {
                     format!("job id {} already exists", job_id),
                 )
             }
-            error::AppError::Validation(nats3_types::ValidationError::PollMustDelete) => (
+            error::AppError::Validation(nats3_types::ValidationError::PollMustDelete)
+            | error::AppError::Validation(nats3_types::ValidationError::MissingRequiredFields) => (
                 StatusCode::BAD_REQUEST,
                 "invalid load job config".to_string(),
             ),

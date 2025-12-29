@@ -6,8 +6,8 @@ use tokio_postgres::Row;
 use uuid::Uuid;
 
 use nats3_types::{
-    Batch, Codec, Encoding, LoadJob, LoadJobCreate, LoadJobStatus, StoreJob, StoreJobCreate,
-    StoreJobStatus,
+    Batch, Codec, Encoding, LoadJob, LoadJobCreateDirect, LoadJobCreateFromStore, LoadJobStatus,
+    StoreJob, StoreJobCreate, StoreJobStatus,
 };
 
 use crate::db::{ChunkMetadata, ChunkMetadataError, CreateChunkMetadata, JobStoreError};
@@ -53,6 +53,7 @@ impl From<LoadJobStatusEnum> for LoadJobStatus {
 
 pub struct LoadJobCreateRow {
     pub name: String,
+    pub store_job_id: Option<String>,
     pub status: LoadJobStatusEnum,
     pub bucket: String,
     pub prefix: Option<String>,
@@ -66,21 +67,40 @@ pub struct LoadJobCreateRow {
     pub to_time: Option<DateTime<Utc>>,
 }
 
-impl From<LoadJobCreate> for LoadJobCreateRow {
-    fn from(row: LoadJobCreate) -> Self {
+impl LoadJobCreateRow {
+    pub fn from_direct(direct: LoadJobCreateDirect) -> Self {
         Self {
-            name: row.name,
+            name: direct.name,
+            store_job_id: None,
             status: LoadJobStatus::Created.into(),
-            bucket: row.bucket,
-            prefix: row.prefix,
-            read_stream: row.read_stream,
-            read_consumer: row.read_consumer,
-            read_subject: row.read_subject,
-            write_subject: row.write_subject,
-            poll_interval: row.poll_interval.map(|d| d.as_secs() as i64),
-            delete_chunks: row.delete_chunks,
-            from_time: row.from_time,
-            to_time: row.to_time,
+            bucket: direct.bucket,
+            prefix: direct.prefix,
+            read_stream: direct.read_stream,
+            read_consumer: direct.read_consumer,
+            read_subject: direct.read_subject,
+            write_subject: direct.write_subject,
+            poll_interval: direct.poll_interval.map(|d| d.as_secs() as i64),
+            delete_chunks: direct.delete_chunks,
+            from_time: direct.from_time,
+            to_time: direct.to_time,
+        }
+    }
+
+    pub fn from_store(from_store: LoadJobCreateFromStore, store_job: StoreJob) -> Self {
+        Self {
+            name: from_store.name,
+            store_job_id: Some(from_store.store_job_id),
+            status: LoadJobStatus::Created.into(),
+            bucket: store_job.bucket,
+            prefix: store_job.prefix,
+            read_stream: store_job.stream,
+            read_consumer: store_job.consumer,
+            read_subject: store_job.subject,
+            write_subject: from_store.write_subject,
+            poll_interval: from_store.poll_interval.map(|d| d.as_secs() as i64),
+            delete_chunks: from_store.delete_chunks,
+            from_time: from_store.from_time,
+            to_time: from_store.to_time,
         }
     }
 }
@@ -88,6 +108,7 @@ impl From<LoadJobCreate> for LoadJobCreateRow {
 pub struct LoadJobRow {
     pub id: Uuid,
     pub name: String,
+    pub store_job_id: Option<String>,
     pub status: LoadJobStatusEnum,
     pub bucket: String,
     pub prefix: Option<String>,
@@ -108,6 +129,7 @@ impl LoadJobRow {
         Ok(Self {
             id: row.try_get("id")?,
             name: row.try_get("name")?,
+            store_job_id: row.try_get("store_job_id")?,
             status: row.try_get("status")?,
             bucket: row.try_get("bucket")?,
             prefix: row.try_get("prefix")?,
@@ -130,6 +152,7 @@ impl From<LoadJobRow> for LoadJob {
         Self {
             id: row.id.to_string(),
             name: row.name,
+            store_job_id: row.store_job_id,
             status: row.status.into(),
             bucket: row.bucket,
             prefix: row.prefix,
@@ -155,6 +178,7 @@ impl From<LoadJob> for LoadJobRow {
         Self {
             id: Uuid::parse_str(&job.id).unwrap_or_default(),
             name: job.name,
+            store_job_id: job.store_job_id,
             status: job.status.into(),
             bucket: job.bucket,
             prefix: job.prefix,

@@ -12,8 +12,8 @@ use super::{
 };
 use crate::db::{JobStoreError, JobStorer, LoadJobStorer, StoreJobStorer};
 use nats3_types::{
-    ListLoadJobsQuery, ListStoreJobsQuery, LoadJob, LoadJobCreate, LoadJobStatus, StoreJob,
-    StoreJobCreate, StoreJobStatus,
+    ListLoadJobsQuery, ListStoreJobsQuery, LoadJob, LoadJobCreateValidated, LoadJobStatus,
+    StoreJob, StoreJobCreate, StoreJobStatus,
 };
 
 #[async_trait]
@@ -126,22 +126,30 @@ impl LoadJobStorer for PostgresStore {
             .map(|row| LoadJobRow::from_row(row).map(Into::into))
             .collect()
     }
-    async fn create_load_job(&self, job: LoadJobCreate) -> Result<LoadJob, JobStoreError> {
+
+    async fn create_load_job(&self, job: LoadJobCreateValidated) -> Result<LoadJob, JobStoreError> {
         debug!("create load job");
         let client = self.get_client().await?;
-        let row: LoadJobCreateRow = job.into();
+        let row = match job {
+            LoadJobCreateValidated::Direct(d) => LoadJobCreateRow::from_direct(d),
+            LoadJobCreateValidated::FromStore(fs) => {
+                let store_job = self.get_store_job(fs.store_job_id.clone()).await?;
+                LoadJobCreateRow::from_store(fs, store_job)
+            }
+        };
 
         let db_row = client
             .query_one(
                 "INSERT INTO load_jobs
-            (name, status, bucket, prefix, read_stream, read_consumer,
+            (name, store_job_id, status, bucket, prefix, read_stream, read_consumer,
             read_subject, write_subject, poll_interval, delete_chunks, from_time, to_time)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING id, name, status, bucket, prefix, read_stream, read_consumer,
             read_subject, write_subject, poll_interval, delete_chunks, from_time, to_time,
             created_at, updated_at",
                 &[
                     &row.name,
+                    &row.store_job_id,
                     &row.status,
                     &row.bucket,
                     &row.prefix,

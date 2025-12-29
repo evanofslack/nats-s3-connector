@@ -24,6 +24,7 @@ CREATE INDEX idx_store_jobs_status ON store_jobs(status);
 
 CREATE TABLE load_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    store_job_id UUID REFERENCES store_jobs(id) ON DELETE RESTRICT;
     name TEXT NOT NULL,
     status load_job_status NOT NULL,
     bucket TEXT NOT NULL,

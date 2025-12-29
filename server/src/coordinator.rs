@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tracing::debug;
 
 use nats3_types::{
-    LoadJob, LoadJobCreate, LoadJobStatus, StoreJob, StoreJobCreate, StoreJobStatus,
+    LoadJob, LoadJobCreateValidated, LoadJobStatus, StoreJob, StoreJobCreate, StoreJobStatus,
 };
 
 use crate::{db, error, io, metrics, registry};
@@ -98,7 +98,10 @@ impl Coordinator {
         Ok(job)
     }
 
-    pub async fn start_new_load_job(&self, job: LoadJobCreate) -> Result<LoadJob, error::AppError> {
+    pub async fn start_new_load_job(
+        &self,
+        job: LoadJobCreateValidated,
+    ) -> Result<LoadJob, error::AppError> {
         let out = self.db.create_load_job(job.clone()).await?;
         self.start_load_job(out).await
     }

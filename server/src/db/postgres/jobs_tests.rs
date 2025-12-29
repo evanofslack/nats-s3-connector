@@ -1,8 +1,8 @@
 use crate::db::{postgres::PostgresStore, LoadJobStorer, StoreJobStorer};
 use chrono::{DateTime, Utc};
 use nats3_types::{
-    Batch, Codec, Encoding, ListLoadJobsQuery, ListStoreJobsQuery, LoadJobCreate, LoadJobStatus,
-    StoreJobCreate, StoreJobStatus,
+    Batch, Codec, Encoding, ListLoadJobsQuery, ListStoreJobsQuery, LoadJobCreateDirect,
+    LoadJobCreateValidated, LoadJobStatus, StoreJobCreate, StoreJobStatus,
 };
 use std::time;
 use testcontainers::{runners::AsyncRunner, ImageExt};
@@ -82,8 +82,8 @@ impl LoadJobCreateBuilder {
         self
     }
 
-    fn build(self) -> LoadJobCreate {
-        LoadJobCreate {
+    fn build(self) -> LoadJobCreateValidated {
+        LoadJobCreateValidated::Direct(LoadJobCreateDirect {
             name: self.name,
             bucket: self.bucket,
             prefix: self.prefix,
@@ -95,7 +95,7 @@ impl LoadJobCreateBuilder {
             delete_chunks: self.delete_chunks,
             from_time: self.from_time,
             to_time: self.to_time,
-        }
+        })
     }
 }
 
@@ -169,7 +169,7 @@ async fn test_create_and_get_load_job() {
     let retrieved = ctx.store.get_load_job(out.id.clone()).await.unwrap();
 
     assert_eq!(retrieved.id, out.id);
-    assert_eq!(retrieved.bucket, "my-bucket");
+    assert_eq!(retrieved.bucket, "my-bucket".to_string());
     assert_eq!(retrieved.status, LoadJobStatus::Created);
     assert!(!retrieved.delete_chunks);
 }
@@ -208,9 +208,9 @@ async fn test_get_load_jobs() {
     let jobs = ctx.store.get_load_jobs(None).await.unwrap();
 
     assert_eq!(jobs.len(), 3);
-    assert_eq!(jobs[0].bucket, "bucket-3");
-    assert_eq!(jobs[1].bucket, "bucket-2");
-    assert_eq!(jobs[2].bucket, "bucket-1");
+    assert_eq!(jobs[0].bucket, "bucket-3".to_string());
+    assert_eq!(jobs[1].bucket, "bucket-2".to_string());
+    assert_eq!(jobs[2].bucket, "bucket-1".to_string());
 }
 
 #[tokio::test]

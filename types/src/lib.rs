@@ -162,6 +162,39 @@ fn codec_default() -> Codec {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LoadJobCreate {
     pub name: String,
+    pub store_job_id: Option<String>,
+    pub bucket: Option<String>,
+    pub prefix: Option<String>,
+    pub read_stream: Option<String>,
+    pub read_consumer: Option<String>,
+    pub read_subject: Option<String>,
+    pub write_subject: String,
+    pub poll_interval: Option<time::Duration>,
+    pub delete_chunks: bool,
+    pub from_time: Option<DateTime<Utc>>,
+    pub to_time: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum LoadJobCreateValidated {
+    FromStore(LoadJobCreateFromStore),
+    Direct(LoadJobCreateDirect),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct LoadJobCreateFromStore {
+    pub name: String,
+    pub store_job_id: String,
+    pub write_subject: String,
+    pub poll_interval: Option<time::Duration>,
+    pub delete_chunks: bool,
+    pub from_time: Option<DateTime<Utc>>,
+    pub to_time: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct LoadJobCreateDirect {
+    pub name: String,
     pub bucket: String,
     pub prefix: Option<String>,
     pub read_stream: String,
@@ -178,6 +211,8 @@ pub struct LoadJobCreate {
 pub enum ValidationError {
     #[error("load job with polling must delete chunks")]
     PollMustDelete,
+    #[error("load job must provide either store job id, or bucket, stream and subject")]
+    MissingRequiredFields,
 }
 
 impl LoadJobCreate {
@@ -186,6 +221,45 @@ impl LoadJobCreate {
             return Err(ValidationError::PollMustDelete);
         }
         Ok(())
+    }
+}
+
+impl TryFrom<LoadJobCreate> for LoadJobCreateValidated {
+    type Error = ValidationError;
+
+    fn try_from(c: LoadJobCreate) -> Result<Self, ValidationError> {
+        if c.poll_interval.is_some() && !c.delete_chunks {
+            return Err(ValidationError::PollMustDelete);
+        }
+        if let Some(store_id) = c.store_job_id {
+            return Ok(Self::FromStore(LoadJobCreateFromStore {
+                name: c.name,
+                store_job_id: store_id.to_string(),
+                write_subject: c.write_subject,
+                poll_interval: c.poll_interval,
+                delete_chunks: c.delete_chunks,
+                from_time: c.from_time,
+                to_time: c.to_time,
+            }));
+        }
+        if let (Some(bucket), Some(read_stream), Some(read_subject)) =
+            (c.bucket, c.read_stream, c.read_subject)
+        {
+            return Ok(Self::Direct(LoadJobCreateDirect {
+                name: c.name,
+                bucket,
+                prefix: c.prefix,
+                read_stream,
+                read_subject,
+                read_consumer: c.read_consumer,
+                write_subject: c.write_subject,
+                poll_interval: c.poll_interval,
+                delete_chunks: c.delete_chunks,
+                from_time: c.from_time,
+                to_time: c.to_time,
+            }));
+        }
+        Err(ValidationError::MissingRequiredFields)
     }
 }
 
@@ -222,6 +296,7 @@ pub struct LoadJob {
     pub id: String,
     pub name: String,
     pub status: LoadJobStatus,
+    pub store_job_id: Option<String>,
     pub bucket: String,
     pub prefix: Option<String>,
     pub read_stream: String,
