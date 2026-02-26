@@ -12,6 +12,10 @@ Create `store` jobs to handle serializing messages, compressing into blocks
 and writing to S3. Create `load` jobs to download messages
 from S3 and submit back into NATS.
 
+## UI
+
+<img width="1418" height="759" alt="Screenshot 2026-02-25 at 7 33 50 PM" src="https://github.com/user-attachments/assets/d316e517-92c2-4af8-a8e7-196cba37c615" />
+
 ## Running
 
 See the [examples](https://github.com/evanofslack/nats-s3-connector/tree/main/examples) directory to get started.
@@ -35,6 +39,12 @@ git clone https://github.com/evanofslack/nats-s3-connector
 cd nats-s3-connector
 cargo build
 ```
+
+## Interact
+
+Access the UI at `http://localhost:8080`
+
+Install and use the `nats3` cli with `cargo install --path cli` or `just install-cli`
 
 ### Store
 
