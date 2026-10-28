@@ -21,10 +21,17 @@ pub enum TaskExitReason {
     Cancelled,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JobKind {
+    Store,
+    Load,
+}
+
 #[derive(Debug, Clone)]
 pub struct TaskExitInfo {
     pub reason: TaskExitReason,
     pub job_id: String,
+    pub kind: JobKind,
 }
 
 #[derive(Debug)]

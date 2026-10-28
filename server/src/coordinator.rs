@@ -73,6 +73,7 @@ impl Coordinator {
                 let _ = exit_tx_clone.send(registry::TaskExitInfo {
                     reason: registry::TaskExitReason::Completed(Err(e.to_string())),
                     job_id,
+                    kind: registry::JobKind::Load,
                 });
             }
             result
@@ -170,6 +171,7 @@ impl Coordinator {
                 let _ = exit_tx_clone.send(registry::TaskExitInfo {
                     reason: registry::TaskExitReason::Completed(Err(e.to_string())),
                     job_id,
+                    kind: registry::JobKind::Store,
                 });
             }
             result

@@ -175,6 +175,7 @@ impl IO {
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Paused,
                         job_id: job_id.clone(),
+                        kind: registry::JobKind::Store,
                     });
                     debug!("buffer flushed, exiting gracefully for pause");
                     return Ok(());
@@ -188,6 +189,7 @@ impl IO {
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Cancelled,
                         job_id: job_id.clone(),
+                        kind: registry::JobKind::Store,
                     });
                     return Ok(());
                     }
@@ -196,6 +198,7 @@ impl IO {
         let _ = exit_tx.send(registry::TaskExitInfo {
             reason: registry::TaskExitReason::Completed(Ok(())),
             job_id,
+            kind: registry::JobKind::Store,
         });
         Ok(())
     }
@@ -304,6 +307,7 @@ impl IO {
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Cancelled,
                         job_id: job_id.clone(),
+                        kind: registry::JobKind::Load,
                     });
                     return Ok(());
                 }
@@ -312,6 +316,7 @@ impl IO {
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Paused,
                         job_id: job_id.clone(),
+                        kind: registry::JobKind::Load,
                     });
 
                     return Ok(());
@@ -393,6 +398,7 @@ impl IO {
                             let _ = exit_tx.send(registry::TaskExitInfo {
                                 reason: registry::TaskExitReason::Cancelled,
                                 job_id: job_id.clone(),
+                                kind: registry::JobKind::Load,
                             });
                             return Ok(());
                         }
@@ -401,6 +407,7 @@ impl IO {
                             let _ = exit_tx.send(registry::TaskExitInfo {
                                 reason: registry::TaskExitReason::Paused,
                                 job_id: job_id.clone(),
+                                kind: registry::JobKind::Load,
                             });
                             return Ok(());
                         }
@@ -418,6 +425,7 @@ impl IO {
         let _ = exit_tx.send(registry::TaskExitInfo {
             reason: registry::TaskExitReason::Completed(Ok(())),
             job_id,
+            kind: registry::JobKind::Load,
         });
 
         Ok(())
