@@ -2,6 +2,8 @@ use anyhow::Result;
 use axum::{
     debug_handler,
     extract::{Query, State},
+    http::{header, StatusCode},
+    response::IntoResponse,
     routing::{delete, get, post},
     Json, Router,
 };
@@ -60,12 +62,16 @@ async fn delete_store_job(
 async fn start_store_job(
     State(state): State<Dependencies>,
     Json(payload): Json<StoreJobCreate>,
-) -> Result<Json<StoreJob>, AppError> {
+) -> Result<impl IntoResponse, AppError> {
     payload.validate()?;
     let out = state.coordinator.start_new_store_job(payload).await?;
 
-    // return a 201 resp
-    Ok(Json(out))
+    let location = format!("/api/v1/store/job?job_id={}", out.id);
+    Ok((
+        StatusCode::CREATED,
+        [(header::LOCATION, location)],
+        Json(out),
+    ))
 }
 
 #[debug_handler]

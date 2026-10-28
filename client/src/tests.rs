@@ -119,7 +119,7 @@ async fn test_create_load_job_success() {
 
     let mock = server
         .mock("POST", "/api/v1/load/job")
-        .with_status(200)
+        .with_status(201)
         .with_header("content-type", "application/json")
         .with_body(serde_json::to_string(&job).unwrap())
         .create();
@@ -156,7 +156,7 @@ async fn test_create_store_job_success() {
 
     let mock = server
         .mock("POST", "/api/v1/store/job")
-        .with_status(200)
+        .with_status(201)
         .with_header("content-type", "application/json")
         .with_body(serde_json::to_string(&job).unwrap())
         .create();

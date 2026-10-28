@@ -2,6 +2,8 @@ use anyhow::Result;
 use axum::{
     debug_handler,
     extract::{Query, State},
+    http::{header, StatusCode},
+    response::IntoResponse,
     routing::{delete, get, post},
     Json, Router,
 };
@@ -57,13 +59,16 @@ async fn get_load_jobs(State(state): State<Dependencies>) -> Result<Json<Vec<Loa
 async fn start_load_job(
     State(state): State<Dependencies>,
     Json(payload): Json<LoadJobCreate>,
-) -> Result<Json<LoadJob>, AppError> {
+) -> Result<impl IntoResponse, AppError> {
     payload.validate()?;
     let out = state.coordinator.start_new_load_job(payload).await?;
 
-    // return a 201 resp
-    // TODO: write location header
-    Ok(Json(out))
+    let location = format!("/api/v1/load/job?job_id={}", out.id);
+    Ok((
+        StatusCode::CREATED,
+        [(header::LOCATION, location)],
+        Json(out),
+    ))
 }
 
 #[debug_handler]
