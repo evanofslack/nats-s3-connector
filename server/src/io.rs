@@ -3,11 +3,7 @@ use async_nats::jetstream;
 use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use nats3_types::Codec;
-use std::sync::Arc;
-use tokio::{
-    sync::{mpsc, RwLock},
-    time,
-};
+use tokio::{sync::mpsc, time};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, trace, warn};
 
@@ -119,9 +115,7 @@ impl IO {
             "consume stream and upload to bucket"
         );
 
-        let buffer = MessageBuffer::new(cancel_token.clone(), pause_token.clone());
-        buffer.keep_alive(KEEP_ALIVE_INTERVAL);
-
+        let mut buffer: Vec<jetstream::Message> = Vec::new();
         let mut bytes_total = 0;
         let mut messages = self
             .nats_client
@@ -133,8 +127,10 @@ impl IO {
             .await?;
         let prefix = &config.prefix;
 
-        let mut interval = tokio::time::interval(DEFAULT_BATCH_WAIT);
+        let mut interval = time::interval(DEFAULT_BATCH_WAIT);
         interval.tick().await;
+        let mut keep_alive = time::interval(KEEP_ALIVE_INTERVAL);
+        keep_alive.tick().await;
 
         loop {
             tokio::select! {
@@ -145,14 +141,13 @@ impl IO {
                                 subject = message.subject.to_string(),
                                 "consumer got message"
                             );
-                            bytes_total += &message.payload.len();
-                            buffer.push(message).await;
+                            bytes_total += message.payload.len();
+                            buffer.push(message);
 
-                            let messages_total = buffer.len().await;
-                            if messages_total >= config.messages_max as usize
+                            if buffer.len() >= config.messages_max as usize
                                 || bytes_total >= config.bytes_max as usize
                             {
-                                self.upload_buffer(&buffer, &mut bytes_total, &config, prefix).await?;
+                                self.upload_buffer(&mut buffer, &mut bytes_total, &config, prefix).await?;
                             }
                         }
                         Some(Err(e)) => return Err(e.into()),
@@ -160,17 +155,18 @@ impl IO {
                     }
                 }
                 _ = interval.tick() => {
-                    let messages_total = buffer.len().await;
-                    if messages_total > 0 {
-                        debug!(messages = messages_total, "timer triggered upload");
-                        self.upload_buffer(&buffer, &mut bytes_total, &config, prefix).await?;
+                    if !buffer.is_empty() {
+                        debug!(messages = buffer.len(), "timer triggered upload");
+                        self.upload_buffer(&mut buffer, &mut bytes_total, &config, prefix).await?;
                     }
+                }
+                _ = keep_alive.tick() => {
+                    keep_alive_messages(&buffer).await;
                 }
                 _ = pause_token.cancelled() => {
                     debug!("consume stream paused, flushing buffer");
-                    let messages_total = buffer.len().await;
-                    if messages_total > 0 {
-                        self.upload_buffer(&buffer, &mut bytes_total, &config, prefix).await?;
+                    if !buffer.is_empty() {
+                        self.upload_buffer(&mut buffer, &mut bytes_total, &config, prefix).await?;
                     }
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Paused,
@@ -179,12 +175,11 @@ impl IO {
                     });
                     debug!("buffer flushed, exiting gracefully for pause");
                     return Ok(());
-            }
+                }
                 _ = cancel_token.cancelled() => {
                     debug!("consume stream cancelled, flushing buffer");
-                    let messages_total = buffer.len().await;
-                    if messages_total > 0 {
-                        self.upload_buffer(&buffer, &mut bytes_total, &config, prefix).await?;
+                    if !buffer.is_empty() {
+                        self.upload_buffer(&mut buffer, &mut bytes_total, &config, prefix).await?;
                     }
                     let _ = exit_tx.send(registry::TaskExitInfo {
                         reason: registry::TaskExitReason::Cancelled,
@@ -192,7 +187,7 @@ impl IO {
                         kind: registry::JobKind::Store,
                     });
                     return Ok(());
-                    }
+                }
             }
         }
         let _ = exit_tx.send(registry::TaskExitInfo {
@@ -205,12 +200,12 @@ impl IO {
 
     async fn upload_buffer(
         &self,
-        buffer: &MessageBuffer,
+        buffer: &mut Vec<jetstream::Message>,
         bytes_total: &mut usize,
         config: &ConsumeConfig,
         prefix: &Option<String>,
     ) -> Result<()> {
-        let messages_total = buffer.len().await;
+        let messages_total = buffer.len();
 
         debug!(
             messages = messages_total,
@@ -218,7 +213,7 @@ impl IO {
             "buffer threshold reached"
         );
 
-        let block = encoding::MessageBlock::from(buffer.to_vec().await);
+        let block = encoding::MessageBlock::from(buffer.clone());
         let chunk = encoding::Chunk::from(block);
         let key = chunk.key(config.codec.clone()).to_string();
 
@@ -255,8 +250,12 @@ impl IO {
             })
             .inc_by(byte_count as u64);
 
-        buffer.ack_all().await;
-        buffer.clear().await;
+        for message in buffer.iter() {
+            if let Err(err) = message.ack().await {
+                warn!(err = err, "message ack");
+            }
+        }
+        buffer.clear();
         *bytes_total = 0;
 
         Ok(())
@@ -432,85 +431,13 @@ impl IO {
     }
 }
 
-// MessageBuffer is a thread safe Vec<jetstream::Message>
-struct MessageBuffer {
-    messages: Arc<RwLock<Vec<jetstream::Message>>>,
-    cancel_token: CancellationToken,
-    pause_token: CancellationToken,
-}
-
-impl MessageBuffer {
-    fn new(cancel_token: CancellationToken, pause_token: CancellationToken) -> Self {
-        Self {
-            messages: Arc::new(RwLock::new(Vec::new())),
-            cancel_token,
-            pause_token,
-        }
-    }
-
-    // starts a thread periodically keeping nats messages alive
-    fn keep_alive(&self, interval: time::Duration) {
-        let messages = self.messages.clone();
-        let cancel_token = self.cancel_token.clone();
-        let pause_token = self.pause_token.clone();
-
-        tokio::spawn(async move {
-            let mut interval = time::interval(interval);
-            loop {
-                tokio::select! {
-                    _ = interval.tick() => {
-                        let messages = messages.read().await;
-                        for i in 0..messages.len() {
-                            let message = &messages[i];
-                            match message
-                                .ack_with(jetstream::message::AckKind::Progress)
-                                .await
-                            {
-                                Ok(()) => {}
-                                Err(err) => warn!(err = ?err, "message ack::progress"),
-                            }
-                        }
-                        drop(messages);
-                    }
-                    _ = cancel_token.cancelled() => {
-                        debug!("keepalive thread cancelled (cancel)");
-                        return;
-                    }
-                    _ = pause_token.cancelled() => {
-                        debug!("keepalive thread cancelled (pause)");
-                        return;
-                    }
-                }
-            }
-        });
-    }
-
-    // push message onto vec
-    async fn push(&self, message: jetstream::Message) -> () {
-        self.messages.clone().write_owned().await.push(message);
-    }
-
-    // clear vec
-    async fn clear(&self) -> () {
-        self.messages.clone().write_owned().await.clear();
-    }
-
-    async fn len(&self) -> usize {
-        self.messages.clone().write_owned().await.len()
-    }
-    async fn to_vec(&self) -> Vec<jetstream::Message> {
-        self.messages.clone().read().await.to_vec()
-    }
-
-    // ack all messages with nats
-    async fn ack_all(&self) -> () {
-        let messages = self.messages.read().await;
-        for i in 0..messages.len() {
-            let message = &messages[i];
-            match message.ack().await {
-                Ok(()) => {}
-                Err(err) => warn!(err = err, "message ack"),
-            }
+async fn keep_alive_messages(buffer: &[jetstream::Message]) {
+    for message in buffer {
+        if let Err(err) = message
+            .ack_with(jetstream::message::AckKind::Progress)
+            .await
+        {
+            warn!(err = ?err, "message ack::progress");
         }
     }
 }
