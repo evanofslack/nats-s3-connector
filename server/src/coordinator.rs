@@ -249,7 +249,7 @@ impl Coordinator {
 
         if let Some(consumer) = job
             .consumer
-            .filter(|c| c.starts_with(NATS3_CONSUMER_PREFIX))
+            .filter(|c| *c == format!("{NATS3_CONSUMER_PREFIX}{job_id}"))
         {
             if let Err(e) = self
                 .io
