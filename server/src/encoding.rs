@@ -158,9 +158,11 @@ impl Chunk {
     }
 
     pub fn key(&self, codec: Codec) -> ChunkKey {
+        let sequences = self.block.messages.iter().map(|m| m.sequence);
         ChunkKey {
-            timestamp: self.block.timestamp_min.timestamp(),
-            message_count: self.block.messages.len(),
+            timestamp_ms: self.block.timestamp_min.timestamp_millis(),
+            sequence_min: sequences.clone().min().unwrap_or(0),
+            sequence_max: sequences.max().unwrap_or(0),
             codec,
         }
     }
@@ -179,8 +181,9 @@ impl From<MessageBlock> for Chunk {
 }
 
 pub struct ChunkKey {
-    pub timestamp: i64,
-    pub message_count: usize,
+    pub timestamp_ms: i64,
+    pub sequence_min: u64,
+    pub sequence_max: u64,
     pub codec: Codec,
 }
 
@@ -188,9 +191,10 @@ impl fmt::Display for ChunkKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}-{}.{}",
-            self.timestamp,
-            self.message_count,
+            "{}-{}-{}.{}",
+            self.timestamp_ms,
+            self.sequence_min,
+            self.sequence_max,
             self.codec.to_extension()
         )
     }
