@@ -146,6 +146,22 @@ impl Registry {
         handles.contains_key(job_id)
     }
 
+    pub async fn take_store_job(&self, job_id: &str) -> Option<JoinHandle<Result<()>>> {
+        self.store_handles
+            .write()
+            .await
+            .remove(job_id)
+            .map(|h| h.handle)
+    }
+
+    pub async fn take_load_job(&self, job_id: &str) -> Option<JoinHandle<Result<()>>> {
+        self.load_handles
+            .write()
+            .await
+            .remove(job_id)
+            .map(|h| h.handle)
+    }
+
     pub async fn remove_job(&self, job_id: &str) {
         self.store_handles.write().await.remove(job_id);
         self.load_handles.write().await.remove(job_id);

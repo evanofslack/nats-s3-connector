@@ -1,5 +1,6 @@
 use anyhow::Result;
 use std::sync::Arc;
+use tokio::sync::oneshot;
 use tracing::debug;
 
 use nats3_types::{
@@ -38,64 +39,66 @@ impl Coordinator {
             return Err(registry::RegistryError::JobAlreadyRunning { job_id }.into());
         }
 
-        self.metrics
-            .jobs
-            .jobs_current
-            .get_or_create(&metrics::JobTypeLabel {
-                job_type: metrics::JOB_TYPE_LOAD.to_string(),
-            })
-            .inc();
-
         let io = self.io.clone();
-        let config: io::PublishConfig = job.clone().into();
-        let registry_config = config.clone();
-
+        let config: io::PublishConfig = job.into();
         let cancel_token = self.registry.create_cancel_token();
-        let cancel_token_clone = cancel_token.clone();
         let pause_token = self.registry.create_pause_token();
-        let pause_token_clone = pause_token.clone();
         let exit_tx = self.registry.create_exit_channel();
-        let exit_tx_clone = exit_tx.clone();
-        let job_id_clone = job_id.clone();
+        let (go_tx, go_rx) = oneshot::channel::<()>();
 
-        let handle: tokio::task::JoinHandle<Result<()>> = tokio::spawn(async move {
-            let result = io
-                .publish_stream(
-                    job_id.clone(),
-                    registry_config,
-                    cancel_token,
-                    pause_token,
-                    exit_tx,
-                )
-                .await;
+        let handle = {
+            let job_id = job_id.clone();
+            let cancel_token = cancel_token.clone();
+            let pause_token = pause_token.clone();
+            tokio::spawn(async move {
+                if go_rx.await.is_err() {
+                    return Ok(());
+                }
+                let result = io
+                    .publish_stream(
+                        job_id.clone(),
+                        config,
+                        cancel_token,
+                        pause_token,
+                        exit_tx.clone(),
+                    )
+                    .await;
 
-            if let Err(e) = &result {
-                let _ = exit_tx_clone.send(registry::TaskExitInfo {
-                    reason: registry::TaskExitReason::Completed(Err(e.to_string())),
-                    job_id,
-                    kind: registry::JobKind::Load,
-                });
-            }
-            result
-        });
+                if let Err(e) = &result {
+                    let _ = exit_tx.send(registry::TaskExitInfo {
+                        reason: registry::TaskExitReason::Completed(Err(e.to_string())),
+                        job_id,
+                        kind: registry::JobKind::Load,
+                    });
+                }
+                result
+            })
+        };
 
         let registered = self
             .registry
-            .try_register_load_job(
-                job_id_clone.clone(),
-                handle,
-                cancel_token_clone,
-                pause_token_clone,
-            )
+            .try_register_load_job(job_id.clone(), handle, cancel_token, pause_token)
             .await;
+        if !registered {
+            return Err(registry::RegistryError::JobAlreadyRunning { job_id }.into());
+        }
 
-        let status = if registered {
-            LoadJobStatus::Running
-        } else {
-            LoadJobStatus::Failure
+        let job = match self
+            .db
+            .update_load_job(job_id.clone(), LoadJobStatus::Running)
+            .await
+        {
+            Ok(job) => job,
+            Err(e) => {
+                if let Some(handle) = self.registry.take_load_job(&job_id).await {
+                    handle.abort();
+                }
+                return Err(e.into());
+            }
         };
 
-        self.db.update_load_job(job_id_clone, status).await?;
+        self.inc_jobs_current(metrics::JOB_TYPE_LOAD);
+        let _ = go_tx.send(());
         Ok(job)
     }
 
@@ -120,10 +123,7 @@ impl Coordinator {
         if job.status == LoadJobStatus::Success || job.status == LoadJobStatus::Failure {
             return Ok(job);
         }
-        self.start_load_job(job).await?;
-        let status = LoadJobStatus::Running;
-        let job = self.db.update_load_job(job_id, status).await?;
-        Ok(job)
+        self.start_load_job(job).await
     }
 
     pub async fn stop_load_job(&self, job_id: String) {
@@ -136,64 +136,66 @@ impl Coordinator {
             return Err(registry::RegistryError::JobAlreadyRunning { job_id }.into());
         }
 
-        self.metrics
-            .jobs
-            .jobs_current
-            .get_or_create(&metrics::JobTypeLabel {
-                job_type: metrics::JOB_TYPE_STORE.to_string(),
-            })
-            .inc();
-
         let io = self.io.clone();
-        let config: io::ConsumeConfig = job.clone().into();
-        let registry_config = config.clone();
-
+        let config: io::ConsumeConfig = job.into();
         let cancel_token = self.registry.create_cancel_token();
-        let cancel_token_clone = cancel_token.clone();
         let pause_token = self.registry.create_pause_token();
-        let pause_token_clone = pause_token.clone();
         let exit_tx = self.registry.create_exit_channel();
-        let exit_tx_clone = exit_tx.clone();
-        let job_id_clone = job_id.clone();
+        let (go_tx, go_rx) = oneshot::channel::<()>();
 
-        let handle: tokio::task::JoinHandle<Result<()>> = tokio::spawn(async move {
-            let result = io
-                .consume_stream(
-                    job_id.clone(),
-                    registry_config,
-                    cancel_token,
-                    pause_token,
-                    exit_tx,
-                )
-                .await;
+        let handle = {
+            let job_id = job_id.clone();
+            let cancel_token = cancel_token.clone();
+            let pause_token = pause_token.clone();
+            tokio::spawn(async move {
+                if go_rx.await.is_err() {
+                    return Ok(());
+                }
+                let result = io
+                    .consume_stream(
+                        job_id.clone(),
+                        config,
+                        cancel_token,
+                        pause_token,
+                        exit_tx.clone(),
+                    )
+                    .await;
 
-            if let Err(e) = &result {
-                let _ = exit_tx_clone.send(registry::TaskExitInfo {
-                    reason: registry::TaskExitReason::Completed(Err(e.to_string())),
-                    job_id,
-                    kind: registry::JobKind::Store,
-                });
-            }
-            result
-        });
+                if let Err(e) = &result {
+                    let _ = exit_tx.send(registry::TaskExitInfo {
+                        reason: registry::TaskExitReason::Completed(Err(e.to_string())),
+                        job_id,
+                        kind: registry::JobKind::Store,
+                    });
+                }
+                result
+            })
+        };
 
         let registered = self
             .registry
-            .try_register_store_job(
-                job_id_clone.clone(),
-                handle,
-                cancel_token_clone,
-                pause_token_clone,
-            )
+            .try_register_store_job(job_id.clone(), handle, cancel_token, pause_token)
             .await;
+        if !registered {
+            return Err(registry::RegistryError::JobAlreadyRunning { job_id }.into());
+        }
 
-        let status = if registered {
-            StoreJobStatus::Running
-        } else {
-            StoreJobStatus::Failure
+        let job = match self
+            .db
+            .update_store_job(job_id.clone(), StoreJobStatus::Running)
+            .await
+        {
+            Ok(job) => job,
+            Err(e) => {
+                if let Some(handle) = self.registry.take_store_job(&job_id).await {
+                    handle.abort();
+                }
+                return Err(e.into());
+            }
         };
 
-        self.db.update_store_job(job_id_clone, status).await?;
+        self.inc_jobs_current(metrics::JOB_TYPE_STORE);
+        let _ = go_tx.send(());
         Ok(job)
     }
 
@@ -218,14 +220,21 @@ impl Coordinator {
         if job.status == StoreJobStatus::Success || job.status == StoreJobStatus::Failure {
             return Ok(job);
         }
-        self.start_store_job(job).await?;
-        let status = StoreJobStatus::Running;
-        let job = self.db.update_store_job(job_id, status).await?;
-        Ok(job)
+        self.start_store_job(job).await
     }
 
     pub async fn stop_store_job(&self, job_id: String) {
         self.registry.cancel_store_job(&job_id).await
+    }
+
+    fn inc_jobs_current(&self, job_type: &str) {
+        self.metrics
+            .jobs
+            .jobs_current
+            .get_or_create(&metrics::JobTypeLabel {
+                job_type: job_type.to_string(),
+            })
+            .inc();
     }
 }
 
