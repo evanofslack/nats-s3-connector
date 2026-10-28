@@ -20,6 +20,9 @@ from S3 and submit back into NATS.
 
 See the [examples](https://github.com/evanofslack/nats-s3-connector/tree/main/examples) directory to get started.
 
+nats3 requires NATS with JetStream, S3 compatible object storage and
+PostgreSQL 15 or newer for job and chunk metadata.
+
 The app can be run from a [pre-built docker container](https://hub.docker.com/r/evanofslack/nats-s3-connector/tags)
 
 ```yaml
@@ -49,7 +52,8 @@ Install and use the `nats3` cli with `cargo install --path cli` or `just install
 ### Store
 
 Store jobs consume messages from NATS and upload them to S3 as chunks.
-Create store jobs by sending HTTP requests to server endpoint `/store/job`:
+Create store jobs by sending HTTP requests to server endpoint `/api/v1/store/job`.
+Batch size and encoding are optional and fall back to defaults:
 
 ```bash
 curl --header "Content-Type: application/json" \
@@ -58,9 +62,9 @@ curl --header "Content-Type: application/json" \
             "name": "job-1",
             "stream": "jobs",
             "subject": "subject-1",
-            "bucket": "bucket-1",
+            "bucket": "bucket-1"
           }' \
-  http://localhost:8080/store/job
+  http://localhost:8080/api/v1/store/job
 ```
 
 Or create store job with the `nats3` cli:
@@ -69,35 +73,42 @@ Or create store job with the `nats3` cli:
 nats3 store create \
   --name job-1 \
   --stream jobs \
-  --subject subjects-1 \
-  --bucket bucket-1 \
+  --subject subject-1 \
+  --bucket bucket-1
 ```
+
+Each store job reads from its own durable JetStream consumer named
+`nats3-<job id>`, unless `consumer` is set. Deleting a store job removes
+that consumer.
 
 ### Load
 
 Messages stored in S3 can be loaded and submitted back into NATS.
-Create load jobs by sending HTTP requests to server endpoint `/load/job`:
+Create load jobs by sending HTTP requests to server endpoint `/api/v1/load/job`:
 
 ```bash
 curl --header "Content-Type: application/json" \
   --request POST \
   --data '{
+            "name": "load-1",
             "bucket": "bucket-1",
             "read_stream": "jobs",
             "read_subject": "subject-1",
             "write_subject": "destination",
+            "delete_chunks": false
           }' \
-  http://localhost:8080/load/job
+  http://localhost:8080/api/v1/load/job
 ```
 
 Or create load jobs with the `nats3` cli:
 
 ```bash
 nats3 load create \
+  --name load-1 \
   --bucket bucket-1 \
   --read-stream jobs \
   --read-subject subject-1 \
-  --write-subject destination \
+  --write-subject destination
 ```
 
 This will start loading messages from S3 and publishing them to specified stream.
