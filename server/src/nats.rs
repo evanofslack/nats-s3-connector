@@ -1,9 +1,9 @@
-use anyhow::{bail, Context, Error, Result};
+use anyhow::{Context, Error, Result, bail};
 use async_nats::{
     header::HeaderMap,
     jetstream::{
         self,
-        consumer::{pull::Stream, PullConsumer},
+        consumer::{PullConsumer, pull::Stream},
     },
 };
 use bytes::Bytes;

@@ -250,15 +250,13 @@ impl Coordinator {
         if let Some(consumer) = job
             .consumer
             .filter(|c| *c == format!("{NATS3_CONSUMER_PREFIX}{job_id}"))
-        {
-            if let Err(e) = self
+            && let Err(e) = self
                 .io
                 .nats_client
                 .delete_consumer(job.stream, consumer.clone())
                 .await
-            {
-                warn!(job_id = job_id, consumer = consumer, error = ?e, "fail delete consumer");
-            }
+        {
+            warn!(job_id = job_id, consumer = consumer, error = ?e, "fail delete consumer");
         }
         Ok(())
     }

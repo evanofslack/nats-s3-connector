@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result, anyhow};
 use figment::{
-    providers::{Env, Format, Toml, Yaml},
     Figment,
+    providers::{Env, Format, Toml, Yaml},
 };
 use serde::Deserialize;
 use std::{ffi::OsStr, path::PathBuf, string::ToString};

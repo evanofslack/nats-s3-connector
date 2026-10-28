@@ -1,4 +1,4 @@
-use crate::message::{extract_sequence, TestMessage};
+use crate::message::{TestMessage, extract_sequence};
 use async_nats::jetstream::consumer::PullConsumer;
 use futures::StreamExt;
 use std::{

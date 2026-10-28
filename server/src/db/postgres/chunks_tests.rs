@@ -1,11 +1,11 @@
 use bytes::Bytes;
 use chrono::{Duration, Utc};
-use testcontainers::{runners::AsyncRunner, ImageExt};
+use testcontainers::{ImageExt, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres;
 
 use crate::db::{
-    postgres::{postgres::migrations, PostgresStore},
     ChunkMetadataError, ChunkMetadataStorer, CreateChunkMetadata, ListChunksQuery,
+    postgres::{PostgresStore, postgres::migrations},
 };
 use nats3_types::Codec;
 
@@ -520,12 +520,16 @@ async fn test_list_chunks_include_deleted() {
     let chunks = ctx.store.list_chunks(query).await.unwrap();
 
     assert_eq!(chunks.len(), 2);
-    assert!(chunks
-        .iter()
-        .any(|c| c.sequence_number == created1.sequence_number));
-    assert!(chunks
-        .iter()
-        .any(|c| c.sequence_number == created2.sequence_number));
+    assert!(
+        chunks
+            .iter()
+            .any(|c| c.sequence_number == created1.sequence_number)
+    );
+    assert!(
+        chunks
+            .iter()
+            .any(|c| c.sequence_number == created2.sequence_number)
+    );
 }
 
 #[tokio::test]

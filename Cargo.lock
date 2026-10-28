@@ -2210,7 +2210,6 @@ dependencies = [
  "clap",
  "figment",
  "futures",
- "lazy_static",
  "nats3-types",
  "postgres-types",
  "prometheus-client",

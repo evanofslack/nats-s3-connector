@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use inquire::{validator::Validation, Confirm, CustomUserError, Text};
+use inquire::{Confirm, CustomUserError, Text, validator::Validation};
 use nats3_types::{Batch, Codec, Encoding, LoadJobCreate, StoreJobCreate};
 
 pub fn prompt_create_load_job() -> Result<LoadJobCreate> {

@@ -1,6 +1,6 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use nats3_types::Codec;
-use s3::{creds::Credentials, error::S3Error, Bucket, BucketConfiguration, Region};
+use s3::{Bucket, BucketConfiguration, Region, creds::Credentials, error::S3Error};
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,

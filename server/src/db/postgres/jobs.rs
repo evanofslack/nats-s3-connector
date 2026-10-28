@@ -60,17 +60,17 @@ impl LoadJobStorer for PostgresStore {
         let mut params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = vec![];
         let mut param_idx = 1;
 
-        if let Some(ref statuses) = statuses {
-            if !statuses.is_empty() {
-                let placeholders: Vec<String> = (0..statuses.len())
-                    .map(|i| format!("${}", param_idx + i))
-                    .collect();
-                sql.push_str(&format!(" AND status IN ({})", placeholders.join(", ")));
-                for status in statuses {
-                    params.push(status);
-                }
-                param_idx += statuses.len();
+        if let Some(ref statuses) = statuses
+            && !statuses.is_empty()
+        {
+            let placeholders: Vec<String> = (0..statuses.len())
+                .map(|i| format!("${}", param_idx + i))
+                .collect();
+            sql.push_str(&format!(" AND status IN ({})", placeholders.join(", ")));
+            for status in statuses {
+                params.push(status);
             }
+            param_idx += statuses.len();
         }
 
         if let Some(ref q) = query {
@@ -113,11 +113,11 @@ impl LoadJobStorer for PostgresStore {
 
         sql.push_str(" ORDER BY created_at DESC");
 
-        if let Some(ref q) = query {
-            if let Some(ref limit) = q.limit {
-                sql.push_str(&format!(" LIMIT ${}", param_idx));
-                params.push(limit);
-            }
+        if let Some(ref q) = query
+            && let Some(ref limit) = q.limit
+        {
+            sql.push_str(&format!(" LIMIT ${}", param_idx));
+            params.push(limit);
         }
 
         let rows = client.query(&sql, &params).await?;
@@ -250,17 +250,17 @@ impl StoreJobStorer for PostgresStore {
         let mut params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = vec![];
         let mut param_idx = 1;
 
-        if let Some(ref statuses) = statuses {
-            if !statuses.is_empty() {
-                let placeholders: Vec<String> = (0..statuses.len())
-                    .map(|i| format!("${}", param_idx + i))
-                    .collect();
-                sql.push_str(&format!(" AND status IN ({})", placeholders.join(", ")));
-                for status in statuses {
-                    params.push(status);
-                }
-                param_idx += statuses.len();
+        if let Some(ref statuses) = statuses
+            && !statuses.is_empty()
+        {
+            let placeholders: Vec<String> = (0..statuses.len())
+                .map(|i| format!("${}", param_idx + i))
+                .collect();
+            sql.push_str(&format!(" AND status IN ({})", placeholders.join(", ")));
+            for status in statuses {
+                params.push(status);
             }
+            param_idx += statuses.len();
         }
 
         if let Some(ref q) = query {
@@ -297,11 +297,11 @@ impl StoreJobStorer for PostgresStore {
 
         sql.push_str(" ORDER BY created_at DESC");
 
-        if let Some(ref q) = query {
-            if let Some(ref limit) = q.limit {
-                sql.push_str(&format!(" LIMIT ${}", param_idx));
-                params.push(limit);
-            }
+        if let Some(ref q) = query
+            && let Some(ref limit) = q.limit
+        {
+            sql.push_str(&format!(" LIMIT ${}", param_idx));
+            params.push(limit);
         }
 
         let rows = client.query(&sql, &params).await?;

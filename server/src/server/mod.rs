@@ -1,9 +1,9 @@
 use anyhow::Result;
 use axum::{
+    Json, Router,
     extract::Request,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json, Router,
 };
 use serde_json::json;
 use std::{net::SocketAddr, time::Duration};
@@ -13,7 +13,7 @@ use tower_http::{
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
 };
-use tracing::{debug, info, info_span, Span};
+use tracing::{Span, debug, info, info_span};
 
 use crate::{coordinator, db, error, metrics as counter, registry};
 

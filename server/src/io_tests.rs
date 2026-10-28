@@ -1,9 +1,9 @@
-use async_nats::{jetstream, HeaderMap};
+use async_nats::{HeaderMap, jetstream};
 use std::{collections::HashSet, sync::Arc, time::Duration};
 use testcontainers::{
+    ContainerAsync, GenericImage, ImageExt,
     core::{IntoContainerPort, WaitFor},
     runners::AsyncRunner,
-    ContainerAsync, GenericImage, ImageExt,
 };
 use testcontainers_modules::{
     nats::{Nats, NatsServerCmd},

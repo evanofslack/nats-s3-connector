@@ -1,9 +1,9 @@
 use anyhow::Result;
 use colored::Colorize;
 use comfy_table::{
+    Cell, Color, Table,
     modifiers::{UTF8_ROUND_CORNERS, UTF8_SOLID_INNER_BORDERS},
     presets::UTF8_FULL,
-    Cell, Color, Table,
 };
 use nats3_types::{LoadJob, LoadJobStatus, StoreJob, StoreJobStatus};
 use serde::Serialize;

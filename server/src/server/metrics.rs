@@ -1,5 +1,5 @@
 use crate::server::Dependencies;
-use axum::{debug_handler, extract::State, http::StatusCode, routing::get, Router};
+use axum::{Router, debug_handler, extract::State, http::StatusCode, routing::get};
 use prometheus_client::encoding::text::encode;
 use tracing::info;
 

@@ -1,7 +1,7 @@
 [package]
 name = "nats3-server"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [features]
 integration = []
@@ -27,7 +27,6 @@ axum = {version = "0.8.7", features = ["macros"]}
 bincode = { version = "2.0.1", features = ["serde"] }
 bytes = "1.11.0"
 futures = "0.3.31"
-lazy_static = "1.5.0"
 sha2 = "0.10.9"
 tower-http = { version = "0.6.7", features = ["full"] }
 figment = { version = "0.10.19", features = ["env", "toml", "yaml"]}
