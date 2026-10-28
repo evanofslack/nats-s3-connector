@@ -4,8 +4,8 @@ use testcontainers::{runners::AsyncRunner, ImageExt};
 use testcontainers_modules::postgres::Postgres;
 
 use crate::db::{
-    postgres::PostgresStore, ChunkMetadataError, ChunkMetadataStorer, CreateChunkMetadata,
-    ListChunksQuery,
+    postgres::{postgres::migrations, PostgresStore},
+    ChunkMetadataError, ChunkMetadataStorer, CreateChunkMetadata, ListChunksQuery,
 };
 use nats3_types::Codec;
 
@@ -15,6 +15,12 @@ struct TestContext {
 }
 
 async fn setup_postgres() -> TestContext {
+    let ctx = setup_postgres_unmigrated().await;
+    ctx.store.migrate().await.expect("migration failed");
+    ctx
+}
+
+async fn setup_postgres_unmigrated() -> TestContext {
     let container = Postgres::default()
         .with_tag("16-alpine")
         .start()
@@ -31,8 +37,6 @@ async fn setup_postgres() -> TestContext {
     let store = PostgresStore::new(&database_url)
         .await
         .expect("fail create store");
-
-    store.migrate().await.expect("migration failed");
 
     TestContext {
         _container: container,
@@ -89,6 +93,11 @@ impl ChunkMetadataBuilder {
 
     fn prefix(mut self, prefix: impl Into<String>) -> Self {
         self.prefix = Some(prefix.into());
+        self
+    }
+
+    fn no_prefix(mut self) -> Self {
+        self.prefix = None;
         self
     }
 
@@ -619,4 +628,122 @@ async fn test_chunk_different_prefixes() {
     let chunks2 = ctx.store.list_chunks(query2).await.unwrap();
     assert_eq!(chunks2.len(), 1);
     assert_eq!(chunks2[0].prefix, Some("prefix-b".to_string()));
+}
+
+fn query_for(prefix: Option<&str>) -> ListChunksQuery {
+    ListChunksQuery {
+        stream: "test-stream".to_string(),
+        consumer: None,
+        subject: "test.subject".to_string(),
+        bucket: "test-bucket".to_string(),
+        prefix: prefix.map(String::from),
+        timestamp_start: None,
+        timestamp_end: None,
+        limit: None,
+        include_deleted: false,
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(feature = "integration"), ignore)]
+async fn test_list_chunks_no_prefix_excludes_prefixed() {
+    let ctx = setup_postgres().await;
+
+    ctx.store
+        .create_chunk(chunk_builder().prefix("prefix-a").key("a.dat").build())
+        .await
+        .unwrap();
+    ctx.store
+        .create_chunk(chunk_builder().no_prefix().key("b.dat").build())
+        .await
+        .unwrap();
+
+    let chunks = ctx.store.list_chunks(query_for(None)).await.unwrap();
+    assert_eq!(chunks.len(), 1);
+    assert_eq!(chunks[0].key, "b.dat");
+    assert_eq!(chunks[0].prefix, None);
+
+    let chunks = ctx
+        .store
+        .list_chunks(query_for(Some("prefix-a")))
+        .await
+        .unwrap();
+    assert_eq!(chunks.len(), 1);
+    assert_eq!(chunks[0].key, "a.dat");
+}
+
+#[tokio::test]
+#[cfg_attr(not(feature = "integration"), ignore)]
+async fn test_duplicate_chunk_null_prefix() {
+    let ctx = setup_postgres().await;
+
+    let chunk = chunk_builder().no_prefix().key("duplicate.dat").build();
+    ctx.store.create_chunk(chunk.clone()).await.unwrap();
+
+    let result = ctx.store.create_chunk(chunk).await;
+    assert!(matches!(
+        result,
+        Err(ChunkMetadataError::Duplicate { key, .. }) if key == "duplicate.dat"
+    ));
+}
+
+#[tokio::test]
+#[cfg_attr(not(feature = "integration"), ignore)]
+async fn test_migration_normalizes_chunk_keys() {
+    let ctx = setup_postgres_unmigrated().await;
+
+    {
+        let mut client = ctx.store.get_client().await.unwrap();
+        migrations::runner()
+            .set_target(refinery::Target::Version(2))
+            .run_async(&mut *client)
+            .await
+            .unwrap();
+
+        let insert = "INSERT INTO chunks
+             (bucket, prefix, key, stream, subject, timestamp_start, timestamp_end,
+              message_count, size_bytes, codec, hash, version)
+             VALUES ('test-bucket', $1, $2, 'test-stream', 'test.subject', NOW(), NOW(),
+                     1, 1, 'binary', '\\x00', '1.0')";
+        let rows: [(Option<&str>, &str); 5] = [
+            (Some("pfx"), "pfx/test-stream/test.subject/1-1-1.bin"),
+            (Some("a_b"), "axb/test-stream/test.subject/2-2-2.bin"),
+            (Some(""), "test-stream/test.subject/3-3-3.bin"),
+            (None, "test-stream/test.subject/4-4-4.bin"),
+            (None, "test-stream/test.subject/4-4-4.bin"),
+        ];
+        for (prefix, key) in rows {
+            client.execute(insert, &[&prefix, &key]).await.unwrap();
+        }
+    }
+
+    ctx.store.migrate().await.expect("migration failed");
+
+    let chunks = ctx.store.list_chunks(query_for(Some("pfx"))).await.unwrap();
+    assert_eq!(chunks.len(), 1);
+    assert_eq!(chunks[0].key, "test-stream/test.subject/1-1-1.bin");
+    assert_eq!(
+        chunks[0].object_path(),
+        "pfx/test-stream/test.subject/1-1-1.bin"
+    );
+
+    let chunks = ctx.store.list_chunks(query_for(Some("a_b"))).await.unwrap();
+    assert_eq!(chunks.len(), 1);
+    assert_eq!(chunks[0].key, "axb/test-stream/test.subject/2-2-2.bin");
+
+    let keys: Vec<String> = ctx
+        .store
+        .list_chunks(query_for(None))
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|c| c.key)
+        .collect();
+    assert_eq!(
+        keys,
+        vec![
+            "test-stream/test.subject/3-3-3.bin",
+            "test-stream/test.subject/4-4-4.bin",
+        ]
+    );
 }
