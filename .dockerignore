@@ -1,0 +1,5 @@
+target
+.git
+.github
+**/node_modules
+server/web/dist
