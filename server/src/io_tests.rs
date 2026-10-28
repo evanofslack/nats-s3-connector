@@ -28,16 +28,16 @@ const REPLAY_SUBJECT: &str = "replay.test";
 const MESSAGE_COUNT: u64 = 100;
 const BATCH_SIZE: i64 = 10;
 
-struct TestEnv {
+pub(crate) struct TestEnv {
     _postgres: ContainerAsync<Postgres>,
     _nats: ContainerAsync<Nats>,
     _minio: ContainerAsync<GenericImage>,
-    io: io::IO,
-    store: PostgresStore,
-    jetstream: jetstream::Context,
+    pub(crate) io: io::IO,
+    pub(crate) store: PostgresStore,
+    pub(crate) jetstream: jetstream::Context,
 }
 
-async fn setup() -> TestEnv {
+pub(crate) async fn setup() -> TestEnv {
     let postgres = Postgres::default()
         .with_tag("16-alpine")
         .start()
@@ -250,4 +250,42 @@ async fn test_store_and_load_roundtrip() {
             Some(i.to_string().as_str())
         );
     }
+}
+
+#[tokio::test]
+#[cfg_attr(not(feature = "integration"), ignore)]
+async fn test_consumer_filter_mismatch() {
+    let env = setup().await;
+    create_stream(&env.jetstream, STREAM, "events.>").await;
+
+    let nats = &env.io.nats_client;
+    nats.consume(
+        STREAM.to_string(),
+        "events.a".to_string(),
+        "nats3-shared".to_string(),
+        10,
+    )
+    .await
+    .expect("fail create consumer");
+
+    let err = nats
+        .consume(
+            STREAM.to_string(),
+            "events.b".to_string(),
+            "nats3-shared".to_string(),
+            10,
+        )
+        .await
+        .err()
+        .expect("expected filter mismatch error");
+    assert!(err.to_string().contains("filter subject"), "{err}");
+
+    nats.consume(
+        STREAM.to_string(),
+        "events.a".to_string(),
+        "nats3-shared".to_string(),
+        10,
+    )
+    .await
+    .expect("same filter should reuse consumer");
 }

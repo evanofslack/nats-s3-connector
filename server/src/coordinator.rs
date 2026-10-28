@@ -9,6 +9,10 @@ use nats3_types::{
 
 use crate::{db, error, io, metrics, registry};
 
+#[cfg(test)]
+#[path = "coordinator_tests.rs"]
+mod tests;
+
 const NATS3_CONSUMER_PREFIX: &str = "nats3-";
 const JOB_EXIT_TIMEOUT: Duration = Duration::from_secs(10);
 
