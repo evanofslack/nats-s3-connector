@@ -120,18 +120,13 @@ impl ChunkMetadataStorer for PostgresStore {
                     timestamp_start, timestamp_end, message_count, size_bytes,
                     codec, hash, version, created_at, deleted_at
              FROM chunks
-             WHERE stream = $1 AND subject = $2 AND bucket = $3",
+             WHERE stream = $1 AND subject = $2 AND bucket = $3
+               AND prefix IS NOT DISTINCT FROM $4",
         );
 
         let mut params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> =
-            vec![&query.stream, &query.subject, &query.bucket];
-        let mut param_idx = 4;
-
-        if let Some(ref prefix) = query.prefix {
-            sql.push_str(&format!(" AND prefix = ${}", param_idx));
-            params.push(prefix);
-            param_idx += 1;
-        }
+            vec![&query.stream, &query.subject, &query.bucket, &query.prefix];
+        let mut param_idx = 5;
 
         if let Some(ref consumer) = query.consumer {
             sql.push_str(&format!(" AND consumer = ${}", param_idx));
