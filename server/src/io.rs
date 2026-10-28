@@ -229,7 +229,13 @@ impl IO {
             .await?;
 
         let chunk_md = chunk.to_chunk_metadata(config, &key, byte_count);
-        self.chunk_db.create_chunk(chunk_md).await?;
+        match self.chunk_db.create_chunk(chunk_md).await {
+            Ok(_) => {}
+            Err(db::ChunkMetadataError::Duplicate { bucket, key }) => {
+                debug!(bucket = bucket, key = key, "chunk already stored");
+            }
+            Err(e) => return Err(e.into()),
+        }
 
         self.metrics
             .io
