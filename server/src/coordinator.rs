@@ -98,7 +98,11 @@ impl Coordinator {
         Ok(job)
     }
 
-    pub async fn start_new_load_job(&self, job: LoadJobCreate) -> Result<LoadJob, error::AppError> {
+    pub async fn start_new_load_job(
+        &self,
+        mut job: LoadJobCreate,
+    ) -> Result<LoadJob, error::AppError> {
+        job.prefix = non_empty(job.prefix);
         let out = self.db.create_load_job(job.clone()).await?;
         self.start_load_job(out).await
     }
@@ -193,8 +197,9 @@ impl Coordinator {
 
     pub async fn start_new_store_job(
         &self,
-        job: StoreJobCreate,
+        mut job: StoreJobCreate,
     ) -> Result<StoreJob, error::AppError> {
+        job.prefix = non_empty(job.prefix);
         let out = self.db.create_store_job(job.clone()).await?;
         self.start_store_job(out).await
     }
@@ -220,4 +225,8 @@ impl Coordinator {
     pub async fn stop_store_job(&self, job_id: String) {
         self.registry.cancel_store_job(&job_id).await
     }
+}
+
+fn non_empty(prefix: Option<String>) -> Option<String> {
+    prefix.filter(|p| !p.is_empty())
 }
