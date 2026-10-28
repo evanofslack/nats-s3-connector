@@ -13,6 +13,8 @@ mod db;
 mod encoding;
 mod error;
 mod io;
+#[cfg(test)]
+mod io_tests;
 mod metrics;
 mod nats;
 mod registry;
