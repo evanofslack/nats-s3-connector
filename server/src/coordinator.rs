@@ -119,8 +119,8 @@ impl Coordinator {
     }
 
     pub async fn resume_load_job(&self, job_id: String) -> Result<LoadJob, error::AppError> {
-        let job = self.db.get_load_job(job_id.clone()).await?;
-        if job.status == LoadJobStatus::Success || job.status == LoadJobStatus::Failure {
+        let job = self.db.get_load_job(job_id).await?;
+        if job.status == LoadJobStatus::Success {
             return Ok(job);
         }
         self.start_load_job(job).await
@@ -216,8 +216,8 @@ impl Coordinator {
     }
 
     pub async fn resume_store_job(&self, job_id: String) -> Result<StoreJob, error::AppError> {
-        let job = self.db.get_store_job(job_id.clone()).await?;
-        if job.status == StoreJobStatus::Success || job.status == StoreJobStatus::Failure {
+        let job = self.db.get_store_job(job_id).await?;
+        if job.status == StoreJobStatus::Success {
             return Ok(job);
         }
         self.start_store_job(job).await
