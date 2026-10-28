@@ -26,13 +26,10 @@ uuid = { workspace = true }
 axum = {version = "0.8.7", features = ["macros"]}
 bincode = { version = "2.0.1", features = ["serde"] }
 bytes = "1.11.0"
-hyper = "1.8.1"
 futures = "0.3.31"
 lazy_static = "1.5.0"
 sha2 = "0.10.9"
-tower = { version = "0.5", features = ["util", "timeout"] }
 tower-http = { version = "0.6.7", features = ["full"] }
-hyper-util = "0.1.18"
 figment = { version = "0.10.19", features = ["env", "toml", "yaml"]}
 async-trait = "0.1.89"
 prometheus-client = "0.24.0"

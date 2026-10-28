@@ -5,21 +5,15 @@ use axum::{
     response::{IntoResponse, Response},
     Json, Router,
 };
-use hyper::body::Incoming;
-use hyper_util::{
-    rt::{TokioExecutor, TokioIo},
-    server,
-};
 use serde_json::json;
-use std::{convert::Infallible, net::SocketAddr, time::Duration};
+use std::{net::SocketAddr, time::Duration};
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
-use tower::{Service, ServiceExt};
 use tower_http::{
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
 };
-use tracing::{debug, info, info_span, warn, Span};
+use tracing::{debug, info, info_span, Span};
 
 use crate::{coordinator, db, error, metrics as counter, registry};
 
@@ -51,7 +45,6 @@ impl Dependencies {
 
 #[derive(Debug, Clone)]
 pub struct Server {
-    addr: String,
     metrics: counter::Metrics,
     db: db::DynJobStorer,
     coordinator: coordinator::Coordinator,
@@ -59,69 +52,38 @@ pub struct Server {
 
 impl Server {
     pub fn new(
-        addr: String,
         metrics: counter::Metrics,
         db: db::DynJobStorer,
         coordinator: coordinator::Coordinator,
     ) -> Self {
-        debug!(address = addr, "create new server");
+        debug!("create new server");
         Self {
-            addr,
             metrics,
             db,
             coordinator,
         }
     }
 
-    pub async fn serve(&self, shutdown_token: CancellationToken) {
+    pub async fn serve(
+        &self,
+        listener: TcpListener,
+        shutdown_token: CancellationToken,
+    ) -> Result<()> {
         let state = Dependencies::new(
             self.metrics.clone(),
             self.db.clone(),
             self.coordinator.clone(),
         );
-        let router = create_router(state.clone());
-        let mut make_service = router.into_make_service_with_connect_info::<SocketAddr>();
-        let listener = TcpListener::bind(self.addr.clone()).await.unwrap();
-        info!(address = self.addr, "serving on address");
-        loop {
-            tokio::select! {
-                result = listener.accept() => {
-                    match result {
-                        Ok((socket, remote_addr)) => {
-                            let tower_service = unwrap_infallible(make_service.call(remote_addr).await);
-                            tokio::spawn(async move {
-                                let socket = TokioIo::new(socket);
-                                let hyper_service =
-                                    hyper::service::service_fn(move |request: Request<Incoming>| {
-                                        tower_service.clone().oneshot(request)
-                                    });
-                                if let Err(err) = server::conn::auto::Builder::new(TokioExecutor::new())
-                                    .serve_connection(socket, hyper_service)
-                                    .await
-                                {
-                                    warn!(err = ?err, "fail serve connection")
-                                }
-                            });
-                        }
-                        Err(e) => {
-                            warn!(error = ?e, "fail accept connection");
-                        }
-                    }
-                }
-                _ = shutdown_token.cancelled() => {
-                    debug!("shutdown signal received, stopping server");
-                    break;
-                }
-            }
-        }
-        debug!("server stopped accepting connections");
-    }
-}
-
-fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
-    match result {
-        Ok(value) => value,
-        Err(err) => match err {},
+        let router = create_router(state);
+        info!(address = ?listener.local_addr()?, "serving on address");
+        axum::serve(
+            listener,
+            router.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .with_graceful_shutdown(shutdown_token.cancelled_owned())
+        .await?;
+        debug!("server stopped");
+        Ok(())
     }
 }
 

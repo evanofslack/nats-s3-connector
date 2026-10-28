@@ -1,7 +1,7 @@
-use anyhow::{Error, Result};
+use anyhow::{Context, Error, Result};
 use clap::Parser;
 use std::path::PathBuf;
-use tokio::signal;
+use tokio::{net::TcpListener, signal};
 use tracing::{debug, info, warn};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
@@ -43,6 +43,10 @@ async fn main() -> Result<(), Error> {
         .from_env_lossy();
     let _ = FmtSubscriber::builder().with_env_filter(filter).try_init();
 
+    let listener = TcpListener::bind(&config.server.addr)
+        .await
+        .with_context(|| format!("fail bind server address {}", config.server.addr))?;
+
     let shutdown = shutdown::ShutdownCoordinator::new();
 
     // create app
@@ -60,9 +64,7 @@ async fn main() -> Result<(), Error> {
     let server_token = shutdown.subscribe();
     let server_handle = {
         let server = app.server.clone();
-        tokio::spawn(async move {
-            server.serve(server_token).await;
-        })
+        tokio::spawn(async move { server.serve(listener, server_token).await })
     };
 
     wait_for_shutdown_signal().await;
@@ -88,7 +90,7 @@ async fn main() -> Result<(), Error> {
         }
     }
 
-    let _ = server_handle.await;
+    server_handle.await?.context("server error")?;
     info!("shutdown complete");
     Ok(())
 }
