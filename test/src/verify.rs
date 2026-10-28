@@ -17,8 +17,8 @@ pub struct Verifier {
 
 #[derive(Debug)]
 pub enum Mismatch {
-    HeaderMismatch { seq: usize, key: String },
-    PayloadMismatch { seq: usize },
+    Header { seq: usize, key: String },
+    Payload { seq: usize },
     UnexpectedMessage { seq: usize },
 }
 
@@ -40,11 +40,7 @@ pub struct TestResults {
 
 impl Verifier {
     pub fn new(messages: Vec<TestMessage>) -> Self {
-        let expected: HashMap<_, _> = messages
-            .into_iter()
-            .enumerate()
-            .map(|(i, msg)| (i, msg))
-            .collect();
+        let expected: HashMap<_, _> = messages.into_iter().enumerate().collect();
 
         let missing = expected.keys().copied().collect();
 
@@ -76,7 +72,7 @@ impl Verifier {
             {
                 Some(header_value) => {
                     if header_value.as_str() != value.as_str() {
-                        self.mismatches.push(Mismatch::HeaderMismatch {
+                        self.mismatches.push(Mismatch::Header {
                             seq,
                             key: key.clone(),
                         });
@@ -84,7 +80,7 @@ impl Verifier {
                     }
                 }
                 None => {
-                    self.mismatches.push(Mismatch::HeaderMismatch {
+                    self.mismatches.push(Mismatch::Header {
                         seq,
                         key: key.clone(),
                     });
@@ -94,7 +90,7 @@ impl Verifier {
         }
 
         if msg.payload.as_ref() != expected.payload.as_slice() {
-            self.mismatches.push(Mismatch::PayloadMismatch { seq });
+            self.mismatches.push(Mismatch::Payload { seq });
             return false;
         }
 
@@ -184,7 +180,7 @@ pub async fn consume_and_verify(
                     break;
                 }
 
-                if (verifier.received.len() % 10) == 0 {
+                if verifier.received.len().is_multiple_of(10) {
                     info!(
                         "Progress: {}/{} messages verified",
                         verifier.received.len(),
@@ -238,10 +234,10 @@ impl TestResults {
                         break;
                     }
                     match m {
-                        Mismatch::HeaderMismatch { seq, key } => {
+                        Mismatch::Header { seq, key } => {
                             println!("  Sequence {}: header mismatch on key '{}'", seq, key);
                         }
-                        Mismatch::PayloadMismatch { seq } => {
+                        Mismatch::Payload { seq } => {
                             println!("  Sequence {}: payload mismatch", seq);
                         }
                         Mismatch::UnexpectedMessage { seq } => {
