@@ -219,15 +219,8 @@ impl IO {
         let chunk = encoding::Chunk::from(block);
         let key = chunk.key(config.codec.clone()).to_string();
 
-        let stream = config.stream.clone();
-        let subject = config.subject.clone();
-        let key = format!("{stream}/{subject}/{key}");
-
-        let path = if let Some(prefix) = prefix {
-            format!("{}/{}", prefix, key)
-        } else {
-            key
-        };
+        let key = format!("{}/{}/{}", config.stream, config.subject, key);
+        let path = db::object_path(prefix.as_deref(), &key);
 
         let serialized = chunk.serialize(config.codec.clone())?;
         let byte_count = serialized.len();
@@ -235,7 +228,7 @@ impl IO {
             .upload_chunk(serialized, &config.bucket, &path, config.codec.clone())
             .await?;
 
-        let chunk_md = chunk.to_chunk_metadata(config, &path, byte_count);
+        let chunk_md = chunk.to_chunk_metadata(config, &key, byte_count);
         self.chunk_db.create_chunk(chunk_md).await?;
 
         self.metrics
@@ -317,15 +310,7 @@ impl IO {
 
                     return Ok(());
                 }
-                let path = if chunk_md.prefix.clone().is_some_and(|p| !p.is_empty()) {
-                    format!(
-                        "{}/{}",
-                        chunk_md.prefix.expect("prefix already checked as not none"),
-                        chunk_md.key
-                    )
-                } else {
-                    chunk_md.key
-                };
+                let path = chunk_md.object_path();
 
                 let chunk = match self
                     .s3_client
