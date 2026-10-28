@@ -10,7 +10,7 @@ tokio = { version = "1.48", features = ["full"] }
 clap = { version = "4.5", features = ["derive"] }
 thiserror = "2.0"
 ulid = "1.2"
-async-nats = "0.45"
+async-nats = "0.51"
 rust-s3 = "0.37.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
