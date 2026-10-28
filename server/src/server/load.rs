@@ -43,8 +43,7 @@ async fn delete_load_job(
     State(state): State<Dependencies>,
     Query(params): Query<GetJobParams>,
 ) -> Result<(), AppError> {
-    state.coordinator.stop_load_job(params.job_id.clone()).await;
-    state.db.delete_load_job(params.job_id).await?;
+    state.coordinator.delete_load_job(params.job_id).await?;
     Ok(())
 }
 

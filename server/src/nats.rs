@@ -72,6 +72,18 @@ impl Client {
         Ok(messages)
     }
 
+    pub async fn delete_consumer(&self, stream_name: String, consumer_name: String) -> Result<()> {
+        debug!(
+            stream = stream_name,
+            consumer = consumer_name,
+            "delete consumer"
+        );
+        let jetstream = jetstream::new(self.client.clone());
+        let stream = jetstream.get_stream(stream_name).await?;
+        stream.delete_consumer(&consumer_name).await?;
+        Ok(())
+    }
+
     pub async fn publish(
         &self,
         subject: String,

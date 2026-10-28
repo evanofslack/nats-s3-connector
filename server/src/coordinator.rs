@@ -1,7 +1,7 @@
 use anyhow::Result;
-use std::sync::Arc;
-use tokio::sync::oneshot;
-use tracing::debug;
+use std::{sync::Arc, time::Duration};
+use tokio::{sync::oneshot, task::JoinHandle, time};
+use tracing::{debug, warn};
 
 use nats3_types::{
     LoadJob, LoadJobCreate, LoadJobStatus, StoreJob, StoreJobCreate, StoreJobStatus,
@@ -10,6 +10,7 @@ use nats3_types::{
 use crate::{db, error, io, metrics, registry};
 
 const NATS3_CONSUMER_PREFIX: &str = "nats3-";
+const JOB_EXIT_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone)]
 pub struct Coordinator {
@@ -128,8 +129,13 @@ impl Coordinator {
         self.start_load_job(job).await
     }
 
-    pub async fn stop_load_job(&self, job_id: String) {
-        self.registry.cancel_load_job(&job_id).await
+    pub async fn delete_load_job(&self, job_id: String) -> Result<(), error::AppError> {
+        self.registry.cancel_load_job(&job_id).await;
+        if let Some(handle) = self.registry.take_load_job(&job_id).await {
+            wait_for_exit(&job_id, handle).await;
+        }
+        self.db.delete_load_job(job_id).await?;
+        Ok(())
     }
 
     async fn start_store_job(&self, job: StoreJob) -> Result<StoreJob, error::AppError> {
@@ -229,8 +235,28 @@ impl Coordinator {
         self.start_store_job(job).await
     }
 
-    pub async fn stop_store_job(&self, job_id: String) {
-        self.registry.cancel_store_job(&job_id).await
+    pub async fn delete_store_job(&self, job_id: String) -> Result<(), error::AppError> {
+        let job = self.db.get_store_job(job_id.clone()).await?;
+        self.registry.cancel_store_job(&job_id).await;
+        if let Some(handle) = self.registry.take_store_job(&job_id).await {
+            wait_for_exit(&job_id, handle).await;
+        }
+        self.db.delete_store_job(job_id.clone()).await?;
+
+        if let Some(consumer) = job
+            .consumer
+            .filter(|c| c.starts_with(NATS3_CONSUMER_PREFIX))
+        {
+            if let Err(e) = self
+                .io
+                .nats_client
+                .delete_consumer(job.stream, consumer.clone())
+                .await
+            {
+                warn!(job_id = job_id, consumer = consumer, error = ?e, "fail delete consumer");
+            }
+        }
+        Ok(())
     }
 
     fn inc_jobs_current(&self, job_type: &str) {
@@ -241,6 +267,13 @@ impl Coordinator {
                 job_type: job_type.to_string(),
             })
             .inc();
+    }
+}
+
+async fn wait_for_exit(job_id: &str, mut handle: JoinHandle<Result<()>>) {
+    if time::timeout(JOB_EXIT_TIMEOUT, &mut handle).await.is_err() {
+        warn!(job_id = job_id, "timeout waiting for job to exit, aborting");
+        handle.abort();
     }
 }
 

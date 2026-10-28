@@ -52,11 +52,7 @@ async fn delete_store_job(
     State(state): State<Dependencies>,
     Query(params): Query<GetJobParams>,
 ) -> Result<(), AppError> {
-    state
-        .coordinator
-        .stop_store_job(params.job_id.clone())
-        .await;
-    state.db.delete_store_job(params.job_id).await?;
+    state.coordinator.delete_store_job(params.job_id).await?;
     Ok(())
 }
 
