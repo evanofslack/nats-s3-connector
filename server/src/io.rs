@@ -117,6 +117,10 @@ impl IO {
             "consume stream and upload to bucket"
         );
 
+        let consumer = config
+            .consumer
+            .clone()
+            .unwrap_or_else(|| format!("nats3-{job_id}"));
         let mut buffer: Vec<jetstream::Message> = Vec::new();
         let mut bytes_total = 0;
         let mut messages = self
@@ -124,6 +128,7 @@ impl IO {
             .consume(
                 config.stream.clone(),
                 config.subject.clone(),
+                consumer.clone(),
                 config.messages_max,
             )
             .await?;
@@ -165,7 +170,7 @@ impl IO {
                             bytes_total = 0;
                             drop(messages);
                             match self
-                                .reconnect(&config, &mut backoff, &mut keep_alive, &cancel_token, &pause_token)
+                                .reconnect(&config, &consumer, &mut backoff, &mut keep_alive, &cancel_token, &pause_token)
                                 .await
                             {
                                 Ok(stream) => messages = stream,
@@ -223,6 +228,7 @@ impl IO {
     async fn reconnect(
         &self,
         config: &ConsumeConfig,
+        consumer: &str,
         backoff: &mut Backoff,
         keep_alive: &mut time::Interval,
         cancel_token: &CancellationToken,
@@ -239,6 +245,7 @@ impl IO {
                 .consume(
                     config.stream.clone(),
                     config.subject.clone(),
+                    consumer.to_string(),
                     config.messages_max,
                 )
                 .await

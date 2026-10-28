@@ -57,6 +57,11 @@ pub trait StoreJobStorer: Sync + Debug {
         id: String,
         status: StoreJobStatus,
     ) -> Result<StoreJob, JobStoreError>;
+    async fn set_store_job_consumer(
+        &self,
+        id: String,
+        consumer: String,
+    ) -> Result<StoreJob, JobStoreError>;
     async fn delete_store_job(&self, id: String) -> Result<(), JobStoreError>;
 }
 

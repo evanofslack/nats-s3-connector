@@ -9,6 +9,8 @@ use nats3_types::{
 
 use crate::{db, error, io, metrics, registry};
 
+const NATS3_CONSUMER_PREFIX: &str = "nats3-";
+
 #[derive(Debug, Clone)]
 pub struct Coordinator {
     registry: Arc<registry::Registry>,
@@ -204,7 +206,11 @@ impl Coordinator {
         mut job: StoreJobCreate,
     ) -> Result<StoreJob, error::AppError> {
         job.prefix = non_empty(job.prefix);
-        let out = self.db.create_store_job(job.clone()).await?;
+        let mut out = self.db.create_store_job(job).await?;
+        if out.consumer.is_none() {
+            let consumer = format!("{}{}", NATS3_CONSUMER_PREFIX, out.id);
+            out = self.db.set_store_job_consumer(out.id, consumer).await?;
+        }
         self.start_store_job(out).await
     }
 

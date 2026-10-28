@@ -371,6 +371,33 @@ impl StoreJobStorer for PostgresStore {
         Ok(job_row.into())
     }
 
+    async fn set_store_job_consumer(
+        &self,
+        id: String,
+        consumer: String,
+    ) -> Result<StoreJob, JobStoreError> {
+        debug!(job_id = id, consumer = consumer, "set store job consumer");
+
+        let client = self.get_client().await?;
+        let uuid = Uuid::parse_str(&id)?;
+        let row = client
+            .query_one(
+                "UPDATE store_jobs
+             SET consumer = $1, updated_at = NOW()
+             WHERE id = $2
+             RETURNING *",
+                &[&consumer, &uuid],
+            )
+            .await
+            .map_err(|e| match e.as_db_error() {
+                Some(_) => JobStoreError::Database(e),
+                None => JobStoreError::NotFound { id: id.clone() },
+            })?;
+
+        let job_row = StoreJobRow::from_row(&row)?;
+        Ok(job_row.into())
+    }
+
     async fn delete_store_job(&self, id: String) -> Result<(), JobStoreError> {
         debug!(job_id = id, "delete store job");
         let client = self.get_client().await?;

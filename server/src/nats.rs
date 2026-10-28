@@ -1,4 +1,4 @@
-use anyhow::{Context, Error, Result};
+use anyhow::{bail, Context, Error, Result};
 use async_nats::{
     header::HeaderMap,
     jetstream::{
@@ -32,41 +32,41 @@ impl Client {
         &self,
         stream_name: String,
         subject: String,
+        consumer_name: String,
         max_ack_pending: i64,
     ) -> Result<Stream, Error> {
-        debug!(stream = stream_name, subject = subject, "consume stream");
-        let jetstream = jetstream::new(self.client.clone());
-
-        let stream = jetstream.get_stream(stream_name.clone()).await?;
-
-        // TODO: option to subscribe to existing consumer
-        // let consumer: PullConsumer = stream.get_consumer(&consumer_name).await?;
-
-        // need to replace special chars for consumer names
-        let name = subject
-            .replace(".", "_")
-            .replace(">", "_")
-            .replace("*", "_");
-
-        let filter_subject = subject.clone();
-
         debug!(
-            name = name,
-            filter_subject = subject.clone(),
-            "create consumer"
+            stream = stream_name,
+            subject = subject,
+            consumer = consumer_name,
+            "consume stream"
         );
+        let jetstream = jetstream::new(self.client.clone());
+        let stream = jetstream.get_stream(stream_name.clone()).await?;
 
         let consumer: PullConsumer = stream
             .get_or_create_consumer(
-                name.as_str(),
+                consumer_name.as_str(),
                 jetstream::consumer::pull::Config {
-                    filter_subject,
-                    durable_name: Some(name.clone()),
+                    filter_subject: subject.clone(),
+                    durable_name: Some(consumer_name.clone()),
                     max_ack_pending,
                     ..Default::default()
                 },
             )
             .await?;
+
+        let config = &consumer.cached_info().config;
+        let filter_matches =
+            config.filter_subject == subject || config.filter_subjects == [subject.clone()];
+        if !filter_matches {
+            bail!(
+                "consumer {} has filter subject {:?}, expected {}",
+                consumer_name,
+                config.filter_subject,
+                subject
+            );
+        }
 
         let messages = consumer.messages().await?;
         Ok(messages)
