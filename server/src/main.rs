@@ -38,10 +38,10 @@ async fn main() -> Result<(), Error> {
     let config = config::Config::load(args.config)?;
 
     // init tracing
-    let _ = FmtSubscriber::builder()
-        .with_max_level(config.log_level())
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
+    let filter = EnvFilter::builder()
+        .with_default_directive(config.log_level().into())
+        .from_env_lossy();
+    let _ = FmtSubscriber::builder().with_env_filter(filter).try_init();
 
     let shutdown = shutdown::ShutdownCoordinator::new();
 

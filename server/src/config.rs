@@ -75,8 +75,9 @@ impl Config {
         {
             "TRACE" => LevelFilter::TRACE,
             "DEBUG" => LevelFilter::DEBUG,
-            "ERROR" => LevelFilter::ERROR,
             "INFO" => LevelFilter::INFO,
+            "WARN" | "WARNING" => LevelFilter::WARN,
+            "ERROR" => LevelFilter::ERROR,
             _ => LevelFilter::INFO,
         }
     }
