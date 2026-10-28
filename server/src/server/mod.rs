@@ -178,10 +178,7 @@ impl IntoResponse for error::AppError {
                     format!("job id {} already exists", job_id),
                 )
             }
-            error::AppError::Validation(nats3_types::ValidationError::PollMustDelete) => (
-                StatusCode::BAD_REQUEST,
-                "invalid load job config".to_string(),
-            ),
+            error::AppError::Validation(e) => (StatusCode::BAD_REQUEST, e.to_string()),
         };
         let body = Json(json!({
             "error": error_message,
