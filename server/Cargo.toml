@@ -46,4 +46,4 @@ tokio-util = "0.7.17"
 
 [dev-dependencies]
 testcontainers = "0.26.0"
-testcontainers-modules = { version = "0.14.0", features = ["postgres"]}
+testcontainers-modules = { version = "0.14.0", features = ["postgres", "nats"]}

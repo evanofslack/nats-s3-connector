@@ -48,6 +48,19 @@ pub struct ChunkMetadata {
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
+impl ChunkMetadata {
+    pub fn object_path(&self) -> String {
+        object_path(self.prefix.as_deref(), &self.key)
+    }
+}
+
+pub fn object_path(prefix: Option<&str>, key: &str) -> String {
+    match prefix {
+        Some(prefix) if !prefix.is_empty() => format!("{prefix}/{key}"),
+        _ => key.to_string(),
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct CreateChunkMetadata {
     pub bucket: String,

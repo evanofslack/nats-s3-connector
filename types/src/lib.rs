@@ -60,7 +60,9 @@ pub struct StoreJobCreate {
     pub stream: String,
     pub consumer: Option<String>,
     pub subject: String,
+    #[serde(default)]
     pub batch: Batch,
+    #[serde(default)]
     pub encoding: Encoding,
 }
 

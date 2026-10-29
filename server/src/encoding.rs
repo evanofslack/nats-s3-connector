@@ -1,11 +1,10 @@
 use anyhow::{Context, Result};
-use async_nats::{header, jetstream};
+use async_nats::jetstream;
 use bytes::Bytes;
 use nats3_types::Codec;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fmt};
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use crate::{db::CreateChunkMetadata, io::ConsumeConfig};
 
@@ -29,22 +28,17 @@ pub struct Message {
 
 impl From<jetstream::Message> for Message {
     fn from(source: jetstream::Message) -> Message {
-        let headers_ref = source.headers.as_ref();
-        let timestamp = headers_ref
-            .and_then(|h| h.get_last(header::NATS_TIME_STAMP))
-            .and_then(|ts| OffsetDateTime::parse(ts.as_str(), &Rfc3339).ok())
-            .and_then(|odt| {
+        let (timestamp, sequence) = match source.info() {
+            Ok(info) => (
                 chrono::DateTime::<chrono::Utc>::from_timestamp(
-                    odt.unix_timestamp(),
-                    odt.nanosecond(),
+                    info.published.unix_timestamp(),
+                    info.published.nanosecond(),
                 )
-            })
-            .unwrap_or_else(chrono::Utc::now);
-
-        let sequence = headers_ref
-            .and_then(|h| h.get_last(header::NATS_SEQUENCE))
-            .and_then(|seq| seq.as_str().parse::<u64>().ok())
-            .unwrap_or(0);
+                .unwrap_or_else(chrono::Utc::now),
+                info.stream_sequence,
+            ),
+            Err(_) => (chrono::Utc::now(), 0),
+        };
 
         let headers = source.headers.as_ref().map(|h| {
             h.iter()
@@ -164,9 +158,11 @@ impl Chunk {
     }
 
     pub fn key(&self, codec: Codec) -> ChunkKey {
+        let sequences = self.block.messages.iter().map(|m| m.sequence);
         ChunkKey {
-            timestamp: self.block.timestamp_min.timestamp(),
-            message_count: self.block.messages.len(),
+            timestamp_ms: self.block.timestamp_min.timestamp_millis(),
+            sequence_min: sequences.clone().min().unwrap_or(0),
+            sequence_max: sequences.max().unwrap_or(0),
             codec,
         }
     }
@@ -185,8 +181,9 @@ impl From<MessageBlock> for Chunk {
 }
 
 pub struct ChunkKey {
-    pub timestamp: i64,
-    pub message_count: usize,
+    pub timestamp_ms: i64,
+    pub sequence_min: u64,
+    pub sequence_max: u64,
     pub codec: Codec,
 }
 
@@ -194,9 +191,10 @@ impl fmt::Display for ChunkKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}-{}.{}",
-            self.timestamp,
-            self.message_count,
+            "{}-{}-{}.{}",
+            self.timestamp_ms,
+            self.sequence_min,
+            self.sequence_max,
             self.codec.to_extension()
         )
     }
