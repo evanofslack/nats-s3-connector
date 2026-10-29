@@ -21,10 +21,17 @@ pub enum TaskExitReason {
     Cancelled,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JobKind {
+    Store,
+    Load,
+}
+
 #[derive(Debug, Clone)]
 pub struct TaskExitInfo {
     pub reason: TaskExitReason,
     pub job_id: String,
+    pub kind: JobKind,
 }
 
 #[derive(Debug)]
@@ -137,6 +144,22 @@ impl Registry {
     pub async fn is_load_job_running(&self, job_id: &str) -> bool {
         let handles = self.load_handles.read().await;
         handles.contains_key(job_id)
+    }
+
+    pub async fn take_store_job(&self, job_id: &str) -> Option<JoinHandle<Result<()>>> {
+        self.store_handles
+            .write()
+            .await
+            .remove(job_id)
+            .map(|h| h.handle)
+    }
+
+    pub async fn take_load_job(&self, job_id: &str) -> Option<JoinHandle<Result<()>>> {
+        self.load_handles
+            .write()
+            .await
+            .remove(job_id)
+            .map(|h| h.handle)
     }
 
     pub async fn remove_job(&self, job_id: &str) {

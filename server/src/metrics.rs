@@ -25,6 +25,7 @@ pub struct DirectionLabel {
 pub struct JobMetrics {
     pub jobs_total: Family<JobLabels, Counter>,
     pub jobs_current: Family<JobTypeLabel, Gauge>,
+    pub job_retries_total: Family<JobTypeLabel, Counter>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -57,6 +58,11 @@ impl Metrics {
             "nats3_jobs_current",
             "Currently running jobs",
             jobs.jobs_current.clone(),
+        );
+        registry.register(
+            "nats3_job_retries_total",
+            "Total job retries after transient errors",
+            jobs.job_retries_total.clone(),
         );
         registry.register(
             "nats3_nats_messages_total",

@@ -52,7 +52,7 @@ impl TaskCompleter {
 
     async fn handle_exit(&self, exit_info: registry::TaskExitInfo) -> Result<()> {
         let job_id = exit_info.job_id.clone();
-        let is_store = self.registry.is_store_job_running(&job_id).await;
+        let is_store = exit_info.kind == registry::JobKind::Store;
         let job_type = if is_store {
             metrics::JOB_TYPE_STORE
         } else {

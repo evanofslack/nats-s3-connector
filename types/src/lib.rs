@@ -176,16 +176,66 @@ pub struct LoadJobCreate {
     pub to_time: Option<DateTime<Utc>>,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum ValidationError {
     #[error("load job with polling must delete chunks")]
     PollMustDelete,
+    #[error("{0} must not be empty")]
+    EmptyField(&'static str),
+    #[error("{0} must be greater than zero")]
+    NotPositive(&'static str),
+    #[error("from_time must not be after to_time")]
+    InvalidTimeRange,
+    #[error("consumer name must not contain whitespace, '.', '*' or '>'")]
+    InvalidConsumerName,
+}
+
+fn require_non_empty(field: &'static str, value: &str) -> Result<(), ValidationError> {
+    if value.trim().is_empty() {
+        return Err(ValidationError::EmptyField(field));
+    }
+    Ok(())
+}
+
+impl StoreJobCreate {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        require_non_empty("name", &self.name)?;
+        require_non_empty("stream", &self.stream)?;
+        require_non_empty("subject", &self.subject)?;
+        require_non_empty("bucket", &self.bucket)?;
+        if self.batch.max_count <= 0 {
+            return Err(ValidationError::NotPositive("batch.max_count"));
+        }
+        if self.batch.max_bytes <= 0 {
+            return Err(ValidationError::NotPositive("batch.max_bytes"));
+        }
+        if let Some(consumer) = &self.consumer {
+            require_non_empty("consumer", consumer)?;
+            if consumer
+                .chars()
+                .any(|c| c.is_whitespace() || matches!(c, '.' | '*' | '>'))
+            {
+                return Err(ValidationError::InvalidConsumerName);
+            }
+        }
+        Ok(())
+    }
 }
 
 impl LoadJobCreate {
     pub fn validate(&self) -> Result<(), ValidationError> {
+        require_non_empty("name", &self.name)?;
+        require_non_empty("bucket", &self.bucket)?;
+        require_non_empty("read_stream", &self.read_stream)?;
+        require_non_empty("read_subject", &self.read_subject)?;
+        require_non_empty("write_subject", &self.write_subject)?;
         if self.poll_interval.is_some() && !self.delete_chunks {
             return Err(ValidationError::PollMustDelete);
+        }
+        if let (Some(from), Some(to)) = (self.from_time, self.to_time) {
+            if from > to {
+                return Err(ValidationError::InvalidTimeRange);
+            }
         }
         Ok(())
     }

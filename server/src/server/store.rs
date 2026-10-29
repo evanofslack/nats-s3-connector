@@ -52,11 +52,7 @@ async fn delete_store_job(
     State(state): State<Dependencies>,
     Query(params): Query<GetJobParams>,
 ) -> Result<(), AppError> {
-    state
-        .coordinator
-        .stop_store_job(params.job_id.clone())
-        .await;
-    state.db.delete_store_job(params.job_id).await?;
+    state.coordinator.delete_store_job(params.job_id).await?;
     Ok(())
 }
 
@@ -65,6 +61,7 @@ async fn start_store_job(
     State(state): State<Dependencies>,
     Json(payload): Json<StoreJobCreate>,
 ) -> Result<Json<StoreJob>, AppError> {
+    payload.validate()?;
     let out = state.coordinator.start_new_store_job(payload).await?;
 
     // return a 201 resp
