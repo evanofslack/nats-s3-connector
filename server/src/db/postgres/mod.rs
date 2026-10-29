@@ -1,6 +1,7 @@
 mod chunks;
 mod jobs;
 mod models;
+#[allow(clippy::module_inception)]
 mod postgres;
 
 #[cfg(test)]
