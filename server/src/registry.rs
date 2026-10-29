@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
 use tokio::{
-    sync::{mpsc, Mutex, RwLock},
+    sync::{Mutex, RwLock, mpsc},
     task::JoinHandle,
 };
 use tokio_util::sync::CancellationToken;

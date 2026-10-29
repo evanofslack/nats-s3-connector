@@ -1,11 +1,11 @@
-use crate::db::{postgres::PostgresStore, LoadJobStorer, StoreJobStorer};
+use crate::db::{LoadJobStorer, StoreJobStorer, postgres::PostgresStore};
 use chrono::{DateTime, Utc};
 use nats3_types::{
     Batch, Codec, Encoding, ListLoadJobsQuery, ListStoreJobsQuery, LoadJobCreate, LoadJobStatus,
     StoreJobCreate, StoreJobStatus,
 };
 use std::time;
-use testcontainers::{runners::AsyncRunner, ImageExt};
+use testcontainers::{ImageExt, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres;
 use uuid::Uuid;
 

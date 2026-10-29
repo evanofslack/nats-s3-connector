@@ -1,10 +1,10 @@
 use crate::{
     config::Config,
-    message::{generate_messages, TestMessage},
-    verify::{consume_and_verify, TestResults, Verifier},
+    message::{TestMessage, generate_messages},
+    verify::{TestResults, Verifier, consume_and_verify},
 };
 use async_nats::jetstream::consumer::{
-    pull::Config as ConsumerConfig, AckPolicy, DeliverPolicy, PullConsumer,
+    AckPolicy, DeliverPolicy, PullConsumer, pull::Config as ConsumerConfig,
 };
 use tracing::info;
 

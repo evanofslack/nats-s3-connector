@@ -1,4 +1,4 @@
-use axum::{http::StatusCode, routing::get, Router};
+use axum::{Router, http::StatusCode, routing::get};
 use tracing::info;
 
 async fn ping() -> (StatusCode, &'static str) {

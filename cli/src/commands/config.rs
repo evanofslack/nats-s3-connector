@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use colored::Colorize;
 
-use crate::config::{load_config, save_config, OutputFormat};
+use crate::config::{OutputFormat, load_config, save_config};
 
 #[derive(Subcommand, Clone)]
 pub enum ConfigCommand {

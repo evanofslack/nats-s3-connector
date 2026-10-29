@@ -50,12 +50,7 @@ pub async fn new(config: Config, shutdown: ShutdownCoordinator) -> Result<App> {
     let coordinator =
         coordinator::Coordinator::new(registry.clone(), io, job_db.clone(), metrics.clone());
 
-    let server = server::Server::new(
-        config.server.addr,
-        metrics.clone(),
-        job_db.clone(),
-        coordinator.clone(),
-    );
+    let server = server::Server::new(metrics.clone(), job_db.clone(), coordinator.clone());
     let completer = TaskCompleter::new(job_db.clone(), registry.clone(), metrics);
 
     let app = App {

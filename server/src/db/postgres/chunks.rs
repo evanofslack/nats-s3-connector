@@ -63,13 +63,13 @@ impl ChunkMetadataStorer for PostgresStore {
             )
             .await
             .map_err(|e| {
-                if let Some(db_err) = e.as_db_error() {
-                    if db_err.code().code() == "23505" {
-                        return ChunkMetadataError::Duplicate {
-                            bucket: row.bucket.clone(),
-                            key: row.key.clone(),
-                        };
-                    }
+                if let Some(db_err) = e.as_db_error()
+                    && db_err.code().code() == "23505"
+                {
+                    return ChunkMetadataError::Duplicate {
+                        bucket: row.bucket.clone(),
+                        key: row.key.clone(),
+                    };
                 }
                 ChunkMetadataError::Database(e)
             })?;

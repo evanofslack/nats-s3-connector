@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result, anyhow};
 use figment::{
-    providers::{Env, Format, Toml, Yaml},
     Figment,
+    providers::{Env, Format, Toml, Yaml},
 };
 use serde::Deserialize;
 use std::{ffi::OsStr, path::PathBuf, string::ToString};
@@ -75,8 +75,9 @@ impl Config {
         {
             "TRACE" => LevelFilter::TRACE,
             "DEBUG" => LevelFilter::DEBUG,
-            "ERROR" => LevelFilter::ERROR,
             "INFO" => LevelFilter::INFO,
+            "WARN" | "WARNING" => LevelFilter::WARN,
+            "ERROR" => LevelFilter::ERROR,
             _ => LevelFilter::INFO,
         }
     }

@@ -152,16 +152,14 @@ impl IO {
                             bytes_total += message.payload.len();
                             buffer.push(message);
 
-                            if buffer.len() >= config.messages_max as usize
-                                || bytes_total >= config.bytes_max as usize
-                            {
-                                if let Some(reason) = self
+                            if (buffer.len() >= config.messages_max as usize
+                                || bytes_total >= config.bytes_max as usize)
+                                && let Some(reason) = self
                                     .upload_with_retry(&mut buffer, &mut bytes_total, &config, &mut backoff, &mut keep_alive, &cancel_token, &pause_token)
                                     .await
                                 {
                                     break reason;
                                 }
-                            }
                         }
                         Some(Err(e)) => {
                             warn!(job_id = job_id, error = ?e, "consume stream error, retrying");

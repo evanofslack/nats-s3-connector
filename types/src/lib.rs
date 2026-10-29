@@ -232,10 +232,10 @@ impl LoadJobCreate {
         if self.poll_interval.is_some() && !self.delete_chunks {
             return Err(ValidationError::PollMustDelete);
         }
-        if let (Some(from), Some(to)) = (self.from_time, self.to_time) {
-            if from > to {
-                return Err(ValidationError::InvalidTimeRange);
-            }
+        if let (Some(from), Some(to)) = (self.from_time, self.to_time)
+            && from > to
+        {
+            return Err(ValidationError::InvalidTimeRange);
         }
         Ok(())
     }
